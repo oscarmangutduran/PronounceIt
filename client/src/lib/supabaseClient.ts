@@ -5,7 +5,27 @@ const STORAGE_KEYS = {
   CONFIG: 'supabase_app_config',
   SESSION_USER: 'supabase_session_user',
   LOCAL_TASKS: 'supabase_local_tasks_backup',
+  REGISTERED_ACCOUNTS: 'pronounceit_registered_accounts',
+  SENT_EMAILS: 'pronounceit_sent_emails',
 };
+
+export interface StoredAccount {
+  id: string;
+  email: string;
+  username: string;
+  fullName: string;
+  password: string;
+  mustChangePassword: boolean;
+  createdAt: string;
+}
+
+export interface WelcomeEmailNotice {
+  to: string;
+  username: string;
+  standardPassword: string;
+  subject: string;
+  sentAt: string;
+}
 
 const DEFAULT_TASKS: TaskItem[] = [
   {
@@ -108,18 +128,9 @@ class SupabaseService {
       }
     }
 
-    // Restore cached session
-    const savedUser = localStorage.getItem(STORAGE_KEYS.SESSION_USER);
-    if (savedUser) {
-      try {
-        this.currentUser = JSON.parse(savedUser);
-      } catch (e) {
-        console.error('Error parsing stored session', e);
-        this.currentUser = null;
-      }
-    } else {
-      this.currentUser = null;
-    }
+    // Always start with no active session so the user starts at the login screen
+    this.currentUser = null;
+    localStorage.removeItem(STORAGE_KEYS.SESSION_USER);
   }
 
   public subscribe(listener: () => void) {
@@ -179,18 +190,37 @@ class SupabaseService {
     }
   }
 
-  public async signIn(email: string, password: string): Promise<{ success: boolean; message?: string; user?: UserProfile }> {
-    if (this.client && this.config.isCustom) {
+  private getStoredAccounts(): StoredAccount[] {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.REGISTERED_ACCOUNTS);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private saveStoredAccounts(accounts: StoredAccount[]) {
+    localStorage.setItem(STORAGE_KEYS.REGISTERED_ACCOUNTS, JSON.stringify(accounts));
+  }
+
+  public async signIn(
+    emailOrUsername: string,
+    password: string
+  ): Promise<{ success: boolean; message?: string; mustChangePassword?: boolean; user?: UserProfile }> {
+    const input = (emailOrUsername || '').trim().toLowerCase();
+    if (!input || !password) {
+      return { success: false, message: 'Por favor ingresa tu usuario/correo y contraseña' };
+    }
+
+    if (this.client && this.config.isCustom && input.includes('@')) {
       try {
-        const { data, error } = await this.client.auth.signInWithPassword({ email, password });
-        if (error) {
-          return { success: false, message: error.message };
-        }
-        if (data.user) {
+        const { data, error } = await this.client.auth.signInWithPassword({ email: input, password });
+        if (!error && data.user) {
           const profile: UserProfile = {
             id: data.user.id,
-            email: data.user.email || email,
-            full_name: data.user.user_metadata?.full_name || email.split('@')[0],
+            email: data.user.email || input,
+            full_name: data.user.user_metadata?.full_name || input.split('@')[0],
+            username: input.split('@')[0],
             created_at: data.user.created_at,
           };
           this.currentUser = profile;
@@ -198,79 +228,180 @@ class SupabaseService {
           this.notify();
           return { success: true, user: profile };
         }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return { success: false, message: msg };
+      } catch {
+        // Fallback to local accounts
       }
     }
 
-    // Local / Simulator demo authentication
-    if (!email || !password) {
-      return { success: false, message: 'Por favor ingresa correo y contraseña' };
+    // Check stored registered accounts
+    const accounts = this.getStoredAccounts();
+    const existing = accounts.find(
+      (a) => a.email.toLowerCase() === input || a.username.toLowerCase() === input
+    );
+
+    if (existing) {
+      if (existing.password !== password) {
+        return { success: false, message: 'Contraseña incorrecta' };
+      }
+      const profile: UserProfile = {
+        id: existing.id,
+        email: existing.email,
+        full_name: existing.fullName || existing.username,
+        username: existing.username,
+        must_change_password: existing.mustChangePassword,
+        role: 'Estudiante PronounceIt',
+        created_at: existing.createdAt,
+      };
+      this.currentUser = profile;
+      localStorage.setItem(STORAGE_KEYS.SESSION_USER, JSON.stringify(profile));
+      this.notify();
+      return {
+        success: true,
+        mustChangePassword: existing.mustChangePassword,
+        user: profile,
+      };
     }
+
+    // Standard initial password for demo/mock accounts
+    if (password === '12345') {
+      const profile: UserProfile = {
+        id: `usr-${Date.now().toString(36)}`,
+        email: input.includes('@') ? input : `${input}@ejemplo.com`,
+        full_name: input.split('@')[0],
+        username: input.split('@')[0],
+        must_change_password: true,
+        role: 'Estudiante PronounceIt',
+        created_at: new Date().toISOString(),
+      };
+      this.currentUser = profile;
+      localStorage.setItem(STORAGE_KEYS.SESSION_USER, JSON.stringify(profile));
+      this.notify();
+      return { success: true, mustChangePassword: true, user: profile };
+    }
+
     if (password.length < 6) {
       return { success: false, message: 'La contraseña debe tener al menos 6 caracteres' };
     }
 
     const mockProfile: UserProfile = {
       id: `usr-${Date.now().toString(36)}`,
-      email,
-      full_name: email.split('@')[0].replace('.', ' ').replace(/^./, (c) => c.toUpperCase()),
-      role: 'Usuario Supabase',
+      email: input.includes('@') ? input : `${input}@ejemplo.com`,
+      full_name: input.split('@')[0].replace('.', ' ').replace(/^./, (c) => c.toUpperCase()),
+      username: input.split('@')[0],
+      must_change_password: false,
+      role: 'Estudiante PronounceIt',
       created_at: new Date().toISOString(),
     };
     this.currentUser = mockProfile;
     localStorage.setItem(STORAGE_KEYS.SESSION_USER, JSON.stringify(mockProfile));
     this.notify();
-    return { success: true, user: mockProfile };
+    return { success: true, mustChangePassword: false, user: mockProfile };
+  }
+
+  public async signUpWithStandardPassword(
+    email: string,
+    username: string
+  ): Promise<{ success: boolean; message?: string; emailNotice?: WelcomeEmailNotice; user?: UserProfile }> {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanUsername = (username || '').trim();
+
+    if (!cleanEmail || !cleanUsername) {
+      return { success: false, message: 'El correo y el nombre de usuario son obligatorios.' };
+    }
+
+    const accounts = this.getStoredAccounts();
+    const alreadyExists = accounts.some(
+      (a) => a.email.toLowerCase() === cleanEmail || a.username.toLowerCase() === cleanUsername.toLowerCase()
+    );
+
+    if (alreadyExists) {
+      return { success: false, message: 'Ya existe una cuenta con este correo o nombre de usuario.' };
+    }
+
+    const newAccount: StoredAccount = {
+      id: `usr-${Date.now().toString(36)}`,
+      email: cleanEmail,
+      username: cleanUsername,
+      fullName: cleanUsername,
+      password: '12345', // Contraseña estándar obligatoria que deberá cambiar
+      mustChangePassword: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    accounts.push(newAccount);
+    this.saveStoredAccounts(accounts);
+
+    const emailNotice: WelcomeEmailNotice = {
+      to: cleanEmail,
+      username: cleanUsername,
+      standardPassword: '12345',
+      subject: '🎉 ¡Bienvenido a PronounceIt! Tus credenciales de acceso',
+      sentAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    try {
+      const sentRaw = localStorage.getItem(STORAGE_KEYS.SENT_EMAILS);
+      const sentList = sentRaw ? JSON.parse(sentRaw) : [];
+      sentList.unshift(emailNotice);
+      localStorage.setItem(STORAGE_KEYS.SENT_EMAILS, JSON.stringify(sentList.slice(0, 10)));
+    } catch (e) {
+      console.warn('Error saving sent emails notice', e);
+    }
+
+    return {
+      success: true,
+      message: `Cuenta creada. Se ha enviado un correo a ${cleanEmail} con tu usuario (${cleanUsername}) y la contraseña estándar (12345).`,
+      emailNotice,
+    };
+  }
+
+  public async updateInitialPassword(
+    emailOrUsername: string,
+    newPassword: string
+  ): Promise<{ success: boolean; message?: string }> {
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, message: 'La nueva contraseña debe tener al menos 6 caracteres.' };
+    }
+    if (newPassword === '12345') {
+      return { success: false, message: 'La nueva contraseña no puede ser la contraseña estándar 12345.' };
+    }
+
+    const input = (emailOrUsername || '').trim().toLowerCase();
+    const accounts = this.getStoredAccounts();
+    const account = accounts.find(
+      (a) => a.email.toLowerCase() === input || a.username.toLowerCase() === input
+    );
+
+    if (account) {
+      account.password = newPassword;
+      account.mustChangePassword = false;
+      this.saveStoredAccounts(accounts);
+    }
+
+    if (this.currentUser) {
+      this.currentUser.must_change_password = false;
+      localStorage.setItem(STORAGE_KEYS.SESSION_USER, JSON.stringify(this.currentUser));
+      this.notify();
+    } else {
+      const profile: UserProfile = {
+        id: account ? account.id : `usr-${Date.now().toString(36)}`,
+        email: account ? account.email : (input.includes('@') ? input : `${input}@ejemplo.com`),
+        full_name: account ? (account.fullName || account.username) : input.split('@')[0],
+        username: account ? account.username : input.split('@')[0],
+        must_change_password: false,
+        role: 'Estudiante PronounceIt',
+        created_at: account ? account.createdAt : new Date().toISOString(),
+      };
+      this.currentUser = profile;
+      localStorage.setItem(STORAGE_KEYS.SESSION_USER, JSON.stringify(profile));
+      this.notify();
+    }
+
+    return { success: true, message: 'Contraseña actualizada correctamente.' };
   }
 
   public async signUp(email: string, password: string, fullName: string): Promise<{ success: boolean; message?: string; user?: UserProfile }> {
-    if (this.client && this.config.isCustom) {
-      try {
-        const { data, error } = await this.client.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { full_name: fullName },
-          },
-        });
-        if (error) {
-          return { success: false, message: error.message };
-        }
-        if (data.user) {
-          const profile: UserProfile = {
-            id: data.user.id,
-            email: data.user.email || email,
-            full_name: fullName || email.split('@')[0],
-            created_at: data.user.created_at,
-          };
-          this.currentUser = profile;
-          localStorage.setItem(STORAGE_KEYS.SESSION_USER, JSON.stringify(profile));
-          this.notify();
-          return { success: true, user: profile, message: 'Registro completado en Supabase Auth.' };
-        }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return { success: false, message: msg };
-      }
-    }
-
-    // Simulator sign up
-    if (!email || !password || !fullName) {
-      return { success: false, message: 'Todos los campos son obligatorios' };
-    }
-    const mockProfile: UserProfile = {
-      id: `usr-${Date.now().toString(36)}`,
-      email,
-      full_name: fullName,
-      role: 'Nuevo Usuario',
-      created_at: new Date().toISOString(),
-    };
-    this.currentUser = mockProfile;
-    localStorage.setItem(STORAGE_KEYS.SESSION_USER, JSON.stringify(mockProfile));
-    this.notify();
-    return { success: true, user: mockProfile };
+    return this.signUpWithStandardPassword(email, fullName);
   }
 
   public async signOut(): Promise<void> {
@@ -284,6 +415,32 @@ class SupabaseService {
     this.currentUser = null;
     localStorage.removeItem(STORAGE_KEYS.SESSION_USER);
     this.notify();
+  }
+
+  public async resetPassword(email: string): Promise<{ success: boolean; message?: string }> {
+    if (this.client && this.config.isCustom) {
+      try {
+        const { error } = await this.client.auth.resetPasswordForEmail(email, {
+          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        });
+        if (error) {
+          return { success: false, message: error.message };
+        }
+        return { success: true, message: 'Se ha enviado un correo con instrucciones para restablecer tu contraseña.' };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { success: false, message: msg };
+      }
+    }
+
+    if (!email || !email.includes('@')) {
+      return { success: false, message: 'Por favor ingresa un correo electrónico válido.' };
+    }
+
+    return {
+      success: true,
+      message: `Hemos enviado las instrucciones para restablecer tu contraseña a ${email}.`,
+    };
   }
 
   // --- CRUD Operations ---

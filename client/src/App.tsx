@@ -19,7 +19,7 @@ import { TaskItem, ActiveScreen, TaskStatus } from './types';
 import { supabaseService } from './lib/supabaseClient';
 
 // Auth Gatekeeper
-import { KradusLogin } from './components/auth/KradusLogin';
+import { LoginView } from './components/auth/LoginView';
 
 // Mobile Simulator Components
 import { DeviceFrame } from './components/mobile/DeviceFrame';
@@ -37,14 +37,13 @@ import { CodeExporterPanel } from './components/code-export/CodeExporterPanel';
 import { SupabaseConfigModal } from './components/supabase/SupabaseConfigModal';
 
 export default function App() {
-  // User state
-  const [currentUser, setCurrentUser] = useState(supabaseService.getCurrentUser());
+  // Always start unauthenticated on app launch so login is always shown
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [supabaseConfig, setSupabaseConfig] = useState(supabaseService.getConfig());
 
-  // Mobile app state: starts on 'auth' if not logged in, otherwise 'home'
-  const [currentScreen, setCurrentScreen] = useState<ActiveScreen>(() =>
-    supabaseService.getCurrentUser() ? 'home' : 'auth'
-  );
+  // Mobile app state
+  const [currentScreen, setCurrentScreen] = useState<ActiveScreen>('home');
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
@@ -120,17 +119,19 @@ export default function App() {
 
   const handleLogout = async () => {
     await supabaseService.signOut();
+    setIsAuthenticated(false);
     setCurrentUser(null);
-    setCurrentScreen('auth');
+    setCurrentScreen('home');
   };
 
   const pendingCount = tasks.filter((t) => t.status !== 'completada').length;
 
-  // Gatekeeper: If user is not authenticated, show Kradus Login
-  if (!currentUser) {
+  // Gatekeeper: El usuario SIEMPRE inicia en la pantalla de Login
+  if (!isAuthenticated || !currentUser) {
     return (
-      <KradusLogin
+      <LoginView
         onSuccess={() => {
+          setIsAuthenticated(true);
           setCurrentUser(supabaseService.getCurrentUser());
           setCurrentScreen('home');
         }}
@@ -143,8 +144,8 @@ export default function App() {
       {/* Top Bar Contract: Zone 1 (Wordmark) - Zone 2 (Nav links) - Zone 3 (Primary Actions) */}
       <header className="flex items-center justify-between px-6 py-3.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-30 shrink-0">
         {/* Zone 1: Single text element wordmark */}
-        <a href="/" className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
-          Supabase Mobile Hub
+        <a href="/" className="text-base font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+          <span>PronounceIt</span>
         </a>
 
         {/* Zone 2: Nav links */}
