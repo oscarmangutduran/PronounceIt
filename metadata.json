@@ -1,0 +1,7 @@
+{
+  "name": "Supabase Mobile Hub - React Native App",
+  "description": "Aplicación móvil React Native con autenticación Supabase, sincronización de base de datos en tiempo real, pantallas interactivas y código exportable.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
