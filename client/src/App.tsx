@@ -11,6 +11,7 @@ import { TopNavigation } from './components/workspace/TopNavigation';
 import { SidebarCategories, SelectedFilter } from './components/workspace/SidebarCategories';
 import { VocabularyTableView } from './components/workspace/VocabularyTableView';
 import { FlashcardPracticeView } from './components/workspace/FlashcardPracticeView';
+import { TestView } from './components/workspace/TestView';
 import { StatsDashboardView } from './components/workspace/StatsDashboardView';
 import { SettingsView } from './components/workspace/SettingsView';
 import { AddWordModal } from './components/workspace/AddWordModal';
@@ -219,10 +220,18 @@ export default function App() {
             />
           )}
 
-          {/* Tab 3: Estadísticas */}
+          {/* Tab 3: Evaluación y Tests por Nivel */}
+          {activeTab === 'test' && (
+            <TestView
+              words={words}
+              onBackToVocabulary={() => setActiveTab('vocabulary')}
+            />
+          )}
+
+          {/* Tab 4: Estadísticas */}
           {activeTab === 'stats' && <StatsDashboardView words={words} />}
 
-          {/* Tab 4: Configuración */}
+          {/* Tab 5: Configuración */}
           {activeTab === 'settings' && (
             <SettingsView
               currentUser={currentUser}

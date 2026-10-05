@@ -71,4 +71,28 @@ export interface CategoryItem {
   }[];
 }
 
-export type MainNavTab = 'vocabulary' | 'flashcards' | 'stats' | 'settings';
+export type MainNavTab = 'vocabulary' | 'flashcards' | 'test' | 'stats' | 'settings';
+
+export interface TestQuestion {
+  wordItem: WordItem;
+  userWord: string;
+  userSentence: string;
+  isWordCorrect: boolean;
+  isSentenceValid: boolean;
+  wordScore: number;
+  sentenceScore: number;
+  totalQuestionScore: number;
+  feedback: string;
+}
+
+export interface TestResult {
+  level: string;
+  totalQuestions: number;
+  scoreOutOfTen: number;
+  percentage: number;
+  gradeLabel: string;
+  correctWordsCount: number;
+  validSentencesCount: number;
+  questions: TestQuestion[];
+  completedAt: string;
+}

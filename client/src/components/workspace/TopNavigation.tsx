@@ -10,6 +10,7 @@ import {
   LogOut,
   User,
   ShieldCheck,
+  ClipboardCheck,
 } from 'lucide-react';
 import { MainNavTab, UserProfile } from '../../types';
 
@@ -78,6 +79,19 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
             >
               <Layers size={15} className={activeTab === 'flashcards' ? 'text-[#ff4d6d]' : 'text-slate-400'} />
               <span>Práctica con Flashcards</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onTabChange('test')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold tracking-tight transition-all cursor-pointer flex items-center gap-2 ${
+                activeTab === 'test'
+                  ? 'bg-[#e62e4c]/15 text-pink-200 border border-[#e62e4c]/40 shadow-[0_0_15px_rgba(230,46,76,0.2)]'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
+              }`}
+            >
+              <ClipboardCheck size={15} className={activeTab === 'test' ? 'text-[#ff4d6d]' : 'text-slate-400'} />
+              <span>Test</span>
             </button>
 
             <button
