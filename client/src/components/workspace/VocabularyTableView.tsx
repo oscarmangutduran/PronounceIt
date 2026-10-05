@@ -87,7 +87,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   const { breadcrumb, title, levelBadge, pendingReviewCount } = useMemo(() => {
     let bread = 'Negocios & Trabajo / Reuniones & Negociación';
     let t = 'Reuniones & Negociación';
-    let badge = 'B1 - C1';
+    let badge = 'A1 - C2';
 
     if (selectedFilter.type === 'all') {
       bread = 'Biblioteca / Todas las palabras';
@@ -104,7 +104,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
     } else if (selectedFilter.type === 'category') {
       bread = `${selectedFilter.group} ${selectedFilter.sub ? `/ ${selectedFilter.sub}` : ''}`;
       t = selectedFilter.sub || selectedFilter.group;
-      badge = selectedFilter.sub?.includes('Finanzas') ? 'B2 - C1' : 'B1 - C1';
+      badge = 'A1 - C2';
     }
 
     const pending = filteredWords.filter((w) => w.status === 'en_repaso').length;
@@ -175,7 +175,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
           <p className="text-xs font-medium text-slate-400 tracking-tight">{breadcrumb}</p>
           <div className="flex items-center gap-3 mt-1">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">{title}</h1>
-            <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-[#e62e4c]/20 text-pink-300 border border-[#e62e4c]/30">
+            <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-[#e62e4c]/20 text-pink-300 border border-[#e62e4c]/30 whitespace-nowrap shrink-0">
               {levelBadge}
             </span>
           </div>
@@ -256,7 +256,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
               }}
               className="w-full md:w-auto appearance-none pl-3 pr-8 py-2 rounded-xl bg-black/40 hover:bg-black/60 border border-white/10 text-xs font-medium text-white focus:outline-none focus:border-[#e62e4c] cursor-pointer"
             >
-              <option value="all" className="bg-[#1c162e] text-white">Nivel: Todos (B1-C1)</option>
+              <option value="all" className="bg-[#1c162e] text-white">Nivel: Todos (A1-C2)</option>
               <option value="A1" className="bg-[#1c162e] text-white">Nivel: A1</option>
               <option value="A2" className="bg-[#1c162e] text-white">Nivel: A2</option>
               <option value="B1" className="bg-[#1c162e] text-white">Nivel: B1</option>
@@ -398,7 +398,15 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
                       <td className="py-4 px-4 align-top">
                         <div className="space-y-1">
                           <p className="text-[11px] sm:text-xs text-slate-200 leading-relaxed font-normal">
-                            "{item.exampleEn}"
+                            "{item.exampleEn.split(new RegExp(`(${item.word})`, 'gi')).map((part, i) =>
+                              part.toLowerCase() === item.word.toLowerCase() ? (
+                                <strong key={i} className="text-[#ff758c] font-black not-italic underline decoration-1 underline-offset-2">
+                                  {part}
+                                </strong>
+                              ) : (
+                                part
+                              )
+                            )}"
                           </p>
                           <p className="text-[10px] sm:text-[11px] text-slate-400 leading-relaxed">
                             "{item.exampleEs}"
