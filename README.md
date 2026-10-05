@@ -1,20 +1,51 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# PronounceIt (Fullstack)
 
-# Run and deploy your AI Studio app
+Estructura modular dividida en **client** (Frontend) y **server** (Backend).
 
-This contains everything you need to run your app locally.
+## 📁 Estructura del Proyecto
 
-View your app in AI Studio: https://ai.studio/apps/f28f6e17-ca09-4027-965f-021cba3de734
+```
+PronounceIt/
+├── client/                 # Frontend (React 19 + Vite + TypeScript + Tailwind)
+│   ├── src/
+│   ├── index.html
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── vite.config.ts
+│   └── .env.example
+├── server/                 # Backend (Node.js + Express + TypeScript)
+│   ├── src/
+│   │   └── index.ts
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── .env.example
+├── package.json            # Orquestador del monorepo (npm workspaces)
+└── README.md
+```
 
-## Run Locally
+## 🚀 Cómo Ejecutar
 
-**Prerequisites:**  Node.js
+### 1. Instalar dependencias (en la raíz)
+```bash
+npm install
+```
 
+### 2. Ejecutar en modo desarrollo
+- **Solo Frontend (cliente):**
+  ```bash
+  npm run dev:client
+  # o: npm run dev
+  ```
+- **Solo Backend (servidor Express en http://localhost:5000):**
+  ```bash
+  npm run dev:server
+  ```
+- **Ambos a la vez (Fullstack concurrente):**
+  ```bash
+  npm run dev:all
+  ```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 3. Compilar
+```bash
+npm run build
+```
