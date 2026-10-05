@@ -6,7 +6,7 @@ import { vocabService } from './lib/vocabularyStore';
 // Auth Gatekeeper
 import { LoginView } from './components/auth/LoginView';
 
-// Workspace Components matching user screenshot
+// Workspace Components styled matching Login aesthetic
 import { TopNavigation } from './components/workspace/TopNavigation';
 import { SidebarCategories, SelectedFilter } from './components/workspace/SidebarCategories';
 import { VocabularyTableView } from './components/workspace/VocabularyTableView';
@@ -68,7 +68,6 @@ export default function App() {
     if (!isAuthenticated) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input or textarea
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
         return;
       }
@@ -154,87 +153,97 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fc] text-slate-800 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-      {/* 1. Header Top Navigation matching screenshot */}
-      <TopNavigation
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        currentUser={currentUser}
-        onLogout={handleLogout}
-        searchTerm={globalSearch}
-        onSearchChange={setGlobalSearch}
+    <div className="min-h-screen bg-[#0f0c18] text-white flex flex-col font-sans selection:bg-[#e62e4c] selection:text-white relative overflow-x-hidden">
+      {/* Subtle atmospheric ambient glow matching login screen */}
+      <div
+        className="fixed inset-0 bg-cover bg-center opacity-10 filter blur-3xl scale-110 pointer-events-none"
+        style={{ backgroundImage: `url('/assets/login_hero.jpg')` }}
       />
+      <div className="fixed inset-0 bg-gradient-to-t from-[#0a0712] via-[#0f0c18]/90 to-[#120e20]/95 pointer-events-none" />
 
-      {/* 2. Main Workspace Body Container */}
-      <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col">
-        {activeTab === 'vocabulary' && (
-          <div className="flex flex-col md:flex-row gap-6 items-start">
-            {/* Left Sidebar: Categories & Retención Lexical Card */}
-            <SidebarCategories
-              categories={categories}
-              selectedFilter={selectedFilter}
-              onSelectFilter={setSelectedFilter}
-              totalWords={totalWords}
-              favoritesCount={favoritesCount}
-              reviewCount={reviewCount}
-              masteredCount={masteredCount}
-              onAddNewCategory={() => {
-                setEditingWord(null);
-                setIsAddModalOpen(true);
-              }}
-            />
+      {/* Content wrapper with relative z-index */}
+      <div className="relative z-10 flex flex-col min-h-screen">
+        {/* 1. Header Top Navigation */}
+        <TopNavigation
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          searchTerm={globalSearch}
+          onSearchChange={setGlobalSearch}
+        />
 
-            {/* Right Main Table matching user screenshot */}
-            <VocabularyTableView
+        {/* 2. Main Workspace Body Container */}
+        <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col">
+          {activeTab === 'vocabulary' && (
+            <div className="flex flex-col md:flex-row gap-6 items-start">
+              {/* Left Sidebar: Categories & Retención Lexical Card */}
+              <SidebarCategories
+                categories={categories}
+                selectedFilter={selectedFilter}
+                onSelectFilter={setSelectedFilter}
+                totalWords={totalWords}
+                favoritesCount={favoritesCount}
+                reviewCount={reviewCount}
+                masteredCount={masteredCount}
+                onAddNewCategory={() => {
+                  setEditingWord(null);
+                  setIsAddModalOpen(true);
+                }}
+              />
+
+              {/* Right Main Table */}
+              <VocabularyTableView
+                words={words}
+                selectedFilter={selectedFilter}
+                onOpenAddModal={() => {
+                  setEditingWord(null);
+                  setIsAddModalOpen(true);
+                }}
+                onOpenExportModal={() => setIsExportModalOpen(true)}
+                onStartPractice={() => setActiveTab('flashcards')}
+                onEditWord={handleEditWord}
+                onToggleFavorite={handleToggleFavorite}
+                onUpdateStatus={handleUpdateStatus}
+                onDeleteWord={handleDeleteWord}
+              />
+            </div>
+          )}
+
+          {/* Tab 2: Práctica con Flashcards */}
+          {activeTab === 'flashcards' && (
+            <FlashcardPracticeView
               words={words}
-              selectedFilter={selectedFilter}
-              onOpenAddModal={() => {
-                setEditingWord(null);
-                setIsAddModalOpen(true);
-              }}
-              onOpenExportModal={() => setIsExportModalOpen(true)}
-              onStartPractice={() => setActiveTab('flashcards')}
-              onEditWord={handleEditWord}
-              onToggleFavorite={handleToggleFavorite}
+              onBackToVocabulary={() => setActiveTab('vocabulary')}
               onUpdateStatus={handleUpdateStatus}
-              onDeleteWord={handleDeleteWord}
             />
+          )}
+
+          {/* Tab 3: Estadísticas */}
+          {activeTab === 'stats' && <StatsDashboardView words={words} />}
+
+          {/* Tab 4: Configuración */}
+          {activeTab === 'settings' && (
+            <SettingsView
+              currentUser={currentUser}
+              onLogout={handleLogout}
+              onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
+            />
+          )}
+        </main>
+
+        {/* 3. Bottom Footer */}
+        <footer className="w-full bg-[#130f1e]/90 border-t border-white/10 py-4 px-6 text-xs text-slate-400 select-none">
+          <div className="max-w-[1720px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
+            <p className="text-slate-300">© 2025 PronounceIt Workspace. Precision Lexical &amp; Pronunciation Mastery.</p>
+            <p className="flex items-center gap-2 text-slate-400">
+              <span>IPA System: Standard International</span>
+              <span>·</span>
+              <span className="text-amber-400 font-semibold">SRS v2.4</span>
+            </p>
           </div>
-        )}
-
-        {/* Tab 2: Práctica con Flashcards */}
-        {activeTab === 'flashcards' && (
-          <FlashcardPracticeView
-            words={words}
-            onBackToVocabulary={() => setActiveTab('vocabulary')}
-            onUpdateStatus={handleUpdateStatus}
-          />
-        )}
-
-        {/* Tab 3: Estadísticas */}
-        {activeTab === 'stats' && <StatsDashboardView words={words} />}
-
-        {/* Tab 4: Configuración */}
-        {activeTab === 'settings' && (
-          <SettingsView
-            currentUser={currentUser}
-            onLogout={handleLogout}
-            onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
-          />
-        )}
-      </main>
-
-      {/* 3. Bottom Footer matching user screenshot */}
-      <footer className="w-full bg-white border-t border-slate-200/80 py-4 px-6 text-xs text-slate-400 select-none">
-        <div className="max-w-[1720px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
-          <p>© 2025 PronounceIt Workspace. Precision Lexical &amp; Pronunciation Mastery.</p>
-          <p className="flex items-center gap-2">
-            <span>IPA System: Standard International</span>
-            <span>·</span>
-            <span>SRS v2.4</span>
-          </p>
-        </div>
-      </footer>
+        </footer>
+      </div>
 
       {/* Add / Edit Word Modal */}
       <AddWordModal

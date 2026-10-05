@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Volume2, Sparkles, Check } from 'lucide-react';
+import { X, Volume2, Check } from 'lucide-react';
 import { WordItem, WordLevel, WordStatus } from '../../types';
 import { INITIAL_CATEGORIES, vocabService } from '../../lib/vocabularyStore';
 
@@ -96,19 +96,19 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn select-none">
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn select-none text-white">
+      <div className="w-full max-w-2xl bg-[#1c162e] rounded-3xl shadow-2xl border border-white/15 overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold">
+        <div className="px-6 py-4 bg-[#140f21] border-b border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#e62e4c] text-white flex items-center justify-center font-bold shadow-md shadow-[#e62e4c]/30">
               +
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-white">
                 {initialWord ? 'Editar Término Léxico' : 'Añadir Nueva Palabra a la Biblioteca'}
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-400">
                 Registra la ortografía, fonética IPA, traducción y ejemplos contextuales
               </p>
             </div>
@@ -116,7 +116,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -127,7 +127,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           {/* Row 1: Word + Part of Speech + Level */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-1">
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+              <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
                 Palabra (Inglés) *
               </label>
               <div className="relative">
@@ -136,7 +136,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   value={word}
                   onChange={(e) => setWord(e.target.value)}
                   placeholder="ej. Breakthrough"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/15 text-xs font-semibold text-white focus:outline-none focus:border-[#e62e4c]"
                   required
                   autoFocus
                 />
@@ -144,7 +144,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   <button
                     type="button"
                     onClick={handleTestAudio}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[#ff4d6d] hover:text-white cursor-pointer"
                     title="Probar pronunciación"
                   >
                     <Volume2 size={15} />
@@ -154,7 +154,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+              <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
                 Tipo (Gramática)
               </label>
               <input
@@ -162,25 +162,25 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 value={partOfSpeech}
                 onChange={(e) => setPartOfSpeech(e.target.value)}
                 placeholder="noun/verb, idiom, adj"
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c]"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+              <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
                 Nivel CEFR
               </label>
               <select
                 value={level}
                 onChange={(e) => setLevel(e.target.value as WordLevel)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/15 text-xs font-semibold text-white focus:outline-none focus:border-[#e62e4c] cursor-pointer"
               >
-                <option value="A1">A1 - Principiante</option>
-                <option value="A2">A2 - Básico</option>
-                <option value="B1">B1 - Intermedio</option>
-                <option value="B2">B2 - Intermedio Alto</option>
-                <option value="C1">C1 - Avanzado</option>
-                <option value="C2">C2 - Dominio Nativo</option>
+                <option value="A1" className="bg-[#1c162e]">A1 - Principiante</option>
+                <option value="A2" className="bg-[#1c162e]">A2 - Básico</option>
+                <option value="B1" className="bg-[#1c162e]">B1 - Intermedio</option>
+                <option value="B2" className="bg-[#1c162e]">B2 - Intermedio Alto</option>
+                <option value="C1" className="bg-[#1c162e]">C1 - Avanzado</option>
+                <option value="C2" className="bg-[#1c162e]">C2 - Dominio Nativo</option>
               </select>
             </div>
           </div>
@@ -188,7 +188,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           {/* Row 2: Fonética IPA & Guía amigable */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+              <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
                 Fonética IPA
               </label>
               <input
@@ -196,12 +196,12 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 value={ipa}
                 onChange={(e) => setIpa(e.target.value)}
                 placeholder="/ˈbreɪk.θruː/"
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-indigo-700 font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/15 text-xs font-mono text-[#ff758c] font-bold focus:outline-none focus:border-[#e62e4c]"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+              <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
                 Pronunciación aproximada
               </label>
               <input
@@ -209,14 +209,14 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 value={phoneticGuide}
                 onChange={(e) => setPhoneticGuide(e.target.value)}
                 placeholder='"breik-zru"'
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c]"
               />
             </div>
           </div>
 
           {/* Row 3: Nota fonética adicional */}
           <div>
-            <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+            <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
               Nota o consejo de pronunciación
             </label>
             <input
@@ -224,14 +224,14 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               value={phoneticNote}
               onChange={(e) => setPhoneticNote(e.target.value)}
               placeholder="ej. Acento: Sílaba 1 (θ fricativa interdental)"
-              className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c]"
             />
           </div>
 
           {/* Row 4: Traducción y definición */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+              <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
                 Traducción principal (Español) *
               </label>
               <input
@@ -239,13 +239,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 value={translation}
                 onChange={(e) => setTranslation(e.target.value)}
                 placeholder="Avance decisivo"
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/15 text-xs font-bold text-white focus:outline-none focus:border-[#e62e4c]"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+              <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
                 Significado contextual
               </label>
               <input
@@ -253,7 +253,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 value={definition}
                 onChange={(e) => setDefinition(e.target.value)}
                 placeholder="Logro importante, hito trascendental"
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c]"
               />
             </div>
           </div>
@@ -261,7 +261,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           {/* Row 5: Frases de ejemplo (Bilingüe) */}
           <div className="space-y-2">
             <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+              <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
                 Frase de ejemplo en inglés
               </label>
               <textarea
@@ -269,12 +269,12 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 onChange={(e) => setExampleEn(e.target.value)}
                 rows={2}
                 placeholder="We achieved a major breakthrough in the contract negotiations."
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
+                className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c] resize-none"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+              <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
                 Traducción de la frase en español
               </label>
               <textarea
@@ -282,15 +282,15 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 onChange={(e) => setExampleEs(e.target.value)}
                 rows={2}
                 placeholder="Logramos un avance decisivo en las negociaciones del contrato."
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
+                className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c] resize-none"
               />
             </div>
           </div>
 
           {/* Row 6: Categorización */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/10">
             <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+              <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
                 Temario de estudio
               </label>
               <select
@@ -302,10 +302,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     setCategorySub(found.subcategories[0].name);
                   }
                 }}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none cursor-pointer"
+                className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/15 text-xs font-semibold text-white focus:outline-none cursor-pointer"
               >
                 {INITIAL_CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.name}>
+                  <option key={c.id} value={c.name} className="bg-[#1c162e]">
                     {c.name}
                   </option>
                 ))}
@@ -313,16 +313,16 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+              <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
                 Subcategoría
               </label>
               <select
                 value={categorySub}
                 onChange={(e) => setCategorySub(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none cursor-pointer"
+                className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/15 text-xs font-semibold text-white focus:outline-none cursor-pointer"
               >
                 {subcategories.map((sub) => (
-                  <option key={sub.id} value={sub.name}>
+                  <option key={sub.id} value={sub.name} className="bg-[#1c162e]">
                     {sub.name}
                   </option>
                 ))}
@@ -331,17 +331,17 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
+          <div className="pt-4 border-t border-white/10 flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              className="px-4 py-2 rounded-xl border border-white/15 text-xs font-semibold text-slate-300 hover:bg-white/10 cursor-pointer transition-all"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white shadow-md shadow-indigo-600/30 cursor-pointer flex items-center gap-1.5"
+              className="px-5 py-2 rounded-xl bg-[#e62e4c] hover:bg-[#ff3b59] text-xs font-bold text-white shadow-lg shadow-[#e62e4c]/30 cursor-pointer flex items-center gap-1.5 transition-all"
             >
               <Check size={14} />
               <span>{initialWord ? 'Guardar Cambios' : 'Añadir Término'}</span>

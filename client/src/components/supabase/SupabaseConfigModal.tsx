@@ -17,7 +17,7 @@ import { supabaseService } from '../../lib/supabaseClient';
 interface SupabaseConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfigSaved: () => void;
+  onConfigSaved?: () => void;
 }
 
 const SQL_SCHEMA = `-- 1. Crear tabla de tareas con clave foránea hacia auth.users
@@ -91,7 +91,7 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
     setTesting(false);
     setStatusMsg({ success: res.success, text: res.message });
 
-    if (res.success) {
+    if (res.success && onConfigSaved) {
       onConfigSaved();
     }
   }
@@ -103,27 +103,27 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 text-white">
+      <div className="bg-[#1c162e] rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col border border-white/15 animate-fadeIn">
         {/* Modal Header */}
-        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
+        <div className="p-5 border-b border-white/10 flex items-center justify-between bg-[#140f21]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-md border border-emerald-500/30">
               <Database size={20} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              <h2 className="text-base font-bold text-white">
                 Integración con Supabase
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Autenticación y base de datos relacional para tu app en React Native
+              <p className="text-xs text-slate-400">
+                Autenticación y sincronización en la nube para PronounceIt
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-200/60 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
           >
             <X size={16} />
           </button>
