@@ -12,10 +12,14 @@ import {
   CheckCircle2,
   Layers,
   ArrowRight,
+  LogOut,
 } from 'lucide-react';
 
 import { TaskItem, ActiveScreen, TaskStatus } from './types';
 import { supabaseService } from './lib/supabaseClient';
+
+// Auth Gatekeeper
+import { KradusLogin } from './components/auth/KradusLogin';
 
 // Mobile Simulator Components
 import { DeviceFrame } from './components/mobile/DeviceFrame';
@@ -33,8 +37,14 @@ import { CodeExporterPanel } from './components/code-export/CodeExporterPanel';
 import { SupabaseConfigModal } from './components/supabase/SupabaseConfigModal';
 
 export default function App() {
-  // Mobile app state
-  const [currentScreen, setCurrentScreen] = useState<ActiveScreen>('home');
+  // User state
+  const [currentUser, setCurrentUser] = useState(supabaseService.getCurrentUser());
+  const [supabaseConfig, setSupabaseConfig] = useState(supabaseService.getConfig());
+
+  // Mobile app state: starts on 'auth' if not logged in, otherwise 'home'
+  const [currentScreen, setCurrentScreen] = useState<ActiveScreen>(() =>
+    supabaseService.getCurrentUser() ? 'home' : 'auth'
+  );
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
@@ -49,10 +59,6 @@ export default function App() {
 
   // Supabase connection modal
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
-
-  // User state
-  const [currentUser, setCurrentUser] = useState(supabaseService.getCurrentUser());
-  const [supabaseConfig, setSupabaseConfig] = useState(supabaseService.getConfig());
 
   // Load tasks
   const loadTasks = async () => {
@@ -114,10 +120,23 @@ export default function App() {
 
   const handleLogout = async () => {
     await supabaseService.signOut();
+    setCurrentUser(null);
     setCurrentScreen('auth');
   };
 
   const pendingCount = tasks.filter((t) => t.status !== 'completada').length;
+
+  // Gatekeeper: If user is not authenticated, show Kradus Login
+  if (!currentUser) {
+    return (
+      <KradusLogin
+        onSuccess={() => {
+          setCurrentUser(supabaseService.getCurrentUser());
+          setCurrentScreen('home');
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans">
@@ -171,11 +190,26 @@ export default function App() {
           <button
             type="button"
             onClick={() => setIsSupabaseModalOpen(true)}
-            className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-xs transition-colors whitespace-nowrap"
+            className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-xs transition-colors whitespace-nowrap cursor-pointer"
           >
             <Database size={13} />
             <span>{supabaseConfig.isCustom ? 'Supabase Conectado' : 'Conectar Supabase'}</span>
           </button>
+
+          <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-slate-200 dark:border-slate-800">
+            <span className="text-xs text-slate-500 font-medium">
+              {currentUser?.email}
+            </span>
+            <button
+              type="button"
+              onClick={handleLogout}
+              title="Cerrar sesión"
+              className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <LogOut size={13} />
+              <span>Cerrar sesión</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -194,7 +228,13 @@ export default function App() {
               <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
                 <button
                   type="button"
-                  onClick={() => setCurrentScreen('home')}
+                  onClick={() => {
+                    if (currentUser) {
+                      setCurrentScreen('home');
+                    } else {
+                      setCurrentScreen('auth');
+                    }
+                  }}
                   className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
                     currentScreen === 'home'
                       ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs'
@@ -255,14 +295,17 @@ export default function App() {
               <div className="flex-1 flex flex-col overflow-hidden relative">
                 {currentScreen === 'onboarding' && (
                   <OnboardingView
-                    onStart={() => setCurrentScreen('home')}
+                    onStart={() => setCurrentScreen(currentUser ? 'home' : 'auth')}
                     onLogin={() => setCurrentScreen('auth')}
                   />
                 )}
 
                 {currentScreen === 'auth' && (
                   <AuthView
-                    onSuccess={() => setCurrentScreen('home')}
+                    onSuccess={() => {
+                      setCurrentUser(supabaseService.getCurrentUser());
+                      setCurrentScreen('home');
+                    }}
                     onOpenSettings={() => setIsSupabaseModalOpen(true)}
                   />
                 )}

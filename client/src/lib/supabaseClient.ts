@@ -115,18 +115,10 @@ class SupabaseService {
         this.currentUser = JSON.parse(savedUser);
       } catch (e) {
         console.error('Error parsing stored session', e);
+        this.currentUser = null;
       }
     } else {
-      // Default demo user so app is immediately usable
-      this.currentUser = {
-        id: 'usr-demo-001',
-        email: 'alex.dev@ejemplo.com',
-        full_name: 'Alex Rivera',
-        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        role: 'Pro Developer',
-        created_at: new Date().toISOString(),
-      };
-      localStorage.setItem(STORAGE_KEYS.SESSION_USER, JSON.stringify(this.currentUser));
+      this.currentUser = null;
     }
   }
 
