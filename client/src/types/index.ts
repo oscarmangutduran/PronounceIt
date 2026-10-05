@@ -34,4 +34,41 @@ export interface SupabaseConfig {
   lastChecked?: string;
 }
 
-export type ActiveScreen = 'onboarding' | 'auth' | 'home' | 'stats' | 'profile';
+export type WordLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+export type WordStatus = 'nueva' | 'en_repaso' | 'dominada';
+
+export interface WordItem {
+  id: string;
+  word: string;
+  partOfSpeech: string;
+  level: WordLevel;
+  ipa: string;
+  phoneticGuide: string;
+  phoneticNote?: string;
+  translation: string;
+  definition?: string;
+  exampleEn: string;
+  exampleEs: string;
+  highlightWord?: string;
+  status: WordStatus;
+  isFavorite: boolean;
+  categoryGroup: string;
+  categorySub: string;
+  srsIntervalDays?: number;
+  lastReviewedAt?: string;
+  createdAt?: string;
+}
+
+export interface CategoryItem {
+  id: string;
+  name: string;
+  icon: string;
+  count: number;
+  subcategories?: {
+    id: string;
+    name: string;
+    count: number;
+  }[];
+}
+
+export type MainNavTab = 'vocabulary' | 'flashcards' | 'stats' | 'settings';
