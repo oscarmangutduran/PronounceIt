@@ -185,7 +185,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
       {/* Blurred atmospheric background glow */}
       <div
         className="absolute inset-0 bg-cover bg-center opacity-25 filter blur-3xl scale-110 pointer-events-none"
-        style={{ backgroundImage: `url('/assets/login_hero.jpg')` }}
+        style={{ backgroundImage: `url('/assets/login_hero.jpg?v=3')` }}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-[#0a0712] via-[#0f0c18]/80 to-[#120e20]/90 pointer-events-none" />
 
@@ -196,7 +196,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
           {/* Background Photo */}
           <div
             className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url('/assets/login_hero.jpg')` }}
+            style={{ backgroundImage: `url('/assets/login_hero.jpg?v=3')` }}
           />
 
           {/* Subtle contrast gradient for white text legibility while preserving warm tones */}

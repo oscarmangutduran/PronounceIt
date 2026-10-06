@@ -182,7 +182,7 @@ export default function App() {
       {/* Subtle atmospheric ambient glow matching login screen */}
       <div
         className="fixed inset-0 bg-cover bg-center opacity-10 filter blur-3xl scale-110 pointer-events-none"
-        style={{ backgroundImage: `url('/assets/login_hero.jpg')` }}
+        style={{ backgroundImage: `url('/assets/login_hero.jpg?v=3')` }}
       />
       <div className="fixed inset-0 bg-gradient-to-t from-[#0a0712] via-[#0f0c18]/90 to-[#120e20]/95 pointer-events-none" />
 
