@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Copyright, Heart } from 'lucide-react';
 import { MainNavTab, WordItem, WordStatus, UserProfile } from './types';
 import { supabaseService } from './lib/supabaseClient';
 import { vocabService } from './lib/vocabularyStore';
@@ -265,12 +266,69 @@ export default function App() {
         {/* 3. Bottom Footer */}
         <footer className="w-full bg-[#130f1e]/90 border-t border-white/10 py-4 px-6 text-xs text-slate-400 select-none">
           <div className="max-w-[1720px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
-            <p className="text-slate-300">© 2025 PronounceIt Workspace. Precision Lexical &amp; Pronunciation Mastery.</p>
-            <p className="flex items-center gap-2 text-slate-400">
-              <span>IPA System: Standard International</span>
-              <span>·</span>
-              <span className="text-amber-400 font-semibold">SRS v2.4</span>
-            </p>
+            <div className="flex items-center flex-wrap justify-center sm:justify-start gap-2 text-slate-300">
+              <span className="flex items-center gap-1.5 font-medium text-white">
+                <Copyright size={13} className="text-slate-400 shrink-0" />
+                <span>PronounceIt</span>
+              </span>
+              <span className="text-slate-600">|</span>
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <span>Desarrollado con</span>
+                <Heart size={13} className="text-[#e62e4c] fill-[#e62e4c] shrink-0 animate-pulse" />
+                <span className="text-white font-medium">Oscar Mangut Dev</span>
+              </span>
+            </div>
+            <div className="flex items-center flex-wrap justify-center sm:justify-end gap-2.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 select-none">
+                Aplicaciones recomendadas:
+              </span>
+              <div className="flex items-center gap-2">
+                <a
+                  href="https://www.duolingo.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-500/40 text-slate-300 hover:text-white transition-all group"
+                  title="Duolingo - Aprende idiomas"
+                >
+                  <img
+                    src="/assets/duolingo.png"
+                    alt="Duolingo logo"
+                    className="w-4 h-4 rounded object-contain group-hover:scale-110 transition-transform"
+                  />
+                  <span className="text-xs font-medium">Duolingo</span>
+                </a>
+
+                <a
+                  href="https://beespeaker.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-amber-500/40 text-slate-300 hover:text-white transition-all group"
+                  title="BeeSpeaker - Práctica de conversación con IA"
+                >
+                  <img
+                    src="/assets/beespeaker.png"
+                    alt="BeeSpeaker logo"
+                    className="w-4 h-4 rounded object-contain group-hover:scale-110 transition-transform"
+                  />
+                  <span className="text-xs font-medium">BeeSpeaker</span>
+                </a>
+
+                <a
+                  href="https://wlingua.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-500/40 text-slate-300 hover:text-white transition-all group"
+                  title="Wlingua - Cursos de inglés"
+                >
+                  <img
+                    src="/assets/wlingua.png"
+                    alt="Wlingua logo"
+                    className="w-4 h-4 rounded object-contain group-hover:scale-110 transition-transform"
+                  />
+                  <span className="text-xs font-medium">Wlingua</span>
+                </a>
+              </div>
+            </div>
           </div>
         </footer>
       </div>
