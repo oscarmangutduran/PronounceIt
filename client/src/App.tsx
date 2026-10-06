@@ -17,6 +17,7 @@ import { StatsDashboardView } from './components/workspace/StatsDashboardView';
 import { SettingsView } from './components/workspace/SettingsView';
 import { AddWordModal } from './components/workspace/AddWordModal';
 import { ExportImportModal } from './components/workspace/ExportImportModal';
+import { EditProfileModal } from './components/workspace/EditProfileModal';
 import { SupabaseConfigModal } from './components/supabase/SupabaseConfigModal';
 
 export default function App() {
@@ -43,6 +44,7 @@ export default function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingWord, setEditingWord] = useState<WordItem | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
 
   // Left sidebar collapsed state
@@ -76,9 +78,13 @@ export default function App() {
       setCurrentUser(supabaseService.getCurrentUser());
     });
 
+    const handleOpenEdit = () => setIsEditProfileOpen(true);
+    window.addEventListener('pronounceit:open-edit-profile', handleOpenEdit);
+
     return () => {
       unsubVocab();
       unsubAuth();
+      window.removeEventListener('pronounceit:open-edit-profile', handleOpenEdit);
     };
   }, []);
 
@@ -190,6 +196,7 @@ export default function App() {
           onLogout={handleLogout}
           searchTerm={globalSearch}
           onSearchChange={setGlobalSearch}
+          onOpenEditProfile={() => setIsEditProfileOpen(true)}
         />
 
         {/* 2. Main Workspace Body Container */}
@@ -359,6 +366,14 @@ export default function App() {
       <SupabaseConfigModal
         isOpen={isSupabaseModalOpen}
         onClose={() => setIsSupabaseModalOpen(false)}
+      />
+
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+        currentUser={currentUser}
+        onProfileUpdated={(updated) => setCurrentUser(updated)}
       />
     </div>
   );

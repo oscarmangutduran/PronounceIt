@@ -2,29 +2,23 @@ import React, { useState, useEffect } from 'react';
 import {
   Volume2,
   User,
-  Database,
   LogOut,
-  RotateCcw,
 } from 'lucide-react';
-import { UserProfile, SupabaseConfig } from '../../types';
+import { UserProfile } from '../../types';
 import { vocabService, AudioSettings } from '../../lib/vocabularyStore';
-import { supabaseService } from '../../lib/supabaseClient';
 
 interface SettingsViewProps {
   currentUser: UserProfile | null;
   onLogout: () => void;
-  onOpenSupabaseModal: () => void;
+  onOpenSupabaseModal?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   currentUser,
   onLogout,
-  onOpenSupabaseModal,
 }) => {
   const [audioSettings, setAudioSettings] = useState<AudioSettings>(vocabService.getAudioSettings());
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [savedMsg, setSavedMsg] = useState(false);
-  const [supabaseConfig, setSupabaseConfig] = useState<SupabaseConfig>(supabaseService.getConfig());
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -53,13 +47,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     vocabService.speak('Welcome to PronounceIt. Master English pronunciation with precision.');
   };
 
-  const handleResetVocab = () => {
-    if (window.confirm('¿Deseas restaurar el vocabulario predeterminado? Se reestablecerán las palabras de prueba.')) {
-      vocabService.resetToDefault();
-      setSavedMsg(true);
-      setTimeout(() => setSavedMsg(false), 2000);
-    }
-  };
 
   return (
     <div className="max-w-4xl mx-auto flex flex-col gap-6 select-none animate-fadeIn text-white">
@@ -132,8 +119,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* Account Profile Card */}
       <div className="bg-[#181226]/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl p-6 flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center">
-            <User size={20} />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#e62e4c] via-[#ff3b59] to-purple-600 text-white font-bold text-sm border border-white/15 flex items-center justify-center overflow-hidden shrink-0 shadow">
+            {currentUser?.avatar_url ? (
+              <img src={currentUser.avatar_url} alt="Foto de perfil" className="w-full h-full object-cover" />
+            ) : (
+              <User size={20} className="text-white" />
+            )}
           </div>
           <div>
             <h3 className="text-base font-bold text-white">Perfil del Estudiante</h3>
@@ -168,42 +159,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           >
             <LogOut size={14} />
             <span>Cerrar sesión</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Database / Supabase Sync & Storage Management */}
-      <div className="bg-[#181226]/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl p-6 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
-              <Database size={20} />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white">Almacenamiento y Sincronización</h3>
-              <p className="text-xs text-slate-400">
-                {supabaseConfig.isCustom ? 'Conectado a tu proyecto de Supabase' : 'Almacenamiento local optimizado'}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onOpenSupabaseModal}
-            className="px-3.5 py-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold cursor-pointer transition-all"
-          >
-            Configurar Supabase
-          </button>
-        </div>
-
-        <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-          <span className="text-xs text-slate-400">Restaurar biblioteca con términos de demostración:</span>
-          <button
-            type="button"
-            onClick={handleResetVocab}
-            className="px-3 py-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-all"
-          >
-            <RotateCcw size={13} />
-            <span>{savedMsg ? '¡Restaurado!' : 'Restablecer términos demo'}</span>
           </button>
         </div>
       </div>

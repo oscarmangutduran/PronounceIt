@@ -8,7 +8,7 @@ import {
   Search,
   LogOut,
   User,
-  ShieldCheck,
+  UserPen,
   ClipboardCheck,
 } from 'lucide-react';
 import { MainNavTab, UserProfile } from '../../types';
@@ -20,6 +20,7 @@ interface TopNavigationProps {
   onLogout: () => void;
   searchTerm: string;
   onSearchChange: (val: string) => void;
+  onOpenEditProfile?: () => void;
 }
 
 export const TopNavigation: React.FC<TopNavigationProps> = ({
@@ -29,6 +30,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   onLogout,
   searchTerm,
   onSearchChange,
+  onOpenEditProfile,
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -145,26 +147,44 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
             <button
               type="button"
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#e62e4c] via-[#ff3b59] to-purple-600 text-white font-bold text-sm flex items-center justify-center shadow-lg ring-2 ring-white/10 hover:ring-[#e62e4c]/50 transition-all cursor-pointer"
+              className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#e62e4c] via-[#ff3b59] to-purple-600 text-white font-bold text-sm flex items-center justify-center shadow-lg ring-2 ring-white/10 hover:ring-[#e62e4c]/50 transition-all cursor-pointer overflow-hidden"
               title="Cuenta de usuario"
             >
-              {initial}
+              {currentUser?.avatar_url ? (
+                <img
+                  src={currentUser.avatar_url}
+                  alt={currentUser.full_name || 'Foto de perfil'}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                initial
+              )}
             </button>
 
             {/* Dropdown Menu */}
             {showUserMenu && (
               <div
-                className="absolute right-0 mt-2 w-64 rounded-2xl bg-[#1c162e] border border-white/15 shadow-2xl py-2 z-50 animate-fadeIn"
+                className="absolute right-0 mt-2 w-72 rounded-2xl bg-[#1c162e] border border-white/15 shadow-2xl py-2 z-50 animate-fadeIn"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="px-4 py-2.5 border-b border-white/10">
-                  <p className="text-xs font-bold text-white truncate">
-                    {currentUser?.full_name || currentUser?.username || 'Usuario PronounceIt'}
-                  </p>
-                  <p className="text-[11px] text-slate-400 truncate">{currentUser?.email || 'estudiante@pronounceit.com'}</p>
-                  <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 text-[10px] font-semibold border border-emerald-500/30">
-                    <ShieldCheck size={11} />
-                    <span>Plan Pro · SRS Activado</span>
+                <div className="px-4 py-3 border-b border-white/10 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#e62e4c] via-[#ff3b59] to-purple-600 text-white font-bold text-sm flex items-center justify-center shadow ring-2 ring-white/10 overflow-hidden shrink-0">
+                    {currentUser?.avatar_url ? (
+                      <img
+                        src={currentUser.avatar_url}
+                        alt="Foto de perfil"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      initial
+                    )}
+                  </div>
+                  <div className="overflow-hidden">
+                    <p className="text-xs font-bold text-white truncate">
+                      {currentUser?.full_name || currentUser?.username || 'Usuario PronounceIt'}
+                    </p>
+                    <p className="text-[11px] text-slate-400 truncate">{currentUser?.email || 'estudiante@pronounceit.com'}</p>
+
                   </div>
                 </div>
 
@@ -172,10 +192,25 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      setShowUserMenu(false);
+                      if (typeof onOpenEditProfile === 'function') {
+                        onOpenEditProfile();
+                      } else {
+                        window.dispatchEvent(new CustomEvent('pronounceit:open-edit-profile'));
+                      }
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-white/5 flex items-center gap-2 cursor-pointer text-slate-200 hover:text-white transition-colors"
+                  >
+                    <UserPen size={14} className="text-[#ff4d6d]" />
+                    <span className="font-medium">Editar perfil</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
                       onTabChange('settings');
                       setShowUserMenu(false);
                     }}
-                    className="w-full px-4 py-2 text-left hover:bg-white/5 flex items-center gap-2 cursor-pointer text-slate-200"
+                    className="w-full px-4 py-2 text-left hover:bg-white/5 flex items-center gap-2 cursor-pointer text-slate-200 hover:text-white transition-colors"
                   >
                     <Settings size={14} className="text-slate-400" />
                     <span>Ajustes de pronunciación</span>

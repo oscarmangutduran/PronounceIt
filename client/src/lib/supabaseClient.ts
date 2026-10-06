@@ -16,6 +16,7 @@ export interface StoredAccount {
   fullName: string;
   password: string;
   mustChangePassword: boolean;
+  avatarUrl?: string;
   createdAt: string;
 }
 
@@ -249,6 +250,7 @@ class SupabaseService {
         full_name: existing.fullName || existing.username,
         username: existing.username,
         must_change_password: existing.mustChangePassword,
+        avatar_url: existing.avatarUrl,
         role: 'Estudiante PronounceIt',
         created_at: existing.createdAt,
       };
@@ -398,6 +400,65 @@ class SupabaseService {
     }
 
     return { success: true, message: 'Contraseña actualizada correctamente.' };
+  }
+
+  public async updateUserProfile(updates: {
+    fullName?: string;
+    username?: string;
+    email?: string;
+    avatarUrl?: string;
+    newPassword?: string;
+  }): Promise<{ success: boolean; message?: string; user?: UserProfile }> {
+    const cleanFullName = (updates.fullName || '').trim();
+    const cleanUsername = (updates.username || '').trim();
+    const cleanEmail = (updates.email || '').trim().toLowerCase();
+
+    if (!this.currentUser) {
+      return { success: false, message: 'No hay ninguna sesión activa' };
+    }
+
+    if (updates.newPassword && updates.newPassword.length < 6) {
+      return { success: false, message: 'La nueva contraseña debe tener al menos 6 caracteres' };
+    }
+
+    // Update in registered accounts if present
+    const accounts = this.getStoredAccounts();
+    const currentId = this.currentUser.id;
+    const currentEmail = (this.currentUser.email || '').toLowerCase();
+    const currentUsername = (this.currentUser.username || '').toLowerCase();
+
+    const accountIndex = accounts.findIndex(
+      (a) =>
+        a.id === currentId ||
+        (currentEmail && a.email.toLowerCase() === currentEmail) ||
+        (currentUsername && a.username.toLowerCase() === currentUsername)
+    );
+
+    if (accountIndex !== -1) {
+      if (cleanFullName) accounts[accountIndex].fullName = cleanFullName;
+      if (cleanUsername) accounts[accountIndex].username = cleanUsername;
+      if (cleanEmail) accounts[accountIndex].email = cleanEmail;
+      if (updates.avatarUrl !== undefined) accounts[accountIndex].avatarUrl = updates.avatarUrl;
+      if (updates.newPassword) {
+        accounts[accountIndex].password = updates.newPassword;
+        accounts[accountIndex].mustChangePassword = false;
+      }
+      this.saveStoredAccounts(accounts);
+    }
+
+    const updatedUser: UserProfile = {
+      ...this.currentUser,
+      full_name: cleanFullName || this.currentUser.full_name,
+      username: cleanUsername || this.currentUser.username,
+      email: cleanEmail || this.currentUser.email,
+      avatar_url: updates.avatarUrl !== undefined ? updates.avatarUrl : this.currentUser.avatar_url,
+    };
+
+    this.currentUser = updatedUser;
+    localStorage.setItem(STORAGE_KEYS.SESSION_USER, JSON.stringify(updatedUser));
+    this.notify();
+
+    return { success: true, message: 'Perfil actualizado con éxito', user: updatedUser };
   }
 
   public async signUp(email: string, password: string, fullName: string): Promise<{ success: boolean; message?: string; user?: UserProfile }> {
