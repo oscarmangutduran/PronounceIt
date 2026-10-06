@@ -389,21 +389,70 @@ class VocabularyService {
   }
 
   public getCategories(): CategoryItem[] {
-    // Dynamic counts based on loaded words
-    return INITIAL_CATEGORIES.map((cat) => {
+    // Dynamic categories incorporating INITIAL_CATEGORIES and any user-created categories in words
+    const categoryMap = new Map<string, CategoryItem>();
+
+    for (const cat of INITIAL_CATEGORIES) {
       const groupWords = this.words.filter((w) => w.categoryGroup === cat.name);
-      return {
-        ...cat,
-        count: groupWords.length > 0 ? groupWords.length : cat.count,
-        subcategories: cat.subcategories?.map((sub) => {
-          const subWords = this.words.filter((w) => w.categorySub === sub.name);
-          return {
+      const subMap = new Map<string, { id: string; name: string; count: number }>();
+
+      if (cat.subcategories) {
+        for (const sub of cat.subcategories) {
+          const subWords = this.words.filter((w) => w.categoryGroup === cat.name && w.categorySub === sub.name);
+          subMap.set(sub.name, {
             ...sub,
             count: subWords.length > 0 ? subWords.length : sub.count,
-          };
-        }),
-      };
-    });
+          });
+        }
+      }
+
+      // Also include any subcategories in words for this category that weren't in initial
+      for (const w of groupWords) {
+        if (w.categorySub && !subMap.has(w.categorySub)) {
+          const subWords = groupWords.filter((gw) => gw.categorySub === w.categorySub);
+          subMap.set(w.categorySub, {
+            id: `sub-${w.categorySub.toLowerCase().replace(/\s+/g, '-')}`,
+            name: w.categorySub,
+            count: subWords.length,
+          });
+        }
+      }
+
+      categoryMap.set(cat.name, {
+        ...cat,
+        count: groupWords.length > 0 ? groupWords.length : cat.count,
+        subcategories: Array.from(subMap.values()),
+      });
+    }
+
+    // Include any custom categories present in words
+    for (const w of this.words) {
+      if (w.categoryGroup && !categoryMap.has(w.categoryGroup)) {
+        const groupWords = this.words.filter((gw) => gw.categoryGroup === w.categoryGroup);
+        const subMap = new Map<string, { id: string; name: string; count: number }>();
+
+        for (const gw of groupWords) {
+          if (gw.categorySub && !subMap.has(gw.categorySub)) {
+            const subWords = groupWords.filter((sw) => sw.categorySub === gw.categorySub);
+            subMap.set(gw.categorySub, {
+              id: `sub-${gw.categorySub.toLowerCase().replace(/\s+/g, '-')}`,
+              name: gw.categorySub,
+              count: subWords.length,
+            });
+          }
+        }
+
+        categoryMap.set(w.categoryGroup, {
+          id: `cat-${w.categoryGroup.toLowerCase().replace(/\s+/g, '-')}`,
+          name: w.categoryGroup,
+          icon: 'Folder',
+          count: groupWords.length,
+          subcategories: Array.from(subMap.values()),
+        });
+      }
+    }
+
+    return Array.from(categoryMap.values());
   }
 
   public addWord(word: Omit<WordItem, 'id'>): WordItem {

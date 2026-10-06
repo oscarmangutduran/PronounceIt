@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Award,
   CheckCircle2,
@@ -15,9 +15,13 @@ import {
   Trophy,
   Star,
   Sliders,
+  Zap,
 } from 'lucide-react';
 import { WordItem, WordLevel, TestQuestion, TestResult } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
+import { IrregularVerbsTestView } from './IrregularVerbsTestView';
+import { testHistoryService, StoredTestItem } from '../../lib/testHistoryStore';
+import { TestResultsModal } from './TestResultsModal';
 
 interface TestViewProps {
   words: WordItem[];
@@ -57,6 +61,21 @@ function sentenceContainsWord(sentence: string, word: string): boolean {
 }
 
 export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary }) => {
+  // Test category selection: 'vocabulary' | 'irregular_verbs'
+  const [testType, setTestType] = useState<'vocabulary' | 'irregular_verbs'>('vocabulary');
+  const [irregularTestState, setIrregularTestState] = useState<'setup' | 'testing' | 'result'>('setup');
+
+  // Results History Modal state
+  const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
+  const [testHistory, setTestHistory] = useState<StoredTestItem[]>(() => testHistoryService.getHistory());
+
+  useEffect(() => {
+    const unsub = testHistoryService.subscribe(() => {
+      setTestHistory(testHistoryService.getHistory());
+    });
+    return unsub;
+  }, []);
+
   // Setup options
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
   const [questionCount, setQuestionCount] = useState<number>(5);
@@ -214,16 +233,94 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
 
     setFinalResult(result);
     setTestState('result');
+
+    // Save completed test to history
+    testHistoryService.addTest({
+      type: 'vocabulary',
+      title: 'Test de Vocabulario y Oraciones',
+      level: selectedLevel === 'all' ? 'Todos los niveles' : `Nivel ${selectedLevel}`,
+      scoreOutOfTen,
+      percentage,
+      gradeLabel,
+      totalQuestions: testWords.length,
+      correctCount: correctWordsCount,
+      completedAt: `Hoy, ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      vocabularyQuestions: evaluatedQuestions,
+    });
   };
 
   const handleSpeak = (text: string) => {
     vocabService.speak(text);
   };
 
+  const isTestingActive =
+    (testType === 'vocabulary' && testState === 'testing') ||
+    (testType === 'irregular_verbs' && irregularTestState === 'testing');
+
   return (
     <div className="max-w-4xl mx-auto flex flex-col gap-6 select-none animate-fadeIn text-white">
-      {/* 1. SETUP SCREEN: Select level and start test */}
-      {testState === 'setup' && (
+      {/* Test Mode Selector Tabs & "Ver resultados" Button */}
+      {!isTestingActive && (
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex flex-1 p-1.5 bg-[#120d1e] rounded-2xl border border-white/10 gap-2 shadow-xl">
+            <button
+              type="button"
+              onClick={() => setTestType('vocabulary')}
+              className={`flex-1 py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                testType === 'vocabulary'
+                  ? 'bg-gradient-to-r from-[#e62e4c] to-[#ff4d6d] text-white shadow-lg shadow-[#e62e4c]/30 font-extrabold'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <BookOpen size={17} />
+              <span>Test de Vocabulario</span>
+              <span className="hidden sm:inline text-[11px] px-2 py-0.5 rounded-full bg-white/15 text-white/90 font-medium">
+                Oraciones & Retención
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTestType('irregular_verbs')}
+              className={`flex-1 py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                testType === 'irregular_verbs'
+                  ? 'bg-gradient-to-r from-purple-700 to-indigo-700 text-white shadow-lg shadow-purple-900/40 border border-purple-500/30 font-extrabold'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Zap size={17} className="text-amber-300" />
+              <span>Test de Verbos Irregulares</span>
+              <span className="hidden sm:inline text-[11px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold">
+                V1 · V2 · V3
+              </span>
+            </button>
+          </div>
+
+          {/* "Ver resultados" Button */}
+          <button
+            type="button"
+            onClick={() => setIsResultsModalOpen(true)}
+            className="px-4 py-2.5 sm:py-3 rounded-2xl bg-[#181226]/90 hover:bg-[#231a38] border border-white/15 hover:border-amber-400/50 text-slate-200 hover:text-white text-xs font-bold shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer group active:scale-95 shrink-0"
+          >
+            <Trophy size={16} className="text-amber-400 group-hover:scale-110 transition-transform" />
+            <span>Ver resultados</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/10 text-amber-300 font-extrabold">
+              {testHistory.length}
+            </span>
+          </button>
+        </div>
+      )}
+
+      {testType === 'irregular_verbs' ? (
+        <IrregularVerbsTestView
+          onBackToVocabulary={onBackToVocabulary}
+          onStateChange={setIrregularTestState}
+          onOpenResultsModal={() => setIsResultsModalOpen(true)}
+        />
+      ) : (
+        <>
+          {/* 1. SETUP SCREEN: Select level and start test */}
+          {testState === 'setup' && (
         <div className="bg-[#181226]/85 backdrop-blur-md rounded-3xl border border-white/10 shadow-2xl p-6 sm:p-10 flex flex-col gap-6">
           <div className="flex items-center gap-3 border-b border-white/10 pb-5">
             <div className="w-12 h-12 rounded-2xl bg-[#e62e4c] flex items-center justify-center text-white shadow-lg shadow-[#e62e4c]/30">
@@ -319,13 +416,23 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
 
           {/* Start Test Button */}
           <div className="flex items-center justify-between pt-2">
-            <button
-              type="button"
-              onClick={onBackToVocabulary}
-              className="px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 cursor-pointer transition-all"
-            >
-              Volver a la Biblioteca
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onBackToVocabulary}
+                className="px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 cursor-pointer transition-all"
+              >
+                Volver a la Biblioteca
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsResultsModalOpen(true)}
+                className="px-4 py-2.5 rounded-xl border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 text-xs font-bold text-amber-300 cursor-pointer transition-all flex items-center gap-1.5 shadow-sm"
+              >
+                <Trophy size={14} className="text-amber-400" />
+                <span>Ver resultados</span>
+              </button>
+            </div>
 
             <button
               type="button"
@@ -626,13 +733,23 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
 
           {/* Action buttons at bottom */}
           <div className="flex items-center justify-between pt-2 border-t border-white/10">
-            <button
-              type="button"
-              onClick={onBackToVocabulary}
-              className="px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 cursor-pointer transition-all"
-            >
-              Volver a Biblioteca
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onBackToVocabulary}
+                className="px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 cursor-pointer transition-all"
+              >
+                Volver a Biblioteca
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsResultsModalOpen(true)}
+                className="px-4 py-2.5 rounded-xl border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 text-xs font-bold text-amber-300 cursor-pointer transition-all flex items-center gap-1.5 shadow-sm"
+              >
+                <Trophy size={14} className="text-amber-400" />
+                <span>Ver resultados</span>
+              </button>
+            </div>
 
             <div className="flex items-center gap-3">
               <button
@@ -655,6 +772,15 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
           </div>
         </div>
       )}
-    </div>
+    </>
+  )}
+
+  {/* Modal de Resultados y Tests Realizados */}
+  <TestResultsModal
+    isOpen={isResultsModalOpen}
+    onClose={() => setIsResultsModalOpen(false)}
+    history={testHistory}
+  />
+</div>
   );
 };

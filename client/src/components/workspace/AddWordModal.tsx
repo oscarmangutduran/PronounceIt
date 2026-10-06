@@ -9,9 +9,11 @@ import {
   ChevronUp,
   CheckCircle2,
   BookOpen,
+  Folder,
+  Plus,
 } from 'lucide-react';
-import { WordItem, WordLevel, WordStatus } from '../../types';
-import { INITIAL_CATEGORIES, vocabService } from '../../lib/vocabularyStore';
+import { WordItem, WordLevel, WordStatus, CategoryItem } from '../../types';
+import { vocabService } from '../../lib/vocabularyStore';
 import { autoEnrichWord } from '../../lib/dictionaryService';
 
 interface AddWordModalProps {
@@ -19,6 +21,9 @@ interface AddWordModalProps {
   onClose: () => void;
   onSave: (word: Omit<WordItem, 'id'>) => void;
   initialWord?: WordItem | null;
+  categories?: CategoryItem[];
+  defaultCategoryGroup?: string;
+  defaultCategorySub?: string;
 }
 
 export const AddWordModal: React.FC<AddWordModalProps> = ({
@@ -26,13 +31,16 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   onClose,
   onSave,
   initialWord,
+  categories,
+  defaultCategoryGroup,
+  defaultCategorySub,
 }) => {
   const [word, setWord] = useState('');
   const [loadingAuto, setLoadingAuto] = useState(false);
   const [autoEnriched, setAutoEnriched] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Auto-filled fields
+  // Auto-filled and user-editable fields
   const [partOfSpeech, setPartOfSpeech] = useState('noun');
   const [level, setLevel] = useState<WordLevel>('B2');
   const [ipa, setIpa] = useState('');
@@ -43,8 +51,16 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [exampleEn, setExampleEn] = useState('');
   const [exampleEs, setExampleEs] = useState('');
   const [status, setStatus] = useState<WordStatus>('nueva');
-  const [categoryGroup, setCategoryGroup] = useState('Negocios & Trabajo');
-  const [categorySub, setCategorySub] = useState('Reuniones & Negociación');
+
+  // Categories management
+  const availableCategories = categories && categories.length > 0 ? categories : vocabService.getCategories();
+  const [categoryGroup, setCategoryGroup] = useState<string>('Negocios & Trabajo');
+  const [categorySub, setCategorySub] = useState<string>('Reuniones & Negociación');
+  const [isCustomCategory, setIsCustomCategory] = useState<boolean>(false);
+  const [customCategoryName, setCustomCategoryName] = useState<string>('');
+  const [isCustomSubcategory, setIsCustomSubcategory] = useState<boolean>(false);
+  const [customSubcategoryName, setCustomSubcategoryName] = useState<string>('');
+  const [hasUserCustomizedCategory, setHasUserCustomizedCategory] = useState<boolean>(false);
 
   useEffect(() => {
     if (initialWord) {
@@ -61,7 +77,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setStatus(initialWord.status);
       setCategoryGroup(initialWord.categoryGroup);
       setCategorySub(initialWord.categorySub);
+      setIsCustomCategory(false);
+      setCustomCategoryName('');
+      setIsCustomSubcategory(false);
+      setCustomSubcategoryName('');
+      setHasUserCustomizedCategory(true);
       setAutoEnriched(true);
+      setShowAdvanced(false);
     } else {
       setWord('');
       setPartOfSpeech('noun');
@@ -74,12 +96,22 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setExampleEn('');
       setExampleEs('');
       setStatus('nueva');
-      setCategoryGroup('Negocios & Trabajo');
-      setCategorySub('Reuniones & Negociación');
+
+      const initialGroup = defaultCategoryGroup || availableCategories[0]?.name || 'Negocios & Trabajo';
+      const foundCat = availableCategories.find((c) => c.name === initialGroup) || availableCategories[0];
+      const initialSub = defaultCategorySub || foundCat?.subcategories?.[0]?.name || 'Reuniones & Negociación';
+
+      setCategoryGroup(initialGroup);
+      setCategorySub(initialSub);
+      setIsCustomCategory(false);
+      setCustomCategoryName('');
+      setIsCustomSubcategory(false);
+      setCustomSubcategoryName('');
+      setHasUserCustomizedCategory(Boolean(defaultCategoryGroup));
       setAutoEnriched(false);
       setShowAdvanced(false);
     }
-  }, [initialWord, isOpen]);
+  }, [initialWord, isOpen, defaultCategoryGroup, defaultCategorySub]);
 
   // Debounced automatic auto-fill as the user types the English word
   useEffect(() => {
@@ -104,8 +136,20 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         setDefinition(enriched.definition);
         setExampleEn(enriched.exampleEn);
         setExampleEs(enriched.exampleEs);
-        setCategoryGroup(enriched.categoryGroup);
-        setCategorySub(enriched.categorySub);
+
+        // Only assign suggested category if user hasn't explicitly specified or selected one
+        if (!hasUserCustomizedCategory && !isCustomCategory && !isCustomSubcategory) {
+          const matchCat = availableCategories.find((c) => c.name.toLowerCase() === enriched.categoryGroup.toLowerCase());
+          if (matchCat) {
+            setCategoryGroup(matchCat.name);
+            const matchSub = matchCat.subcategories?.find((s) => s.name.toLowerCase() === enriched.categorySub.toLowerCase());
+            if (matchSub) {
+              setCategorySub(matchSub.name);
+            } else if (matchCat.subcategories?.[0]) {
+              setCategorySub(matchCat.subcategories[0].name);
+            }
+          }
+        }
         setAutoEnriched(true);
       } catch (e) {
         console.warn('Auto enrichment error', e);
@@ -115,12 +159,12 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     }, 450);
 
     return () => clearTimeout(timer);
-  }, [word, isOpen, initialWord]);
+  }, [word, isOpen, initialWord, hasUserCustomizedCategory, isCustomCategory, isCustomSubcategory, availableCategories]);
 
   if (!isOpen) return null;
 
-  const currentCat = INITIAL_CATEGORIES.find((c) => c.name === categoryGroup);
-  const subcategories = currentCat?.subcategories || [];
+  const currentCat = availableCategories.find((c) => c.name === categoryGroup);
+  const currentSubcategories = currentCat?.subcategories || [];
 
   const handleTestAudio = () => {
     if (word) vocabService.speak(word);
@@ -130,6 +174,19 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     e.preventDefault();
     const cleanWord = word.trim();
     if (!cleanWord) return;
+
+    const finalCategoryGroup = isCustomCategory ? customCategoryName.trim() : categoryGroup.trim();
+    const finalCategorySub = (isCustomCategory || isCustomSubcategory) ? customSubcategoryName.trim() : categorySub.trim();
+
+    if (!finalCategoryGroup) {
+      alert('Por favor, selecciona o escribe la categoría principal.');
+      return;
+    }
+
+    if (!finalCategorySub) {
+      alert('Por favor, selecciona o escribe la subcategoría.');
+      return;
+    }
 
     onSave({
       word: cleanWord.charAt(0).toUpperCase() + cleanWord.slice(1),
@@ -145,8 +202,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       highlightWord: cleanWord.toLowerCase(),
       status,
       isFavorite: initialWord ? initialWord.isFavorite : false,
-      categoryGroup,
-      categorySub,
+      categoryGroup: finalCategoryGroup,
+      categorySub: finalCategorySub,
     });
     onClose();
   };
@@ -162,13 +219,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <span>{initialWord ? 'Editar Palabra' : 'Añadir Palabra en Inglés'}</span>
+                <span>{initialWord ? 'Editar Palabra' : 'Añadir Palabra'}</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-pink-300 bg-[#e62e4c]/20 border border-[#e62e4c]/30 px-2 py-0.5 rounded-full">
                   Auto-Completado Mágico ✨
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
-                Solo escribe la palabra en inglés; el IPA, traducción y ejemplos se generan solos.
+                Escribe la palabra, asigna su categoría y subcategoría, y la fonética se generará sola.
               </p>
             </div>
           </div>
@@ -182,40 +239,203 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-5">
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-4">
           {/* Main English Input Field */}
           <div className="space-y-1.5">
             <label className="block text-xs font-bold uppercase text-slate-300 tracking-wide">
-              Escribe la palabra en inglés *
+              Palabra en inglés *
             </label>
             <div className="relative flex items-center">
               <input
                 type="text"
                 value={word}
                 onChange={(e) => setWord(e.target.value)}
-                placeholder="ej. Stakeholder, Resilience, Insight, Overcome..."
-                className="w-full h-13 pl-4 pr-24 rounded-2xl bg-black/50 border border-white/20 text-base font-bold text-white placeholder-slate-500 focus:outline-none focus:border-[#e62e4c] focus:ring-1 focus:ring-[#e62e4c] transition-all shadow-inner"
+                placeholder="ej. Stakeholder, Resilience, Breakthrough, Overcome..."
+                className="w-full h-12 pl-4 pr-24 rounded-2xl bg-black/50 border border-white/20 text-base font-bold text-white placeholder-slate-500 focus:outline-none focus:border-[#e62e4c] focus:ring-1 focus:ring-[#e62e4c] transition-all shadow-inner"
                 required
                 autoFocus
               />
 
-              {/* Right status icon inside input: Spinner / Audio / Sparkles */}
+              {/* Status / Audio Test button */}
               <div className="absolute right-3 flex items-center gap-1.5">
                 {loadingAuto ? (
                   <span className="flex items-center gap-1 text-[11px] text-pink-300 bg-[#e62e4c]/20 px-2 py-1 rounded-lg border border-[#e62e4c]/30 animate-pulse">
                     <Loader2 size={13} className="animate-spin text-[#ff4d6d]" />
-                    <span>Analizando...</span>
+                    <span>Auto...</span>
                   </span>
                 ) : word.trim() ? (
                   <button
                     type="button"
                     onClick={handleTestAudio}
-                    className="p-2 rounded-xl bg-[#e62e4c]/20 hover:bg-[#e62e4c]/30 text-[#ff4d6d] border border-[#e62e4c]/30 cursor-pointer transition-all shadow-sm"
+                    className="p-1.5 rounded-xl bg-[#e62e4c]/20 hover:bg-[#e62e4c]/30 text-[#ff4d6d] border border-[#e62e4c]/30 cursor-pointer transition-all shadow-sm"
                     title="Escuchar pronunciación"
                   >
                     <Volume2 size={16} />
                   </button>
                 ) : null}
+              </div>
+            </div>
+          </div>
+
+          {/* Traducción al español (Editable directamente) */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold uppercase text-slate-300 tracking-wide">
+              Traducción al español *
+            </label>
+            <input
+              type="text"
+              value={translation}
+              onChange={(e) => setTranslation(e.target.value)}
+              placeholder="ej. Avance decisivo, Parte interesada, Resiliencia..."
+              className="w-full px-4 py-2.5 rounded-2xl bg-black/40 border border-white/15 text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#e62e4c] transition-all"
+              required
+            />
+          </div>
+
+          {/* SECCIÓN OBLIGATORIA: Categoría y Subcategoría */}
+          <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-3.5 shadow-sm">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Folder size={15} className="text-[#ff4d6d]" />
+                <span>Categoría y Subcategoría *</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium">
+                Ubicación en tu biblioteca
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* 1. Categoría Principal */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold uppercase text-slate-300">
+                    Categoría Principal *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomCategory(!isCustomCategory);
+                      setHasUserCustomizedCategory(true);
+                      if (!isCustomCategory) {
+                        setCustomCategoryName('');
+                        setIsCustomSubcategory(true);
+                        setCustomSubcategoryName('');
+                      }
+                    }}
+                    className="text-[10px] text-[#ff4d6d] hover:text-pink-300 font-semibold cursor-pointer transition-colors"
+                  >
+                    {isCustomCategory ? 'Elegir existente' : '+ Crear nueva'}
+                  </button>
+                </div>
+
+                {isCustomCategory ? (
+                  <input
+                    type="text"
+                    value={customCategoryName}
+                    onChange={(e) => {
+                      setCustomCategoryName(e.target.value);
+                      setHasUserCustomizedCategory(true);
+                    }}
+                    placeholder="Nombre nueva categoría..."
+                    className="w-full px-3 py-2 rounded-xl bg-black/60 border border-pink-500/50 focus:border-[#e62e4c] text-xs font-semibold text-white placeholder-slate-500 focus:outline-none shadow-sm"
+                    required
+                  />
+                ) : (
+                  <select
+                    value={categoryGroup}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setHasUserCustomizedCategory(true);
+                      if (val === '__NEW__') {
+                        setIsCustomCategory(true);
+                        setCustomCategoryName('');
+                        setIsCustomSubcategory(true);
+                        setCustomSubcategoryName('');
+                      } else {
+                        setCategoryGroup(val);
+                        const found = availableCategories.find((c) => c.name === val);
+                        if (found?.subcategories?.[0]) {
+                          setCategorySub(found.subcategories[0].name);
+                          setIsCustomSubcategory(false);
+                        }
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-xs font-semibold text-white focus:outline-none focus:border-[#e62e4c] cursor-pointer"
+                    required
+                  >
+                    {availableCategories.map((c) => (
+                      <option key={c.id || c.name} value={c.name} className="bg-[#1c162e]">
+                        {c.name}
+                      </option>
+                    ))}
+                    <option value="__NEW__" className="bg-[#1c162e] text-pink-300 font-bold">
+                      + Escribir nueva categoría...
+                    </option>
+                  </select>
+                )}
+              </div>
+
+              {/* 2. Subcategoría */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold uppercase text-slate-300">
+                    Subcategoría *
+                  </label>
+                  {!isCustomCategory && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomSubcategory(!isCustomSubcategory);
+                        setHasUserCustomizedCategory(true);
+                        if (!isCustomSubcategory) {
+                          setCustomSubcategoryName('');
+                        }
+                      }}
+                      className="text-[10px] text-[#ff4d6d] hover:text-pink-300 font-semibold cursor-pointer transition-colors"
+                    >
+                      {isCustomSubcategory ? 'Elegir existente' : '+ Crear nueva'}
+                    </button>
+                  )}
+                </div>
+
+                {isCustomSubcategory || isCustomCategory ? (
+                  <input
+                    type="text"
+                    value={customSubcategoryName}
+                    onChange={(e) => {
+                      setCustomSubcategoryName(e.target.value);
+                      setHasUserCustomizedCategory(true);
+                    }}
+                    placeholder="Nombre subcategoría..."
+                    className="w-full px-3 py-2 rounded-xl bg-black/60 border border-pink-500/50 focus:border-[#e62e4c] text-xs font-semibold text-white placeholder-slate-500 focus:outline-none shadow-sm"
+                    required
+                  />
+                ) : (
+                  <select
+                    value={categorySub}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setHasUserCustomizedCategory(true);
+                      if (val === '__NEW__') {
+                        setIsCustomSubcategory(true);
+                        setCustomSubcategoryName('');
+                      } else {
+                        setCategorySub(val);
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-xs font-semibold text-white focus:outline-none focus:border-[#e62e4c] cursor-pointer"
+                    required
+                  >
+                    {currentSubcategories.map((sub) => (
+                      <option key={sub.id || sub.name} value={sub.name} className="bg-[#1c162e]">
+                        {sub.name}
+                      </option>
+                    ))}
+                    <option value="__NEW__" className="bg-[#1c162e] text-pink-300 font-bold">
+                      + Escribir nueva subcategoría...
+                    </option>
+                  </select>
+                )}
               </div>
             </div>
           </div>
@@ -237,62 +457,34 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 </div>
               </div>
 
-              {/* Fonética & Traducción */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="text-slate-400 text-[10px] uppercase font-bold block">
-                    Fonética IPA & Guía
-                  </span>
-                  <div className="flex items-baseline gap-2 mt-0.5">
-                    <span className="font-mono text-[#ff758c] font-bold text-sm">{ipa}</span>
-                    <span className="text-slate-300 text-xs">{phoneticGuide}</span>
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-slate-400 text-[10px] uppercase font-bold block">
-                    Traducción al español
-                  </span>
-                  <span className="font-bold text-white text-sm mt-0.5 block">{translation}</span>
+              {/* Fonética IPA */}
+              <div className="text-xs">
+                <span className="text-slate-400 text-[10px] uppercase font-bold block">
+                  Fonética IPA & Guía
+                </span>
+                <div className="flex items-baseline gap-2 mt-0.5">
+                  <span className="font-mono text-[#ff758c] font-bold text-sm">{ipa}</span>
+                  <span className="text-slate-300 text-xs">{phoneticGuide}</span>
                 </div>
               </div>
 
               {/* Bilingual Example sentence */}
-              <div className="pt-1 text-xs space-y-1.5">
-                <span className="text-slate-400 text-[10px] uppercase font-bold flex items-center gap-1.5">
-                  <span>Frase de ejemplo con la palabra</span>
-                  <span className="text-[#ff758c] font-black underline">{word}</span>
-                </span>
-                <p className="text-slate-200 font-medium leading-relaxed italic bg-black/30 p-2.5 rounded-xl border border-white/10">
-                  "{exampleEn.split(new RegExp(`(${word})`, 'gi')).map((part, i) =>
-                    part.toLowerCase() === word.toLowerCase() ? (
-                      <strong key={i} className="text-[#ff758c] font-black not-italic underline decoration-2 underline-offset-2">
-                        {part}
-                      </strong>
-                    ) : (
-                      part
-                    )
-                  )}"
-                </p>
-                <p className="text-slate-400 text-[11px] leading-relaxed pl-1">
-                  "{exampleEs}"
-                </p>
-              </div>
-
-              {/* Category indicator */}
-              <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
-                <span>
-                  Temario: <strong className="text-white">{categoryGroup}</strong> / {categorySub}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleTestAudio}
-                  className="text-[#ff758c] hover:text-white flex items-center gap-1 cursor-pointer font-semibold"
-                >
-                  <Volume2 size={13} />
-                  <span>Probar voz</span>
-                </button>
-              </div>
+              {exampleEn && (
+                <div className="pt-1 text-xs space-y-1.5">
+                  <span className="text-slate-400 text-[10px] uppercase font-bold flex items-center gap-1.5">
+                    <span>Frase de ejemplo con</span>
+                    <span className="text-[#ff758c] font-black underline">{word}</span>
+                  </span>
+                  <p className="text-slate-200 font-medium leading-relaxed italic bg-black/30 p-2.5 rounded-xl border border-white/10">
+                    "{exampleEn}"
+                  </p>
+                  {exampleEs && (
+                    <p className="text-slate-400 text-[11px] leading-relaxed pl-1">
+                      "{exampleEs}"
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -303,7 +495,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               onClick={() => setShowAdvanced(!showAdvanced)}
               className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer select-none"
             >
-              <span>{showAdvanced ? 'Ocultar campos avanzados' : 'Personalizar campos generados (opcional)'}</span>
+              <span>{showAdvanced ? 'Ocultar campos avanzados' : 'Personalizar fonética, nivel y ejemplos (opcional)'}</span>
               {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
 
@@ -337,13 +529,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                      Traducción (Español)
+                      Parte de la oración
                     </label>
                     <input
                       type="text"
-                      value={translation}
-                      onChange={(e) => setTranslation(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white font-bold focus:outline-none focus:border-[#e62e4c]"
+                      value={partOfSpeech}
+                      onChange={(e) => setPartOfSpeech(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c]"
                     />
                   </div>
                   <div>
@@ -388,47 +580,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     className="w-full px-3 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c] resize-none"
                   />
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                      Temario de estudio
-                    </label>
-                    <select
-                      value={categoryGroup}
-                      onChange={(e) => {
-                        setCategoryGroup(e.target.value);
-                        const found = INITIAL_CATEGORIES.find((c) => c.name === e.target.value);
-                        if (found && found.subcategories?.[0]) {
-                          setCategorySub(found.subcategories[0].name);
-                        }
-                      }}
-                      className="w-full px-3 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white focus:outline-none cursor-pointer"
-                    >
-                      {INITIAL_CATEGORIES.map((c) => (
-                        <option key={c.id} value={c.name} className="bg-[#1c162e]">
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                      Subcategoría
-                    </label>
-                    <select
-                      value={categorySub}
-                      onChange={(e) => setCategorySub(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white focus:outline-none cursor-pointer"
-                    >
-                      {subcategories.map((sub) => (
-                        <option key={sub.id} value={sub.name} className="bg-[#1c162e]">
-                          {sub.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
               </div>
             )}
           </div>
@@ -448,7 +599,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               className="px-6 py-2.5 rounded-xl bg-[#e62e4c] hover:bg-[#ff3b59] text-xs font-bold text-white shadow-lg shadow-[#e62e4c]/30 disabled:opacity-50 cursor-pointer flex items-center gap-2 transition-all active:scale-[0.99]"
             >
               <Check size={15} />
-              <span>{initialWord ? 'Guardar Cambios' : 'Añadir Palabra a la Biblioteca'}</span>
+              <span>{initialWord ? 'Guardar Cambios' : 'Añadir Palabra'}</span>
             </button>
           </div>
         </form>

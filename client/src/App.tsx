@@ -284,6 +284,9 @@ export default function App() {
         }}
         onSave={handleSaveWord}
         initialWord={editingWord}
+        categories={categories}
+        defaultCategoryGroup={selectedFilter.type === 'category' ? selectedFilter.group : undefined}
+        defaultCategorySub={selectedFilter.type === 'category' ? selectedFilter.sub : undefined}
       />
 
       {/* Export / Import Modal */}
