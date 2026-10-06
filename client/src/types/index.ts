@@ -72,6 +72,7 @@ export interface CategoryItem {
 }
 
 export type MainNavTab = 'vocabulary' | 'flashcards' | 'test' | 'stats' | 'settings';
+export type ActiveScreen = 'home' | 'tasks' | 'stats' | 'profile' | 'create';
 
 export interface TestQuestion {
   wordItem: WordItem;

@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { WordItem, WordLevel, WordStatus } from '../../types';
 import { SelectedFilter } from './SidebarCategories';
@@ -22,6 +23,8 @@ import { vocabService } from '../../lib/vocabularyStore';
 interface VocabularyTableViewProps {
   words: WordItem[];
   selectedFilter: SelectedFilter;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
   onOpenAddModal: () => void;
   onOpenExportModal: () => void;
   onStartPractice: (categoryWords?: WordItem[]) => void;
@@ -34,6 +37,8 @@ interface VocabularyTableViewProps {
 export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   words,
   selectedFilter,
+  isSidebarCollapsed = false,
+  onToggleSidebar,
   onOpenAddModal,
   onOpenExportModal,
   onStartPractice,
@@ -172,7 +177,20 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Left: Breadcrumb & Title */}
         <div>
-          <p className="text-xs font-medium text-slate-400 tracking-tight">{breadcrumb}</p>
+          <div className="flex items-center gap-2.5">
+            {isSidebarCollapsed && onToggleSidebar && (
+              <button
+                type="button"
+                onClick={onToggleSidebar}
+                title="Mostrar menú lateral"
+                className="px-2.5 py-1 rounded-lg bg-[#e62e4c]/20 hover:bg-[#e62e4c]/30 border border-[#e62e4c]/40 text-pink-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-sm"
+              >
+                <PanelLeftOpen size={14} className="text-[#ff4d6d]" />
+                <span>Mostrar menú</span>
+              </button>
+            )}
+            <p className="text-xs font-medium text-slate-400 tracking-tight">{breadcrumb}</p>
+          </div>
           <div className="flex items-center gap-3 mt-1">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">{title}</h1>
             <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-[#e62e4c]/20 text-pink-300 border border-[#e62e4c]/30 whitespace-nowrap shrink-0">

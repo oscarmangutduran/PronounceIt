@@ -44,6 +44,23 @@ export default function App() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
 
+  // Left sidebar collapsed state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('pronounceit_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pronounceit_sidebar_collapsed', String(isSidebarCollapsed));
+    } catch {
+      // ignore
+    }
+  }, [isSidebarCollapsed]);
+
   // Load words and subscribe to changes
   useEffect(() => {
     setWords(vocabService.getWords());
@@ -187,6 +204,8 @@ export default function App() {
                 favoritesCount={favoritesCount}
                 reviewCount={reviewCount}
                 masteredCount={masteredCount}
+                isCollapsed={isSidebarCollapsed}
+                onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
                 onAddNewCategory={() => {
                   setEditingWord(null);
                   setIsAddModalOpen(true);
@@ -197,6 +216,8 @@ export default function App() {
               <VocabularyTableView
                 words={words}
                 selectedFilter={selectedFilter}
+                isSidebarCollapsed={isSidebarCollapsed}
+                onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
                 onOpenAddModal={() => {
                   setEditingWord(null);
                   setIsAddModalOpen(true);

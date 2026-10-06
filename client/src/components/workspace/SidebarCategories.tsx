@@ -14,6 +14,8 @@ import {
   Pin,
   CheckCircle2,
   Sparkles,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { CategoryItem } from '../../types';
 
@@ -32,6 +34,8 @@ interface SidebarCategoriesProps {
   reviewCount: number;
   masteredCount: number;
   onAddNewCategory?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
@@ -43,6 +47,8 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
   reviewCount,
   masteredCount,
   onAddNewCategory,
+  isCollapsed = false,
+  onToggleCollapse,
 }) => {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     'Negocios & Trabajo': true,
@@ -77,19 +83,157 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
 
   const retentionPercent = totalWords > 0 ? Math.round((masteredCount / totalWords) * 100) : 68;
 
+  // Collapsed Sidebar View (Rail on Desktop, Compact Bar on Mobile)
+  if (isCollapsed) {
+    return (
+      <>
+        {/* Mobile Collapsed Bar */}
+        <div className="w-full md:hidden bg-[#181226]/85 backdrop-blur-md rounded-2xl border border-white/10 p-3 flex items-center justify-between shadow-lg text-white">
+          <div className="flex items-center gap-2">
+            <Folder size={18} className="text-[#ff4d6d]" />
+            <span className="text-xs font-bold text-white">Categorías</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-slate-300 font-semibold">
+              {totalWords} total
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#e62e4c]/20 hover:bg-[#e62e4c]/30 border border-[#e62e4c]/40 text-pink-300 text-xs font-semibold cursor-pointer active:scale-95 transition-all"
+            title="Mostrar menú lateral"
+          >
+            <PanelLeftOpen size={14} className="text-[#ff4d6d]" />
+            <span>Mostrar menú</span>
+          </button>
+        </div>
+
+        {/* Desktop Collapsed Rail */}
+        <aside className="hidden md:flex w-16 shrink-0 flex-col gap-3 select-none transition-all duration-300">
+          <div className="bg-[#181226]/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] p-2.5 flex flex-col items-center gap-3 text-white">
+            {/* Expand / Show Button */}
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              title="Mostrar menú lateral"
+              aria-label="Mostrar menú lateral"
+              className="w-11 h-11 rounded-xl bg-[#e62e4c]/20 hover:bg-[#e62e4c]/35 border border-[#e62e4c]/40 text-pink-300 flex items-center justify-center transition-all cursor-pointer shadow-md shadow-[#e62e4c]/20 group active:scale-95"
+            >
+              <PanelLeftOpen size={20} className="text-[#ff4d6d] group-hover:scale-110 transition-transform" />
+            </button>
+
+            <div className="w-8 h-[1px] bg-white/10" />
+
+            {/* Quick Filters */}
+            <div className="flex flex-col items-center gap-2 w-full">
+              {/* Todas las palabras */}
+              <button
+                type="button"
+                onClick={() => onSelectFilter({ type: 'all' })}
+                title={`Todas las palabras (${totalWords})`}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer relative group ${
+                  selectedFilter.type === 'all'
+                    ? 'bg-white/20 text-white border border-white/30 shadow'
+                    : 'text-slate-400 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <BookOpen size={17} className={selectedFilter.type === 'all' ? 'text-[#ff4d6d]' : 'text-slate-400'} />
+                <span className="absolute -top-1 -right-1 px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-slate-800 text-slate-200 border border-white/10">
+                  {totalWords}
+                </span>
+              </button>
+
+              {/* Favoritas */}
+              <button
+                type="button"
+                onClick={() => onSelectFilter({ type: 'favorites' })}
+                title={`Favoritas (${favoritesCount})`}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer relative group ${
+                  selectedFilter.type === 'favorites'
+                    ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow'
+                    : 'text-slate-400 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <Star size={17} className={selectedFilter.type === 'favorites' ? 'text-amber-400 fill-amber-400' : 'text-slate-400'} />
+                {favoritesCount > 0 && (
+                  <span className="absolute -top-1 -right-1 px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-amber-500/30 text-amber-200 border border-amber-500/40">
+                    {favoritesCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Por repasar */}
+              <button
+                type="button"
+                onClick={() => onSelectFilter({ type: 'review' })}
+                title={`Por repasar hoy (${reviewCount})`}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer relative group ${
+                  selectedFilter.type === 'review'
+                    ? 'bg-rose-500/25 text-rose-300 border border-rose-500/40 shadow'
+                    : 'text-slate-400 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <Clock size={17} className={selectedFilter.type === 'review' ? 'text-rose-400' : 'text-slate-400'} />
+                {reviewCount > 0 && (
+                  <span className="absolute -top-1 -right-1 px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-rose-500/40 text-rose-200 border border-rose-500/50">
+                    {reviewCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Nueva Categoría mini */}
+              {onAddNewCategory && (
+                <button
+                  type="button"
+                  onClick={onAddNewCategory}
+                  title="Nueva Categoría"
+                  className="w-10 h-10 rounded-xl bg-[#e62e4c]/10 hover:bg-[#e62e4c]/20 text-pink-300 hover:text-white flex items-center justify-center transition-all cursor-pointer border border-[#e62e4c]/20 mt-1"
+                >
+                  <Plus size={17} className="text-[#ff4d6d]" />
+                </button>
+              )}
+            </div>
+
+            {/* Mini SRS Retention */}
+            <div className="w-8 h-[1px] bg-white/10 mt-1" />
+            <div
+              title={`Retención Lexical: ${retentionPercent}% (${masteredCount} dominadas)`}
+              className="flex flex-col items-center justify-center p-1.5 rounded-xl bg-black/30 border border-white/5 w-11 text-center cursor-help"
+            >
+              <CheckCircle2 size={14} className="text-emerald-400 mb-0.5" />
+              <span className="text-[10px] font-extrabold text-[#ff4d6d]">{retentionPercent}%</span>
+            </div>
+          </div>
+        </aside>
+      </>
+    );
+  }
+
   return (
-    <aside className="w-full md:w-64 lg:w-72 shrink-0 flex flex-col gap-4 select-none">
+    <aside className="w-full md:w-64 lg:w-72 shrink-0 flex flex-col gap-4 select-none transition-all duration-300">
       {/* Upper Navigation Card */}
       <div className="bg-[#181226]/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] p-4 sm:p-5 flex flex-col gap-4 text-white">
-        {/* Header with Total Badge */}
+        {/* Header with Total Badge & Collapse Button */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Folder size={18} className="text-[#ff4d6d]" />
             <h2 className="text-sm font-bold text-white tracking-tight">Categorías</h2>
           </div>
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-white/10 text-slate-300">
-            {totalWords} total
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-white/10 text-slate-300">
+              {totalWords} total
+            </span>
+            {onToggleCollapse && (
+              <button
+                type="button"
+                onClick={onToggleCollapse}
+                title="Ocultar menú lateral"
+                aria-label="Ocultar menú lateral"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10 transition-all cursor-pointer flex items-center justify-center group"
+              >
+                <PanelLeftClose size={16} className="transition-transform group-hover:-translate-x-0.5 text-slate-300 group-hover:text-white" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* "+ Nueva Categoría" Button matching login button style */}
