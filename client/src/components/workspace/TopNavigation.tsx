@@ -6,7 +6,6 @@ import {
   BarChart3,
   Settings,
   Search,
-  Flame,
   LogOut,
   User,
   ShieldCheck,
@@ -139,14 +138,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
             </span>
           </div>
 
-          {/* Streak Badge matching screenshot with dark ambient glow */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 font-semibold text-xs shadow-xs">
-            <Flame size={15} className="text-amber-400 fill-amber-400 animate-pulse" />
-            <div className="flex items-baseline gap-1">
-              <span className="font-bold">14</span>
-              <span className="text-[11px] font-medium text-amber-200/80">días</span>
-            </div>
-          </div>
+
 
           {/* User Avatar Circle */}
           <div className="relative">

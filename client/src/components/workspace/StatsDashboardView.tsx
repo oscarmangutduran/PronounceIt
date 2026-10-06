@@ -3,7 +3,6 @@ import {
   BarChart3,
   CheckCircle2,
   Clock,
-  Flame,
   BookOpen,
 } from 'lucide-react';
 import { WordItem } from '../../types';
@@ -29,7 +28,7 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words })
   return (
     <div className="max-w-5xl mx-auto flex flex-col gap-6 select-none animate-fadeIn text-white">
       {/* Overview Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Total words */}
         <div className="bg-[#181226]/85 backdrop-blur-md p-5 rounded-2xl border border-white/10 shadow-xl flex items-center justify-between">
           <div>
@@ -63,18 +62,6 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words })
           </div>
           <div className="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
             <Clock size={22} />
-          </div>
-        </div>
-
-        {/* Streak */}
-        <div className="bg-[#181226]/85 backdrop-blur-md p-5 rounded-2xl border border-white/10 shadow-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold uppercase text-orange-400">Racha de Estudio</span>
-            <h3 className="text-3xl font-black text-white mt-1">14 Días</h3>
-            <span className="text-[11px] text-orange-400 font-semibold">¡Imparable! 🔥</span>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center border border-orange-500/30">
-            <Flame size={22} />
           </div>
         </div>
       </div>
