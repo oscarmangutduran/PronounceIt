@@ -26,11 +26,16 @@ export interface UserProfile {
   created_at?: string;
 }
 
-export interface SupabaseConfig {
-  url: string;
-  anonKey: string;
-  isCustom: boolean;
-  isConnected: boolean;
+
+export interface FirebaseConfig {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket?: string;
+  messagingSenderId?: string;
+  appId: string;
+  isCustom?: boolean;
+  isConnected?: boolean;
   lastChecked?: string;
 }
 

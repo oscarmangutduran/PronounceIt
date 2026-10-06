@@ -1,5 +1,6 @@
 import { TestQuestion } from '../types';
 import { VerbQuestionEvaluation } from '../components/workspace/IrregularVerbsTestView';
+import { firebaseService } from './firebaseClient';
 
 export interface StoredTestItem {
   id: string;
@@ -159,6 +160,30 @@ class TestHistoryService {
 
   constructor() {
     this.loadHistory();
+    this.initCloudSync();
+  }
+
+  private initCloudSync() {
+    this.syncWithCloud();
+    firebaseService.subscribe(() => {
+      this.syncWithCloud();
+    });
+  }
+
+  public async syncWithCloud(): Promise<void> {
+    if (firebaseService.isFirebaseConnected()) {
+      try {
+        const remote = await firebaseService.fetchTestHistory();
+        if (remote !== null) {
+          this.history = remote;
+          this.saveHistory();
+          this.notify();
+          return;
+        }
+      } catch (e) {
+        console.warn('Error syncing test history with Firebase:', e);
+      }
+    }
   }
 
   private loadHistory() {
@@ -197,6 +222,10 @@ class TestHistoryService {
     this.history = [newTest, ...this.history];
     this.saveHistory();
     this.notify();
+
+    if (firebaseService.isFirebaseConnected()) {
+      firebaseService.saveTestResult(newTest).catch((e) => console.warn('Firebase saveTestResult error', e));
+    }
     return newTest;
   }
 
@@ -204,12 +233,20 @@ class TestHistoryService {
     this.history = this.history.filter((t) => t.id !== id);
     this.saveHistory();
     this.notify();
+
+    if (firebaseService.isFirebaseConnected()) {
+      firebaseService.deleteTestResult(id).catch((e) => console.warn('Firebase deleteTestResult error', e));
+    }
   }
 
   public clearHistory() {
     this.history = [];
     this.saveHistory();
     this.notify();
+
+    if (firebaseService.isFirebaseConnected()) {
+      firebaseService.clearTestHistory().catch((e) => console.warn('Firebase clearTestHistory error', e));
+    }
   }
 
   public subscribe(listener: () => void): () => void {

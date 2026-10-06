@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Reglas para usuarios y sus datos privados
+    match /users/{userId} {
+      // Un usuario solo puede leer y modificar su propio documento de perfil
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Subcolección de vocabulario (words)
+      match /words/{wordId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Subcolección de historial de exámenes (test_history)
+      match /test_history/{testId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+  }
+}

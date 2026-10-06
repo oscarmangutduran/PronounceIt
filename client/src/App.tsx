@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Copyright, Heart } from 'lucide-react';
 import { MainNavTab, WordItem, WordStatus, UserProfile } from './types';
-import { supabaseService } from './lib/supabaseClient';
+import { firebaseService } from './lib/firebaseClient';
 import { vocabService } from './lib/vocabularyStore';
 
 // Auth Gatekeeper
@@ -18,7 +18,6 @@ import { SettingsView } from './components/workspace/SettingsView';
 import { AddWordModal } from './components/workspace/AddWordModal';
 import { ExportImportModal } from './components/workspace/ExportImportModal';
 import { EditProfileModal } from './components/workspace/EditProfileModal';
-import { SupabaseConfigModal } from './components/supabase/SupabaseConfigModal';
 
 export default function App() {
   // Always start unauthenticated on app launch so login is always shown first
@@ -45,7 +44,6 @@ export default function App() {
   const [editingWord, setEditingWord] = useState<WordItem | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
 
   // Left sidebar collapsed state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
@@ -74,8 +72,8 @@ export default function App() {
       setCategories(vocabService.getCategories());
     });
 
-    const unsubAuth = supabaseService.subscribe(() => {
-      setCurrentUser(supabaseService.getCurrentUser());
+    const unsubAuth = firebaseService.subscribe(() => {
+      setCurrentUser(firebaseService.getCurrentUser());
     });
 
     const handleOpenEdit = () => setIsEditProfileOpen(true);
@@ -117,7 +115,7 @@ export default function App() {
 
   // Auth logout handler
   const handleLogout = async () => {
-    await supabaseService.signOut();
+    await firebaseService.signOut();
     setIsAuthenticated(false);
     setCurrentUser(null);
     setActiveTab('vocabulary');
@@ -170,7 +168,7 @@ export default function App() {
       <LoginView
         onSuccess={() => {
           setIsAuthenticated(true);
-          setCurrentUser(supabaseService.getCurrentUser());
+          setCurrentUser(firebaseService.getCurrentUser());
           setActiveTab('vocabulary');
         }}
       />
@@ -265,7 +263,6 @@ export default function App() {
             <SettingsView
               currentUser={currentUser}
               onLogout={handleLogout}
-              onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
             />
           )}
         </main>
@@ -360,12 +357,6 @@ export default function App() {
         onClose={() => setIsExportModalOpen(false)}
         words={words}
         onImportWords={handleImportWords}
-      />
-
-      {/* Supabase Connection Modal */}
-      <SupabaseConfigModal
-        isOpen={isSupabaseModalOpen}
-        onClose={() => setIsSupabaseModalOpen(false)}
       />
 
       {/* Edit Profile Modal */}

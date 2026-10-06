@@ -1,4 +1,5 @@
 import { WordItem, CategoryItem, WordStatus } from '../types';
+import { firebaseService } from './firebaseClient';
 
 const STORAGE_KEY_WORDS = 'pronounceit_vocab_words_v1';
 const STORAGE_KEY_AUDIO_SETTINGS = 'pronounceit_audio_settings';
@@ -343,6 +344,34 @@ class VocabularyService {
 
   constructor() {
     this.loadInitialData();
+    this.initCloudSync();
+  }
+
+  private initCloudSync() {
+    this.syncWithCloud();
+    firebaseService.subscribe(() => {
+      this.syncWithCloud();
+    });
+  }
+
+  public async syncWithCloud(): Promise<void> {
+    if (firebaseService.isFirebaseConnected()) {
+      try {
+        const remoteWords = await firebaseService.fetchWords();
+        if (remoteWords !== null && remoteWords.length > 0) {
+          // Utilizar estrictamente lo que hay almacenado en Firebase
+          this.words = remoteWords;
+          this.saveWords();
+          this.notify();
+          return;
+        } else if (remoteWords !== null && remoteWords.length === 0 && this.words.length > 0) {
+          // Si Firestore está vacío, subimos las palabras a Firebase para poblar la base de datos
+          await firebaseService.syncAllWords(this.words);
+        }
+      } catch (e) {
+        console.warn('Error syncing words with Firebase:', e);
+      }
+    }
   }
 
   private loadInitialData() {
@@ -463,6 +492,10 @@ class VocabularyService {
     };
     this.words.unshift(newWord);
     this.saveWords();
+
+    if (firebaseService.isFirebaseConnected()) {
+      firebaseService.upsertWord(newWord).catch((e) => console.warn('Firebase upsertWord error', e));
+    }
     return newWord;
   }
 
@@ -471,12 +504,21 @@ class VocabularyService {
     if (index === -1) return null;
     this.words[index] = { ...this.words[index], ...updates };
     this.saveWords();
-    return this.words[index];
+
+    const updated = this.words[index];
+    if (firebaseService.isFirebaseConnected()) {
+      firebaseService.upsertWord(updated).catch((e) => console.warn('Firebase updateWord error', e));
+    }
+    return updated;
   }
 
   public deleteWord(id: string) {
     this.words = this.words.filter((w) => w.id !== id);
     this.saveWords();
+
+    if (firebaseService.isFirebaseConnected()) {
+      firebaseService.deleteWord(id).catch((e) => console.warn('Firebase deleteWord error', e));
+    }
   }
 
   public toggleFavorite(id: string) {
@@ -484,6 +526,10 @@ class VocabularyService {
     if (word) {
       word.isFavorite = !word.isFavorite;
       this.saveWords();
+
+      if (firebaseService.isFirebaseConnected()) {
+        firebaseService.upsertWord(word).catch((e) => console.warn('Firebase toggleFavorite error', e));
+      }
     }
   }
 
@@ -493,12 +539,39 @@ class VocabularyService {
       word.status = status;
       word.lastReviewedAt = new Date().toISOString();
       this.saveWords();
+
+      if (firebaseService.isFirebaseConnected()) {
+        firebaseService.upsertWord(word).catch((e) => console.warn('Firebase updateStatus error', e));
+      }
     }
   }
 
   public resetToDefault() {
     this.words = [...INITIAL_WORDS];
     this.saveWords();
+
+    if (firebaseService.isFirebaseConnected()) {
+      firebaseService.syncAllWords(this.words).catch((e) => console.warn('Firebase reset sync error', e));
+    }
+  }
+
+  public async pushAllWordsToFirebase(): Promise<{ success: boolean; count: number; message: string }> {
+    if (!firebaseService.isFirebaseConnected()) {
+      return { success: false, count: 0, message: 'Firebase no está conectado aún.' };
+    }
+    try {
+      const ok = await firebaseService.syncAllWords(this.words);
+      if (ok) {
+        return {
+          success: true,
+          count: this.words.length,
+          message: `¡${this.words.length} palabras sincronizadas con éxito en Firestore!`,
+        };
+      }
+      return { success: false, count: 0, message: 'No se pudo completar la sincronización en Firestore.' };
+    } catch (err: any) {
+      return { success: false, count: 0, message: err?.message || 'Error al sincronizar con Firebase.' };
+    }
   }
 
   // Audio / Speech Synthesis

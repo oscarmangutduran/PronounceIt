@@ -10,7 +10,6 @@ import { vocabService, AudioSettings } from '../../lib/vocabularyStore';
 interface SettingsViewProps {
   currentUser: UserProfile | null;
   onLogout: () => void;
-  onOpenSupabaseModal?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({

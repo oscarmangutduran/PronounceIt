@@ -1,6 +1,6 @@
 {
-  "name": "Supabase Mobile Hub - React Native App",
-  "description": "Aplicación móvil React Native con autenticación Supabase, sincronización de base de datos en tiempo real, pantallas interactivas y código exportable.",
+  "name": "PronounceIt - Aprende pronunciación en inglés",
+  "description": "Aplicación web para aprender pronunciación, vocabulario y verbos irregulares en inglés con audio nativo y sincronización con Google Firebase.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

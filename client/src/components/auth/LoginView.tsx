@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, User, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowLeft, KeyRound, ShieldAlert } from 'lucide-react';
-import { supabaseService, WelcomeEmailNotice } from '../../lib/supabaseClient';
+import { firebaseService, WelcomeEmailNotice } from '../../lib/firebaseClient';
 
 interface LoginViewProps {
   onSuccess: () => void;
@@ -44,7 +44,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
         return;
       }
       setLoading(true);
-      const res = await supabaseService.resetPassword(email);
+      const res = await firebaseService.resetPassword(email);
       setLoading(false);
       if (res.success) {
         setSuccess(res.message || 'Instrucciones enviadas con éxito.');
@@ -70,7 +70,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
       }
 
       setLoading(true);
-      const res = await supabaseService.updateInitialPassword(email, newPassword);
+      const res = await firebaseService.updateInitialPassword(email, newPassword);
       setLoading(false);
 
       if (res.success) {
@@ -100,7 +100,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
       }
 
       setLoading(true);
-      const res = await supabaseService.signUpWithStandardPassword(email, username);
+      const res = await firebaseService.signUpWithStandardPassword(email, username);
       setLoading(false);
 
       if (res.success && res.emailNotice) {
@@ -130,7 +130,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
     }
 
     setLoading(true);
-    const res = await supabaseService.signIn(email, password);
+    const res = await firebaseService.signIn(email, password);
     setLoading(false);
 
     if (res.success) {

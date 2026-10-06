@@ -13,7 +13,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { UserProfile } from '../../types';
-import { supabaseService } from '../../lib/supabaseClient';
+import { firebaseService } from '../../lib/firebaseClient';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -161,7 +161,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
     setLoading(true);
     try {
-      const res = await supabaseService.updateUserProfile({
+      const res = await firebaseService.updateUserProfile({
         fullName: fullName.trim(),
         username: username.trim(),
         email: email.trim(),
