@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <!-- Background dark velvet gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1d1330"/>
+      <stop offset="50%" stop-color="#120c1e"/>
+      <stop offset="100%" stop-color="#0a0612"/>
+    </linearGradient>
+
+    <!-- Subtle border highlight with neon glow -->
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff4d6d" stop-opacity="0.85"/>
+      <stop offset="50%" stop-color="#a855f7" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#e62e4c" stop-opacity="0.25"/>
+    </linearGradient>
+
+    <!-- Ambient glow behind the letter -->
+    <radialGradient id="ambientGlow" cx="45%" cy="38%" r="52%">
+      <stop offset="0%" stop-color="#e62e4c" stop-opacity="0.45"/>
+      <stop offset="65%" stop-color="#9333ea" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Main Letter P gradient -->
+    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="35%" stop-color="#ff5470"/>
+      <stop offset="100%" stop-color="#e62e4c"/>
+    </linearGradient>
+
+    <!-- Sound waves gradient -->
+    <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff758c"/>
+      <stop offset="100%" stop-color="#c084fc"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Container Squircle with subtle border -->
+  <rect width="64" height="64" rx="16" fill="url(#bgGrad)"/>
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="15.25" fill="none" stroke="url(#borderGrad)" stroke-width="1.5"/>
+  <circle cx="28" cy="26" r="22" fill="url(#ambientGlow)"/>
+
+  <!-- Stylized 'P' -->
+  <!-- Stem -->
+  <rect x="14" y="14" width="7" height="36" rx="3.5" fill="url(#primaryGrad)"/>
+
+  <!-- Loop of the 'P' -->
+  <path d="M 17.5 14 H 28 C 35.5 14 39.5 18 39.5 24.5 C 39.5 31 35.5 35 28 35 H 17.5 Z" fill="url(#primaryGrad)"/>
+  <!-- Hollow inner loop -->
+  <path d="M 21 20 H 27.5 C 31.5 20 33 21.8 33 24.5 C 33 27.2 31.5 29 27.5 29 H 21 Z" fill="#140d23"/>
+
+  <!-- Sound Waves emanating from the 'P' (Phonetics & Pronunciation) -->
+  <!-- Inner Wave -->
+  <path d="M 43 18.5 C 46.5 22 46.5 27 43 30.5" fill="none" stroke="url(#waveGrad)" stroke-width="3" stroke-linecap="round"/>
+  <!-- Outer Wave -->
+  <path d="M 49.5 14 C 55 19.5 55 29.5 49.5 35" fill="none" stroke="url(#waveGrad)" stroke-width="3" stroke-linecap="round" opacity="0.95"/>
+</svg>
