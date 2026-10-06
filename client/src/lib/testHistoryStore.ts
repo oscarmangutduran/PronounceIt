@@ -18,141 +18,9 @@ export interface StoredTestItem {
   irregularVerbQuestions?: VerbQuestionEvaluation[];
 }
 
-const STORAGE_KEY_TEST_HISTORY = 'pronounceit_test_history_v1';
+const STORAGE_KEY_TEST_HISTORY = 'pronounceit_test_history_v2';
 
-const INITIAL_TEST_HISTORY: StoredTestItem[] = [
-  {
-    id: 'test-demo-1',
-    type: 'irregular_verbs',
-    title: 'Test de Verbos Irregulares',
-    level: 'Básico (A1-A2)',
-    scoreOutOfTen: 9.5,
-    percentage: 95,
-    gradeLabel: 'Sobresaliente 🏆',
-    totalQuestions: 10,
-    correctCount: 9,
-    completedAt: 'Hoy, 08:30',
-    timestamp: Date.now() - 1000 * 60 * 25,
-    irregularVerbQuestions: [
-      {
-        verb: {
-          id: 'iv-be',
-          infinitive: 'be',
-          pastSimple: 'was / were',
-          pastParticiple: 'been',
-          translation: 'Ser / Estar',
-          level: 'A1',
-        },
-        userPastSimple: 'was',
-        userPastParticiple: 'been',
-        isPastSimpleCorrect: true,
-        isPastParticipleCorrect: true,
-        isPastSimpleTypo: false,
-        isPastParticipleTypo: false,
-        score: 10,
-      },
-      {
-        verb: {
-          id: 'iv-break',
-          infinitive: 'break',
-          pastSimple: 'broke',
-          pastParticiple: 'broken',
-          translation: 'Romper',
-          level: 'A2',
-        },
-        userPastSimple: 'broke',
-        userPastParticiple: 'broken',
-        isPastSimpleCorrect: true,
-        isPastParticipleCorrect: true,
-        isPastSimpleTypo: false,
-        isPastParticipleTypo: false,
-        score: 10,
-      },
-      {
-        verb: {
-          id: 'iv-drive',
-          infinitive: 'drive',
-          pastSimple: 'drove',
-          pastParticiple: 'driven',
-          translation: 'Conducir',
-          level: 'A2',
-        },
-        userPastSimple: 'drove',
-        userPastParticiple: 'driven',
-        isPastSimpleCorrect: true,
-        isPastParticipleCorrect: true,
-        isPastSimpleTypo: false,
-        isPastParticipleTypo: false,
-        score: 10,
-      },
-    ],
-  },
-  {
-    id: 'test-demo-2',
-    type: 'vocabulary',
-    title: 'Test de Vocabulario y Oraciones',
-    level: 'Nivel B2',
-    scoreOutOfTen: 8.8,
-    percentage: 88,
-    gradeLabel: 'Notable 🌟',
-    totalQuestions: 5,
-    correctCount: 4,
-    completedAt: 'Ayer, 18:45',
-    timestamp: Date.now() - 1000 * 60 * 60 * 24,
-    vocabularyQuestions: [
-      {
-        wordItem: {
-          id: 'w-1',
-          word: 'Breakthrough',
-          partOfSpeech: 'noun/verb',
-          level: 'B2',
-          ipa: "/ˈbreɪk.θruː/",
-          phoneticGuide: 'breik-zru',
-          translation: 'Avance decisivo',
-          exampleEn: 'We achieved a major breakthrough in negotiations.',
-          exampleEs: 'Logramos un avance decisivo en las negociaciones.',
-          status: 'dominada',
-          isFavorite: true,
-          categoryGroup: 'Negocios & Trabajo',
-          categorySub: 'Reuniones & Negociación',
-        },
-        userWord: 'Breakthrough',
-        userSentence: 'The scientists made an important breakthrough this week.',
-        isWordCorrect: true,
-        isSentenceValid: true,
-        wordScore: 5,
-        sentenceScore: 5,
-        totalQuestionScore: 10,
-        feedback: '¡Perfecto! Palabra exacta y oración contextual válida.',
-      },
-      {
-        wordItem: {
-          id: 'w-2',
-          word: 'Leverage',
-          partOfSpeech: 'verb / noun',
-          level: 'C1',
-          ipa: "/ˈlev.ər.ɪdʒ/",
-          phoneticGuide: 'lév-ridy',
-          translation: 'Aprovechar, sacar ventaja',
-          exampleEn: 'We need to leverage our market reputation.',
-          exampleEs: 'Necesitamos aprovechar nuestra reputación.',
-          status: 'en_repaso',
-          isFavorite: true,
-          categoryGroup: 'Negocios & Trabajo',
-          categorySub: 'Finanzas & Métricas',
-        },
-        userWord: 'Leverage',
-        userSentence: 'We can leverage new technology to improve results.',
-        isWordCorrect: true,
-        isSentenceValid: true,
-        wordScore: 5,
-        sentenceScore: 5,
-        totalQuestionScore: 10,
-        feedback: '¡Excelente formulación!',
-      },
-    ],
-  },
-];
+export const INITIAL_TEST_HISTORY: StoredTestItem[] = [];
 
 class TestHistoryService {
   private history: StoredTestItem[] = [];
@@ -187,6 +55,7 @@ class TestHistoryService {
   }
 
   private loadHistory() {
+    try { localStorage.removeItem('pronounceit_test_history_v1'); } catch {}
     try {
       const stored = localStorage.getItem(STORAGE_KEY_TEST_HISTORY);
       if (stored) {

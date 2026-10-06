@@ -27,8 +27,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Logro importante, hito trascendental',
     exampleEn: 'We achieved a major breakthrough in the contract negotiations.',
     exampleEs: 'Logramos un avance decisivo en las negociaciones del contrato.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   stakeholder: {
     partOfSpeech: 'noun',
@@ -40,8 +40,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Persona o grupo con interés legítimo en un proyecto o empresa',
     exampleEn: 'We must communicate project updates to every key stakeholder.',
     exampleEs: 'Debemos comunicar las actualizaciones del proyecto a cada parte interesada clave.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   deadline: {
     partOfSpeech: 'noun',
@@ -53,8 +53,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Momento máximo fijado para entregar un trabajo o tarea',
     exampleEn: 'The team worked overtime to meet the tight project deadline.',
     exampleEs: 'El equipo trabajó horas extras para cumplir con el ajustado plazo del proyecto.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   resilience: {
     partOfSpeech: 'noun',
@@ -66,8 +66,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Capacidad de sobreponerse a situaciones adversas y salir fortalecido',
     exampleEn: 'Economic resilience has allowed the company to survive market shocks.',
     exampleEs: 'La resiliencia económica le ha permitido a la empresa sobrevivir a los golpes del mercado.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Finanzas & Métricas',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   leverage: {
     partOfSpeech: 'verb / noun',
@@ -79,8 +79,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Apalancamiento estratégico o maximización de recursos',
     exampleEn: 'We need to leverage our market reputation during talks.',
     exampleEs: 'Necesitamos aprovechar nuestra reputación de mercado durante las conversaciones.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   insight: {
     partOfSpeech: 'noun',
@@ -92,8 +92,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Comprensión clara y reveladora sobre un asunto complejo',
     exampleEn: 'Her research provides valuable insights into customer purchasing habits.',
     exampleEs: 'Su investigación aporta valiosas perspectivas sobre los hábitos de compra del cliente.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   reluctant: {
     partOfSpeech: 'adjective',
@@ -105,8 +105,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Poco dispuesto a hacer algo o que muestra resistencia',
     exampleEn: 'Management was reluctant to make major changes before quarterly results.',
     exampleEs: 'La dirección era reacia a realizar cambios importantes antes de los resultados trimestrales.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   overcome: {
     partOfSpeech: 'verb',
@@ -118,8 +118,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Lograr sobrepasar una dificultad o impedimento',
     exampleEn: 'She managed to overcome all technical hurdles through hard work.',
     exampleEs: 'Consiguió superar todos los obstáculos técnicos gracias a su trabajo duro.',
-    categoryGroup: 'Vida Diaria & Hogar',
-    categorySub: 'Rutinas & Quehaceres',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   schedule: {
     partOfSpeech: 'noun / verb',
@@ -131,8 +131,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Lista o plan de actividades con sus horas asignadas',
     exampleEn: 'We must verify the project schedule before confirming the release.',
     exampleEs: 'Debemos verificar el cronograma del proyecto antes de confirmar el lanzamiento.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   feedback: {
     partOfSpeech: 'noun',
@@ -144,8 +144,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Comentarios u observaciones sobre el rendimiento o trabajo',
     exampleEn: 'Positive customer feedback motivated our development team.',
     exampleEs: 'El feedback positivo de los clientes motivó a nuestro equipo de desarrollo.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Correspondencia & Email',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   challenge: {
     partOfSpeech: 'noun / verb',
@@ -157,8 +157,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Situación difícil que pone a prueba las capacidades',
     exampleEn: 'Mastering English pronunciation is an exciting challenge for students.',
     exampleEs: 'Dominar la pronunciación en inglés es un desafío emocionante para los estudiantes.',
-    categoryGroup: 'Vida Diaria & Hogar',
-    categorySub: 'Rutinas & Quehaceres',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   skill: {
     partOfSpeech: 'noun',
@@ -170,8 +170,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Capacidad adquirida mediante la práctica o el estudio',
     exampleEn: 'Daily speaking practice will enhance your conversational skill.',
     exampleEs: 'La práctica oral diaria mejorará tu habilidad conversacional.',
-    categoryGroup: 'Vida Diaria & Hogar',
-    categorySub: 'Rutinas & Quehaceres',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   target: {
     partOfSpeech: 'noun / verb',
@@ -183,8 +183,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Resultado específico que se pretende alcanzar',
     exampleEn: 'Our main sales target for this quarter is ten thousand active users.',
     exampleEs: 'Nuestro principal objetivo de ventas para este trimestre son diez mil usuarios activos.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Finanzas & Métricas',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   achieve: {
     partOfSpeech: 'verb',
@@ -196,8 +196,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Conseguir un resultado deseado mediante esfuerzo',
     exampleEn: 'With consistent practice, you will achieve complete fluency.',
     exampleEs: 'Con práctica constante, lograrás una fluidez completa.',
-    categoryGroup: 'Vida Diaria & Hogar',
-    categorySub: 'Rutinas & Quehaceres',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   improve: {
     partOfSpeech: 'verb',
@@ -209,8 +209,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Hacer que algo sea superior o más eficaz',
     exampleEn: 'This mobile simulator will help you improve your pronunciation.',
     exampleEs: 'Este simulador móvil te ayudará a mejorar tu pronunciación.',
-    categoryGroup: 'Vida Diaria & Hogar',
-    categorySub: 'Rutinas & Quehaceres',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   forecast: {
     partOfSpeech: 'noun / verb',
@@ -222,8 +222,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Estimación o cálculo anticipado del futuro',
     exampleEn: 'The quarterly sales forecast indicates strong revenue growth.',
     exampleEs: 'La previsión de ventas trimestral indica un fuerte crecimiento de los ingresos.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Finanzas & Métricas',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   bottleneck: {
     partOfSpeech: 'noun',
@@ -235,8 +235,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Fase o elemento que retrasa y limita la velocidad de todo un proceso',
     exampleEn: 'Quality assurance became the primary bottleneck in the release cycle.',
     exampleEs: 'El control de calidad se convirtió en el principal cuello de botella del ciclo de lanzamiento.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   streamline: {
     partOfSpeech: 'verb',
@@ -248,8 +248,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Mejorar la eficiencia de un sistema eliminando redundancias',
     exampleEn: 'We adopted new software to streamline invoicing and customer onboarding.',
     exampleEs: 'Adoptamos un nuevo software para agilizar la facturación y la incorporación de clientes.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Finanzas & Métricas',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   feasible: {
     partOfSpeech: 'adjective',
@@ -261,8 +261,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Que se puede llevar a cabo con éxito',
     exampleEn: 'We need to evaluate if this expansion plan is financially feasible.',
     exampleEs: 'Necesitamos evaluar si este plan de expansión es financieramente viable.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   consensus: {
     partOfSpeech: 'noun',
@@ -274,8 +274,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Opinión unánime o ampliamente compartida por un grupo',
     exampleEn: 'The committee finally reached a consensus on the marketing budget.',
     exampleEs: 'El comité finalmente alcanzó un consenso sobre el presupuesto de marketing.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   compromise: {
     partOfSpeech: 'noun / verb',
@@ -287,8 +287,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Concesión mutua para resolver diferencias',
     exampleEn: 'Both parties had to compromise to finalize the joint venture.',
     exampleEs: 'Ambas partes tuvieron que ceder para finalizar la empresa conjunta.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   deadlock: {
     partOfSpeech: 'noun',
@@ -300,8 +300,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Situación en la que no se puede avanzar debido a posturas irreconciliables',
     exampleEn: 'The dispute reached a deadlock after hours of futile debate.',
     exampleEs: 'La disputa llegó a un punto muerto tras horas de debate infructuoso.',
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
   cozy: {
     partOfSpeech: 'adjective',
@@ -313,8 +313,8 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
     definition: 'Lugar agradable, cálido y reconfortante',
     exampleEn: 'We spent the rainy afternoon in a cozy coffee shop.',
     exampleEs: 'Pasamos la tarde lluviosa en una cafetería muy acogedora.',
-    categoryGroup: 'Vida Diaria & Hogar',
-    categorySub: 'Rutinas & Quehaceres',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   },
 };
 
@@ -422,8 +422,8 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
       definition: data.definition || '',
       exampleEn: exEn,
       exampleEs: exEs,
-      categoryGroup: data.categoryGroup || 'Negocios & Trabajo',
-      categorySub: data.categorySub || 'Reuniones & Negociación',
+      categoryGroup: data.categoryGroup || 'Grammar',
+      categorySub: data.categorySub || 'General',
     };
   }
 
@@ -535,7 +535,7 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
     definition: foundDef || `Término utilizado como ${foundPos} en inglés`,
     exampleEn: finalExEn,
     exampleEs: finalExEs,
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
+    categoryGroup: 'Grammar',
+    categorySub: 'General',
   };
 }

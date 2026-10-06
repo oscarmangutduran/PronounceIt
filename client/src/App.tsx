@@ -31,9 +31,7 @@ export default function App() {
   const [words, setWords] = useState<WordItem[]>([]);
   const [categories, setCategories] = useState(vocabService.getCategories());
   const [selectedFilter, setSelectedFilter] = useState<SelectedFilter>({
-    type: 'category',
-    group: 'Negocios & Trabajo',
-    sub: 'Reuniones & Negociación',
+    type: 'all',
   });
 
   // Global search input

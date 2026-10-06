@@ -3,6 +3,7 @@ import {
   Folder,
   Plus,
   BookOpen,
+  FileText,
   Star,
   Clock,
   Briefcase,
@@ -51,7 +52,8 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
   onToggleCollapse,
 }) => {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    'Negocios & Trabajo': true,
+    Grammar: true,
+    Readings: true,
   });
 
   const toggleGroup = (name: string) => {
@@ -59,10 +61,10 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
   };
 
   const getCategoryIcon = (name: string) => {
-    if (name.includes('Negocios')) return <Briefcase size={15} className="text-[#ff4d6d]" />;
-    if (name.includes('Vida')) return <Home size={15} className="text-sky-400" />;
-    if (name.includes('Viajes')) return <Plane size={15} className="text-emerald-400" />;
-    return <MessageSquare size={15} className="text-amber-400" />;
+    const lower = name.toLowerCase();
+    if (lower.includes('grammar')) return <BookOpen size={15} className="text-[#ff4d6d]" />;
+    if (lower.includes('reading')) return <FileText size={15} className="text-sky-400" />;
+    return <Folder size={15} className="text-amber-400" />;
   };
 
   const isSubActive = (group: string, sub: string) => {

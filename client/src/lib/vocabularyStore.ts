@@ -1,7 +1,7 @@
 import { WordItem, CategoryItem, WordStatus } from '../types';
 import { firebaseService } from './firebaseClient';
 
-const STORAGE_KEY_WORDS = 'pronounceit_vocab_words_v1';
+const STORAGE_KEY_WORDS = 'pronounceit_vocab_words_v2';
 const STORAGE_KEY_AUDIO_SETTINGS = 'pronounceit_audio_settings';
 
 export interface AudioSettings {
@@ -12,326 +12,24 @@ export interface AudioSettings {
 
 export const INITIAL_CATEGORIES: CategoryItem[] = [
   {
-    id: 'business',
-    name: 'Negocios & Trabajo',
-    icon: 'Briefcase',
-    count: 48,
-    subcategories: [
-      { id: 'meetings', name: 'Reuniones & Negociación', count: 18 },
-      { id: 'finance', name: 'Finanzas & Métricas', count: 14 },
-      { id: 'email', name: 'Correspondencia & Email', count: 16 },
-    ],
+    id: 'grammar',
+    name: 'Grammar',
+    icon: 'BookOpen',
+    count: 0,
+    subcategories: [],
   },
   {
-    id: 'daily',
-    name: 'Vida Diaria & Hogar',
-    icon: 'Home',
-    count: 35,
+    id: 'readings',
+    name: 'Readings',
+    icon: 'FileText',
+    count: 0,
     subcategories: [
-      { id: 'home_routine', name: 'Rutinas & Quehaceres', count: 18 },
-      { id: 'cooking', name: 'Cocina & Alimentos', count: 17 },
-    ],
-  },
-  {
-    id: 'travel',
-    name: 'Viajes & Transporte',
-    icon: 'Plane',
-    count: 32,
-    subcategories: [
-      { id: 'airport', name: 'Aeropuerto & Vuelos', count: 16 },
-      { id: 'hotel', name: 'Hotel & Estancias', count: 16 },
-    ],
-  },
-  {
-    id: 'idioms',
-    name: 'Expresiones & Idioms',
-    icon: 'MessageSquare',
-    count: 27,
-    subcategories: [
-      { id: 'common_idioms', name: 'Modismos habituales', count: 15 },
-      { id: 'phrasal_verbs', name: 'Phrasal Verbs Clave', count: 12 },
+      { id: 'the-little-prince', name: 'The little Prince', count: 0 },
     ],
   },
 ];
 
-export const INITIAL_WORDS: WordItem[] = [
-  {
-    id: 'w-1',
-    word: 'Breakthrough',
-    partOfSpeech: 'noun/verb',
-    level: 'B2',
-    ipa: '/ˈbreɪk.θruː/',
-    phoneticGuide: '"breik-zru"',
-    phoneticNote: 'Acento: Sílaba 1 (θ fricativa)',
-    translation: 'Avance decisivo',
-    definition: 'Logro importante, hito trascendental',
-    exampleEn: 'We achieved a major breakthrough in the contract negotiations.',
-    exampleEs: 'Logramos un avance decisivo en las negociaciones del contrato.',
-    highlightWord: 'breakthrough',
-    status: 'dominada',
-    isFavorite: true,
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
-  },
-  {
-    id: 'w-2',
-    word: 'Reach an agreement',
-    partOfSpeech: 'idiom / collocation',
-    level: 'B1',
-    ipa: '/riːtʃ ən əˈɡriːmənt/',
-    phoneticGuide: '"riich an agri-ment"',
-    phoneticNote: 'Enlace fonético: /tʃən/',
-    translation: 'Llegar a un acuerdo',
-    definition: 'Pactar, resolver de mutuo acuerdo',
-    exampleEn: 'Both teams worked late to reach an agreement before the deadline.',
-    exampleEs: 'Ambos equipos trabajaron hasta tarde para llegar a un acuerdo antes de la fecha límite.',
-    highlightWord: 'reach an agreement',
-    status: 'en_repaso',
-    isFavorite: false,
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
-  },
-  {
-    id: 'w-3',
-    word: 'Concur',
-    partOfSpeech: 'verb',
-    level: 'C1',
-    ipa: '/kənˈkɜːr/',
-    phoneticGuide: '"kon-kóor"',
-    phoneticNote: 'Registro: Formal / Jurídico',
-    translation: 'Coincidir',
-    definition: 'Estar de acuerdo formalmente, asentir',
-    exampleEn: "I concur with the board's proposed timeline for Q3.",
-    exampleEs: 'Coincido con el cronograma propuesto por la junta para el tercer trimestre.',
-    highlightWord: 'concur',
-    status: 'nueva',
-    isFavorite: false,
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
-  },
-  {
-    id: 'w-4',
-    word: 'Counteroffer',
-    partOfSpeech: 'noun',
-    level: 'B2',
-    ipa: '/ˈkaʊn.tərˌɔf.ər/',
-    phoneticGuide: '"kaun-ter-ófer"',
-    phoneticNote: 'Acento tónico secundario en /ɒf/',
-    translation: 'Contraoferta',
-    definition: 'Propuesta alternativa de negociación',
-    exampleEn: 'They rejected the initial proposal and sent a reasonable counteroffer.',
-    exampleEs: 'Rechazaron la propuesta inicial y enviaron una contraoferta razonable.',
-    highlightWord: 'counteroffer',
-    status: 'en_repaso',
-    isFavorite: true,
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
-  },
-  {
-    id: 'w-5',
-    word: 'Call it a day',
-    partOfSpeech: 'idiom',
-    level: 'B2',
-    ipa: '/kɔːl ɪt ə deɪ/',
-    phoneticGuide: '"kol it a dei"',
-    phoneticNote: 'Flapping en inglés americano',
-    translation: 'Dar el día por terminado',
-    definition: 'Suspender la jornada, levantar sesión',
-    exampleEn: "We've covered all agenda items, let's call it a day.",
-    exampleEs: 'Hemos cubierto todos los puntos de la agenda, demos el día por terminado.',
-    highlightWord: 'call it a day',
-    status: 'dominada',
-    isFavorite: false,
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
-  },
-  {
-    id: 'w-6',
-    word: 'Leverage',
-    partOfSpeech: 'verb / noun',
-    level: 'C1',
-    ipa: '/ˈlev.ər.ɪdʒ/',
-    phoneticGuide: '"lév-ridy"',
-    phoneticNote: 'UK alternativa: /ˈliː.vər.ɪdʒ/',
-    translation: 'Aprovechar, sacar ventaja',
-    definition: 'Apalancamiento estratégico',
-    exampleEn: 'We need to leverage our market reputation during talks.',
-    exampleEs: 'Necesitamos aprovechar nuestra reputación de mercado durante las conversaciones.',
-    highlightWord: 'leverage',
-    status: 'en_repaso',
-    isFavorite: true,
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
-  },
-  // Additional words in Reuniones & Negociación
-  {
-    id: 'w-7',
-    word: 'Deadlock',
-    partOfSpeech: 'noun',
-    level: 'C1',
-    ipa: '/ˈded.lɒk/',
-    phoneticGuide: '"ded-lok"',
-    phoneticNote: 'Oclusiva sorda final /k/',
-    translation: 'Punto muerto, estancamiento',
-    definition: 'Situación en la que no se puede avanzar',
-    exampleEn: 'The dispute reached a deadlock after hours of futile debate.',
-    exampleEs: 'La disputa llegó a un punto muerto tras horas de debate infructuoso.',
-    highlightWord: 'deadlock',
-    status: 'en_repaso',
-    isFavorite: false,
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
-  },
-  {
-    id: 'w-8',
-    word: 'Compromise',
-    partOfSpeech: 'noun / verb',
-    level: 'B1',
-    ipa: '/ˈkɒm.prə.maɪz/',
-    phoneticGuide: '"kom-pro-mais"',
-    phoneticNote: 'Diptongo /aɪ/ en la última sílaba',
-    translation: 'Llegar a un término medio, acuerdo mutuo',
-    definition: 'Concesión mutua para resolver diferencias',
-    exampleEn: 'Both parties had to compromise to finalize the joint venture.',
-    exampleEs: 'Ambas partes tuvieron que ceder para finalizar la empresa conjunta.',
-    highlightWord: 'compromise',
-    status: 'dominada',
-    isFavorite: true,
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
-  },
-  {
-    id: 'w-9',
-    word: 'Consensus',
-    partOfSpeech: 'noun',
-    level: 'B2',
-    ipa: '/kənˈsen.səs/',
-    phoneticGuide: '"kon-sén-ses"',
-    phoneticNote: 'Schwa átona en primera y última sílaba',
-    translation: 'Consenso, acuerdo general',
-    definition: 'Opinión unánime o ampliamente compartida',
-    exampleEn: 'The committee finally reached a consensus on the marketing budget.',
-    exampleEs: 'El comité finalmente alcanzó un consenso sobre el presupuesto de marketing.',
-    highlightWord: 'consensus',
-    status: 'dominada',
-    isFavorite: false,
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
-  },
-  {
-    id: 'w-10',
-    word: 'Feasible',
-    partOfSpeech: 'adjective',
-    level: 'B2',
-    ipa: '/ˈfiː.zə.bəl/',
-    phoneticGuide: '"fii-zi-bl"',
-    phoneticNote: 'Sonido /z/ intervocálico sonoro',
-    translation: 'Viable, factible',
-    definition: 'Que se puede llevar a cabo con éxito',
-    exampleEn: 'We need to evaluate if this expansion plan is financially feasible.',
-    exampleEs: 'Necesitamos evaluar si este plan de expansión es financieramente viable.',
-    highlightWord: 'feasible',
-    status: 'en_repaso',
-    isFavorite: true,
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Reuniones & Negociación',
-  },
-  // Finanzas & Métricas
-  {
-    id: 'w-11',
-    word: 'Bottom line',
-    partOfSpeech: 'noun / idiom',
-    level: 'B2',
-    ipa: '/ˌbɒt.əm ˈlaɪn/',
-    phoneticGuide: '"bot-om lain"',
-    phoneticNote: 'Acento en la segunda palabra',
-    translation: 'Resultado neto / Lo fundamental',
-    definition: 'Beneficio neto o aspecto crucial final',
-    exampleEn: 'Rising inflation heavily impacted our bottom line this quarter.',
-    exampleEs: 'El aumento de la inflación afectó gravemente a nuestro resultado neto este trimestre.',
-    highlightWord: 'bottom line',
-    status: 'dominada',
-    isFavorite: false,
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Finanzas & Métricas',
-  },
-  // Correspondencia & Email
-  {
-    id: 'w-12',
-    word: 'Touch base',
-    partOfSpeech: 'idiom',
-    level: 'B2',
-    ipa: '/tʌtʃ beɪs/',
-    phoneticGuide: '"tatch beis"',
-    phoneticNote: 'Coloquial empresarial en Norteamérica',
-    translation: 'Ponerse en contacto brevemente',
-    definition: 'Comunicarse para actualizar el estado',
-    exampleEn: "Let's touch base next Monday to review the deliverables.",
-    exampleEs: 'Pongámonos en contacto el próximo lunes para revisar los entregables.',
-    highlightWord: 'touch base',
-    status: 'nueva',
-    isFavorite: true,
-    categoryGroup: 'Negocios & Trabajo',
-    categorySub: 'Correspondencia & Email',
-  },
-  // Vida Diaria
-  {
-    id: 'w-13',
-    word: 'Run errands',
-    partOfSpeech: 'collocation',
-    level: 'B1',
-    ipa: '/rʌn ˈer.əndz/',
-    phoneticGuide: '"ran ér-andz"',
-    phoneticNote: 'Plural sonoro /dz/',
-    translation: 'Hacer recados / trámites',
-    definition: 'Salidas breves para compras o tareas cotidianas',
-    exampleEn: 'I need to run a few errands before the supermarket closes.',
-    exampleEs: 'Tengo que hacer unos recados antes de que cierre el supermercado.',
-    highlightWord: 'run errands',
-    status: 'dominada',
-    isFavorite: false,
-    categoryGroup: 'Vida Diaria & Hogar',
-    categorySub: 'Rutinas & Quehaceres',
-  },
-  // Viajes
-  {
-    id: 'w-14',
-    word: 'Layover',
-    partOfSpeech: 'noun',
-    level: 'B1',
-    ipa: '/ˈleɪˌoʊ.vər/',
-    phoneticGuide: '"lei-ou-ver"',
-    phoneticNote: 'Acento primario en la primera sílaba',
-    translation: 'Escala (de vuelo)',
-    definition: 'Parada temporal entre dos tramos de viaje',
-    exampleEn: 'We had a four-hour layover at Heathrow Airport.',
-    exampleEs: 'Tuvimos una escala de cuatro horas en el aeropuerto de Heathrow.',
-    highlightWord: 'layover',
-    status: 'en_repaso',
-    isFavorite: false,
-    categoryGroup: 'Viajes & Transporte',
-    categorySub: 'Aeropuerto & Vuelos',
-  },
-  // Idioms
-  {
-    id: 'w-15',
-    word: 'Bite the bullet',
-    partOfSpeech: 'idiom',
-    level: 'B2',
-    ipa: '/baɪt ðə ˈbʊl.ɪt/',
-    phoneticGuide: '"bait de bu-lit"',
-    phoneticNote: 'Vocal corta /ʊ/ en bullet',
-    translation: 'Hacer de tripas corazón / Afrontar lo inevitable',
-    definition: 'Encarar una situación desagradable con valentía',
-    exampleEn: 'We decided to bite the bullet and invest in new equipment.',
-    exampleEs: 'Decidimos hacer de tripas corazón e invertir en nuevo equipamiento.',
-    highlightWord: 'bite the bullet',
-    status: 'nueva',
-    isFavorite: true,
-    categoryGroup: 'Expresiones & Idioms',
-    categorySub: 'Modismos habituales',
-  },
-];
+export const INITIAL_WORDS: WordItem[] = [];
 
 class VocabularyService {
   private words: WordItem[] = [];
@@ -358,15 +56,12 @@ class VocabularyService {
     if (firebaseService.isFirebaseConnected()) {
       try {
         const remoteWords = await firebaseService.fetchWords();
-        if (remoteWords !== null && remoteWords.length > 0) {
+        if (remoteWords !== null) {
           // Utilizar estrictamente lo que hay almacenado en Firebase
           this.words = remoteWords;
           this.saveWords();
           this.notify();
           return;
-        } else if (remoteWords !== null && remoteWords.length === 0 && this.words.length > 0) {
-          // Si Firestore está vacío, subimos las palabras a Firebase para poblar la base de datos
-          await firebaseService.syncAllWords(this.words);
         }
       } catch (e) {
         console.warn('Error syncing words with Firebase:', e);
@@ -376,6 +71,7 @@ class VocabularyService {
 
   private loadInitialData() {
     try {
+      localStorage.removeItem('pronounceit_vocab_words_v1');
       const stored = localStorage.getItem(STORAGE_KEY_WORDS);
       if (stored) {
         this.words = JSON.parse(stored);
@@ -430,7 +126,7 @@ class VocabularyService {
           const subWords = this.words.filter((w) => w.categoryGroup === cat.name && w.categorySub === sub.name);
           subMap.set(sub.name, {
             ...sub,
-            count: subWords.length > 0 ? subWords.length : sub.count,
+            count: subWords.length,
           });
         }
       }
@@ -449,7 +145,7 @@ class VocabularyService {
 
       categoryMap.set(cat.name, {
         ...cat,
-        count: groupWords.length > 0 ? groupWords.length : cat.count,
+        count: groupWords.length,
         subcategories: Array.from(subMap.values()),
       });
     }

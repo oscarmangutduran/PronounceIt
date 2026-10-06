@@ -186,8 +186,8 @@ function parseCsvToWords(csvText: string, forcedDelimiter?: DelimiterType): Word
       exampleEs: row[exEsIdx] || `${translation} en contexto empresarial.`,
       status: validStatus,
       isFavorite,
-      categoryGroup: row[catIdx] || 'Negocios & Trabajo',
-      categorySub: row[subIdx] || 'Reuniones & Negociación',
+      categoryGroup: row[catIdx] || 'Grammar',
+      categorySub: row[subIdx] || 'General',
       createdAt: new Date().toISOString(),
     });
   }

@@ -54,8 +54,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
   // Categories management
   const availableCategories = categories && categories.length > 0 ? categories : vocabService.getCategories();
-  const [categoryGroup, setCategoryGroup] = useState<string>('Negocios & Trabajo');
-  const [categorySub, setCategorySub] = useState<string>('Reuniones & Negociación');
+  const [categoryGroup, setCategoryGroup] = useState<string>('Grammar');
+  const [categorySub, setCategorySub] = useState<string>('General');
   const [isCustomCategory, setIsCustomCategory] = useState<boolean>(false);
   const [customCategoryName, setCustomCategoryName] = useState<string>('');
   const [isCustomSubcategory, setIsCustomSubcategory] = useState<boolean>(false);
@@ -97,9 +97,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setExampleEs('');
       setStatus('nueva');
 
-      const initialGroup = defaultCategoryGroup || availableCategories[0]?.name || 'Negocios & Trabajo';
+      const initialGroup = defaultCategoryGroup || availableCategories[0]?.name || 'Grammar';
       const foundCat = availableCategories.find((c) => c.name === initialGroup) || availableCategories[0];
-      const initialSub = defaultCategorySub || foundCat?.subcategories?.[0]?.name || 'Reuniones & Negociación';
+      const initialSub = defaultCategorySub || foundCat?.subcategories?.[0]?.name || 'General';
 
       setCategoryGroup(initialGroup);
       setCategorySub(initialSub);

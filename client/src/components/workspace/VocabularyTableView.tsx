@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Trash2,
   PanelLeftOpen,
+  BookOpen,
 } from 'lucide-react';
 import { WordItem, WordLevel, WordStatus } from '../../types';
 import { SelectedFilter } from './SidebarCategories';
@@ -90,8 +91,8 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   const pageWords = filteredWords.slice(startIndex, startIndex + rowsPerPage);
 
   const { breadcrumb, title, levelBadge, pendingReviewCount } = useMemo(() => {
-    let bread = 'Negocios & Trabajo / Reuniones & Negociación';
-    let t = 'Reuniones & Negociación';
+    let bread = 'Grammar';
+    let t = 'Grammar';
     let badge = 'A1 - C2';
 
     if (selectedFilter.type === 'all') {
@@ -324,9 +325,24 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
             <tbody className="divide-y divide-white/5 text-xs">
               {pageWords.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400">
-                    <p className="text-sm font-semibold text-slate-300">No se encontraron palabras con estos filtros</p>
-                    <p className="text-xs text-slate-500 mt-1">Prueba a cambiar el término de búsqueda o añade una nueva palabra.</p>
+                  <td colSpan={5} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[#ff4d6d]">
+                        <BookOpen size={24} />
+                      </div>
+                      <p className="text-base font-bold text-white">No hay palabras en esta sección</p>
+                      <p className="text-xs text-slate-400 max-w-md">
+                        Las categorías <strong>Grammar</strong> y <strong>Readings</strong> están listas para que comiences a agregar tus propias palabras y expresiones.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={onOpenAddModal}
+                        className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#e62e4c] to-[#ff4d6d] hover:brightness-110 text-white text-xs font-bold shadow-lg shadow-[#e62e4c]/25 cursor-pointer active:scale-95 transition-all"
+                      >
+                        <Plus size={15} />
+                        <span>Añadir primera palabra</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
