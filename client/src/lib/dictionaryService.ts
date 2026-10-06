@@ -357,6 +357,166 @@ const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
   },
 };
 
+// Gemini API Configuration & Storage
+export const GEMINI_STORAGE_KEY = 'pronounceit_gemini_api_key';
+
+export function getGeminiApiKey(): string {
+  try {
+    const local = localStorage.getItem(GEMINI_STORAGE_KEY);
+    if (local && local.trim()) return local.trim();
+  } catch {}
+  return (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
+}
+
+export function setGeminiApiKey(key: string): void {
+  try {
+    const trimmed = (key || '').trim();
+    if (trimmed) {
+      localStorage.setItem(GEMINI_STORAGE_KEY, trimmed);
+    } else {
+      localStorage.removeItem(GEMINI_STORAGE_KEY);
+    }
+  } catch {}
+}
+
+export function isGeminiConfigured(): boolean {
+  return Boolean(getGeminiApiKey());
+}
+
+export const GEMINI_AVAILABLE_MODELS = [
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.7-flash',
+  'gemini-3.8-flash',
+  'gemini-2.5-flash',
+  'gemini-flash-latest',
+];
+
+export async function testGeminiConnection(
+  keyToTest?: string
+): Promise<{ success: boolean; message: string; model?: string }> {
+  const apiKey = (keyToTest !== undefined ? keyToTest : getGeminiApiKey()).trim();
+  if (!apiKey) {
+    return { success: false, message: 'No se ha proporcionado ninguna clave API.' };
+  }
+
+  const models = GEMINI_AVAILABLE_MODELS;
+  let lastError = '';
+
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'Respond strictly with valid JSON: {"status": "ok"}' }] }],
+          generationConfig: { responseMimeType: 'application/json' },
+        }),
+      });
+
+      if (res.ok) {
+        return { success: true, message: `Conexión exitosa con ${model} de Google AI.`, model };
+      } else {
+        const errJson = await res.json().catch(() => null);
+        const errMsg = errJson?.error?.message || `Error HTTP ${res.status}`;
+        lastError = errMsg;
+      }
+    } catch (e: any) {
+      lastError = e?.message || 'Error de red al conectar con Gemini';
+    }
+  }
+
+  return { success: false, message: lastError || 'No se pudo conectar con la API de Gemini.' };
+}
+
+// Queries Google Gemini free API for rich, authentic, non-repetitive lexical analysis
+export async function queryGeminiForWord(
+  word: string,
+  customApiKey?: string
+): Promise<AutoEnrichResult | null> {
+  const apiKey = (customApiKey !== undefined ? customApiKey : getGeminiApiKey()).trim();
+  if (!apiKey) return null;
+
+  const clean = word.trim();
+  if (!clean) return null;
+
+  const prompt = `You are an expert bilingual English-Spanish lexicographer and English teacher.
+Analyze this English word or phrase: "${clean}".
+
+CRITICAL INSTRUCTION FOR EXAMPLES:
+- Generate an authentic, realistic, context-appropriate, and engaging example sentence in English demonstrating natural usage of "${clean}".
+- NEVER use generic repetitive templates (e.g. avoid "She showed me the...", "I want to...", "It was a very..."). The sentence must be vivid, varied, natural, and directly suited to this specific word.
+- Translate that exact sentence into natural, fluent Spanish.
+
+Respond strictly with a single JSON object with these exact keys:
+{
+  "translation": "Most accurate, common and natural Spanish translation for this word",
+  "partOfSpeech": "One of: 'noun', 'verb', 'adjective', 'adverb', 'article', 'pronoun', 'preposition', 'conjunction', 'phrasal verb', 'phrase'",
+  "level": "CEFR level: 'A1', 'A2', 'B1', 'B2', 'C1', or 'C2'",
+  "ipa": "Standard IPA phonetics with stress mark (e.g. /ˈbreɪkˌθruː/)",
+  "phoneticGuide": "Friendly Spanish phonetic pronunciation approximation in quotes (e.g. \\"breik-zru\\")",
+  "phoneticNote": "Short pronunciation tip for Spanish speakers regarding pronunciation or stress",
+  "definition": "Clear, concise Spanish definition of the word",
+  "exampleEn": "Natural, rich, non-repetitive English example sentence using the word naturally in context",
+  "exampleEs": "Natural, fluent Spanish translation of the example sentence"
+}`;
+
+  const models = GEMINI_AVAILABLE_MODELS;
+
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.5,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn(`[Gemini API] Model ${model} returned HTTP ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) continue;
+
+      const parsed = JSON.parse(rawText);
+      const capWord = clean.charAt(0).toUpperCase() + clean.slice(1);
+      const pos = normalizePartOfSpeech(parsed.partOfSpeech || 'noun');
+
+      const validLevels: WordLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+      const level: WordLevel = validLevels.includes(parsed.level) ? parsed.level : 'B1';
+
+      return {
+        word: capWord,
+        partOfSpeech: pos,
+        level,
+        ipa: (parsed.ipa || `/${clean.toLowerCase()}/`).trim(),
+        phoneticGuide: (parsed.phoneticGuide || `"${clean.toLowerCase()}"`).trim(),
+        phoneticNote: (parsed.phoneticNote || 'Pronunciación estándar en inglés').trim(),
+        translation: (parsed.translation || clean).trim(),
+        definition: (parsed.definition || `Término utilizado como ${pos} en inglés`).trim(),
+        exampleEn: (parsed.exampleEn || `${capWord} is used in English.`).trim(),
+        exampleEs: (parsed.exampleEs || `Se utiliza en inglés.`).trim(),
+        categoryGroup: 'Grammar',
+        categorySub: 'General',
+      };
+    } catch (err) {
+      console.warn(`[Gemini API] Error querying ${model}:`, err);
+    }
+  }
+
+  return null;
+}
+
 // High-accuracy Google Translate helper for single words and natural sentences
 export async function translateText(text: string): Promise<string> {
   const clean = text.trim();
@@ -489,14 +649,16 @@ async function generateNaturalSentencePair(word: string, pos: string): Promise<{
   const cap = w.charAt(0).toUpperCase() + w.slice(1);
   const p = (pos || '').toLowerCase();
 
-  // 1. Try Tatoeba first for genuine sentences
+  // 1. Try Tatoeba first for genuine human sentences
   const tatoeba = await fetchTatoebaSentence(w);
   if (tatoeba?.exampleEn) {
     const es = tatoeba.exampleEs || (await translateText(tatoeba.exampleEn));
     return { exampleEn: tatoeba.exampleEn, exampleEs: es };
   }
 
-  // 2. Construct natural, high-frequency context template
+  // 2. Varied contextual templates by hash to avoid repetitive sentences across words
+  const hash = w.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
   let enSentence = '';
   if (p.includes('art')) {
     if (w === 'the') {
@@ -509,22 +671,62 @@ async function generateNaturalSentencePair(word: string, pos: string): Promise<{
       enSentence = `${cap} sun is shining brightly today.`;
     }
   } else if (p.includes('adv')) {
-    enSentence = `She completed the task ${w} and without any mistakes.`;
+    const templates = [
+      `She completed the task ${w} and without any mistakes.`,
+      `They were speaking ${w} during the morning meeting.`,
+      `The situation improved ${w} over the last few weeks.`,
+      `He answered all the difficult questions ${w}.`,
+    ];
+    enSentence = templates[hash % templates.length];
   } else if (p.includes('adj')) {
-    enSentence = `It was a very ${w} experience for everyone.`;
+    const templates = [
+      `It was a very ${w} experience for the whole team.`,
+      `She gave a ${w} explanation during the presentation.`,
+      `The project requires a ${w} approach to succeed.`,
+      `We noticed a ${w} difference in the final results.`,
+    ];
+    enSentence = templates[hash % templates.length];
   } else if (p.includes('verb')) {
-    enSentence = `I want to ${w} whenever I have free time.`;
+    const templates = [
+      `I need to ${w} this matter carefully before making a choice.`,
+      `They decided to ${w} together on the new initiative.`,
+      `You should ${w} every day to make steady progress.`,
+      `We hope to ${w} significant milestones by next month.`,
+    ];
+    enSentence = templates[hash % templates.length];
   } else if (p.includes('prep')) {
-    enSentence = `The notebook was left ${w} the wooden desk.`;
+    const templates = [
+      `The notebook was placed ${w} the wooden desk.`,
+      `We walked ${w} the quiet path in the morning.`,
+      `The keys were found ${w} the front door.`,
+    ];
+    enSentence = templates[hash % templates.length];
   } else if (p.includes('conj')) {
-    enSentence = `We stayed inside ${w} the weather was cold.`;
+    const templates = [
+      `We stayed inside ${w} the weather was stormy.`,
+      `He worked late ${w} the deadline was approaching.`,
+      `She smiled ${w} she received the good news.`,
+    ];
+    enSentence = templates[hash % templates.length];
   } else if (p.includes('pron')) {
     enSentence = `${cap} decided to visit the local library.`;
   } else if (p.includes('phrasal') || p.includes('idiom') || w.includes(' ')) {
-    enSentence = `They promised to ${w} as soon as possible.`;
+    const templates = [
+      `They promised to ${w} as soon as possible.`,
+      `It is not easy to ${w} without proper preparation.`,
+      `We will certainly ${w} during tomorrow's session.`,
+    ];
+    enSentence = templates[hash % templates.length];
   } else {
-    // Noun default
-    enSentence = `She showed me the ${w} earlier today.`;
+    // Noun templates with rich variety
+    const templates = [
+      `The manager discussed the new ${w} during the conference.`,
+      `Understanding the importance of this ${w} will help us succeed.`,
+      `They found an interesting article about the ${w} online.`,
+      `We need to focus our attention on this particular ${w}.`,
+      `She shared valuable insights regarding the ${w}.`,
+    ];
+    enSentence = templates[hash % templates.length];
   }
 
   // Translate sentence accurately with Google Translate
@@ -566,7 +768,19 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
     throw new Error('La palabra no puede estar vacía');
   }
 
-  // 1. Check local pre-populated database
+  // 1. If Gemini API is configured, use it first for top-tier authentic AI generation!
+  if (isGeminiConfigured()) {
+    try {
+      const geminiResult = await queryGeminiForWord(clean);
+      if (geminiResult) {
+        return geminiResult;
+      }
+    } catch (e) {
+      console.warn('[autoEnrichWord] Gemini query failed, continuing with fallback:', e);
+    }
+  }
+
+  // 2. Check local pre-populated database
   if (BUILTIN_VOCABULARY[clean]) {
     const data = BUILTIN_VOCABULARY[clean];
     const capitalizedWord = rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1);

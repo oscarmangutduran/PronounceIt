@@ -11,10 +11,11 @@ import {
   BookOpen,
   Folder,
   Plus,
+  RefreshCw,
 } from 'lucide-react';
 import { WordItem, WordLevel, WordStatus, CategoryItem } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
-import { autoEnrichWord } from '../../lib/dictionaryService';
+import { autoEnrichWord, isGeminiConfigured } from '../../lib/dictionaryService';
 
 interface AddWordModalProps {
   isOpen: boolean;
@@ -184,6 +185,29 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     if (word) vocabService.speak(word);
   };
 
+  const handleRegenerate = async () => {
+    const trimmed = word.trim();
+    if (!trimmed) return;
+    setLoadingAuto(true);
+    try {
+      const enriched = await autoEnrichWord(trimmed);
+      setPartOfSpeech(enriched.partOfSpeech);
+      setLevel(enriched.level);
+      setIpa(enriched.ipa);
+      setPhoneticGuide(enriched.phoneticGuide);
+      setPhoneticNote(enriched.phoneticNote);
+      setTranslation(enriched.translation);
+      setDefinition(enriched.definition);
+      setExampleEn(enriched.exampleEn);
+      setExampleEs(enriched.exampleEs);
+      setAutoEnriched(true);
+    } catch (e) {
+      console.warn('Regeneration error', e);
+    } finally {
+      setLoadingAuto(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanWord = word.trim();
@@ -263,8 +287,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             <div>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <span>{initialWord ? 'Editar Palabra' : 'Añadir Palabra'}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-pink-300 bg-[#e62e4c]/20 border border-[#e62e4c]/30 px-2 py-0.5 rounded-full">
-                  Auto-Rellenado ✨
+                <span className="text-[10px] font-bold uppercase tracking-wider text-pink-300 bg-[#e62e4c]/20 border border-[#e62e4c]/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  {isGeminiConfigured() ? '✨ IA Gemini' : 'Auto-Rellenado ✨'}
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
@@ -478,21 +502,42 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     <Sparkles size={14} className="text-[#ff4d6d]" />
                     <span>Detalles automáticos</span>
                   </span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-pink-300 bg-[#e62e4c]/20 border border-[#e62e4c]/30 px-2 py-0.5 rounded-full">
-                    Auto-Rellenado ✨
-                  </span>
+                  {isGeminiConfigured() ? (
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      Gemini Flash IA
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-pink-300 bg-[#e62e4c]/20 border border-[#e62e4c]/30 px-2 py-0.5 rounded-full">
+                      Auto-Rellenado ✨
+                    </span>
+                  )}
                 </div>
-                {loadingAuto ? (
-                  <span className="flex items-center gap-1 text-[11px] text-pink-300 animate-pulse font-semibold">
-                    <Loader2 size={12} className="animate-spin text-[#ff4d6d]" />
-                    <span>Detectando...</span>
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold">
-                    <CheckCircle2 size={13} />
-                    <span>Listo</span>
-                  </span>
-                )}
+
+                <div className="flex items-center gap-2.5">
+                  {isGeminiConfigured() && (
+                    <button
+                      type="button"
+                      onClick={handleRegenerate}
+                      disabled={loadingAuto}
+                      className="text-[11px] text-[#ff4d6d] hover:text-pink-300 font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Generar otra variante de frase y traducción con Gemini"
+                    >
+                      <RefreshCw size={11} className={loadingAuto ? 'animate-spin' : ''} />
+                      <span>Regenerar</span>
+                    </button>
+                  )}
+                  {loadingAuto ? (
+                    <span className="flex items-center gap-1 text-[11px] text-pink-300 animate-pulse font-semibold">
+                      <Loader2 size={12} className="animate-spin text-[#ff4d6d]" />
+                      <span>{isGeminiConfigured() ? 'Consultando Gemini...' : 'Detectando...'}</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold">
+                      <CheckCircle2 size={13} />
+                      <span>Listo</span>
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Fila: Tipo de palabra y Traducción (Auto-detectados) */}
@@ -564,6 +609,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                       "{exampleEs}"
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* Notice when Gemini is not yet configured */}
+              {!isGeminiConfigured() && (
+                <div className="pt-1 text-[10.5px] text-slate-400 bg-purple-950/20 p-2 rounded-xl border border-purple-500/20 flex items-center justify-between">
+                  <span>💡 Para frases 100% ricas, únicas y variadas, activa tu clave gratis de <b>Gemini en Ajustes</b>.</span>
                 </div>
               )}
             </div>
