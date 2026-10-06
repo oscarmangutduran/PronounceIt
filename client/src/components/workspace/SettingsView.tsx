@@ -306,18 +306,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Account Profile Card */}
       <div className="bg-[#181226]/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl p-6 flex flex-col gap-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#e62e4c] via-[#ff3b59] to-purple-600 text-white font-bold text-sm border border-white/15 flex items-center justify-center overflow-hidden shrink-0 shadow">
-            {currentUser?.avatar_url ? (
-              <img src={currentUser.avatar_url} alt="Foto de perfil" className="w-full h-full object-cover" />
-            ) : (
-              <User size={20} className="text-white" />
-            )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('pronounceit:open-edit-profile'))}
+              className="relative group w-11 h-11 rounded-xl bg-gradient-to-tr from-[#e62e4c] via-[#ff3b59] to-purple-600 text-white font-bold text-sm border border-white/15 flex items-center justify-center overflow-hidden shrink-0 shadow cursor-pointer transition-transform hover:scale-105"
+              title="Haz clic para cambiar foto o editar perfil"
+            >
+              {currentUser?.avatar_url ? (
+                <img src={currentUser.avatar_url} alt="Foto de perfil" className="w-full h-full object-cover" />
+              ) : (
+                <User size={20} className="text-white" />
+              )}
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-[10px] text-pink-200 font-bold">
+                Cambiar
+              </div>
+            </button>
+            <div>
+              <h3 className="text-base font-bold text-white">Perfil del Estudiante</h3>
+              <p className="text-xs text-slate-400">Información de la cuenta y sesión actual</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-base font-bold text-white">Perfil del Estudiante</h3>
-            <p className="text-xs text-slate-400">Información de la cuenta y sesión actual</p>
-          </div>
+
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('pronounceit:open-edit-profile'))}
+            className="px-3.5 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+          >
+            <span>Editar perfil y foto</span>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-white/10 text-xs">

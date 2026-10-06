@@ -28,6 +28,58 @@ import { StoredTestItem } from './testHistoryStore';
 const STORAGE_KEY_FIREBASE_CONFIG = 'pronounceit_firebase_config_v1';
 const STORAGE_KEY_FIREBASE_USER = 'pronounceit_firebase_user_v1';
 
+// ==========================================
+// RESILIENT ASSET STORAGE (INDEXEDDB)
+// Guarantees profile photo is NEVER lost across reloads or logins
+// ==========================================
+const IDB_NAME = 'pronounceit_db';
+const IDB_STORE = 'avatars';
+
+function getIDB(): Promise<IDBDatabase | null> {
+  if (typeof window === 'undefined' || !window.indexedDB) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      const req = window.indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+export async function idbSaveAvatar(key: string, dataUrl: string): Promise<void> {
+  if (!key || !dataUrl) return;
+  const db = await getIDB();
+  if (!db) return;
+  try {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(dataUrl, key.toLowerCase());
+  } catch {}
+}
+
+export async function idbGetAvatar(key: string): Promise<string | null> {
+  if (!key) return null;
+  const db = await getIDB();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(key.toLowerCase());
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
 class FirebaseService {
   private app: FirebaseApp | null = null;
   private auth: Auth | null = null;
@@ -38,6 +90,25 @@ class FirebaseService {
 
   constructor() {
     this.init();
+  }
+
+  private persistCurrentUser() {
+    if (!this.currentUser) {
+      localStorage.removeItem(STORAGE_KEY_FIREBASE_USER);
+      return;
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(this.currentUser));
+    } catch (e) {
+      console.warn('[FirebaseClient] localStorage quota exceeded, saving light user:', e);
+      try {
+        const lightUser = { ...this.currentUser, avatar_url: undefined };
+        localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(lightUser));
+      } catch {}
+    }
+    if (this.currentUser.avatar_url) {
+      this.saveAvatar(this.currentUser.id, this.currentUser.avatar_url, this.currentUser.username, this.currentUser.email);
+    }
   }
 
   private getStoredConfig(): FirebaseConfig | null {
@@ -75,21 +146,33 @@ class FirebaseService {
   }
 
   private init() {
-    // Restore cached user
+    // 1. Synchronously restore cached user
     try {
       const cached = localStorage.getItem(STORAGE_KEY_FIREBASE_USER);
       if (cached) {
         this.currentUser = JSON.parse(cached);
-        if (this.currentUser) {
-          const savedAvatar = this.getSavedAvatar(this.currentUser.id, this.currentUser.username, this.currentUser.email);
-          if (savedAvatar) {
-            this.currentUser.avatar_url = savedAvatar;
-          }
-        }
       }
     } catch {
       // ignore
     }
+
+    // 2. Synchronously ensure avatar is restored from all persistent stores
+    const savedAvatar = this.getSavedAvatar(this.currentUser?.id, this.currentUser?.username, this.currentUser?.email);
+    if (savedAvatar) {
+      if (this.currentUser) {
+        this.currentUser.avatar_url = savedAvatar;
+      }
+    }
+
+    // 3. Asynchronously recover from IndexedDB if localStorage was missing or quota-limited
+    idbGetAvatar('current_avatar').then((idbAvatar) => {
+      const bestAvatar = idbAvatar || savedAvatar;
+      if (bestAvatar && this.currentUser && (!this.currentUser.avatar_url || this.currentUser.avatar_url !== bestAvatar)) {
+        this.currentUser.avatar_url = bestAvatar;
+        this.persistCurrentUser();
+        this.notify();
+      }
+    }).catch(() => {});
 
     const cfg = this.getConfig();
     if (cfg.apiKey && cfg.projectId && cfg.appId) {
@@ -123,19 +206,36 @@ class FirebaseService {
 
   private handleAuthStateChange(user: User | null) {
     if (user) {
-      const existingAvatar = this.getSavedAvatar(user.uid, user.email?.split('@')[0], user.email || undefined);
+      // CRITICAL FIX: NEVER wipe an existing avatar!
+      // Prioritize existing avatar in memory, local storage, or IndexedDB over null user.photoURL
+      const existingAvatar =
+        this.currentUser?.avatar_url ||
+        this.getSavedAvatar(user.uid, user.email?.split('@')[0], user.email || undefined) ||
+        this.getSavedAvatar();
+
+      const currentFullName = this.currentUser?.full_name;
+      const currentUsername = this.currentUser?.username;
+
       this.currentUser = {
         id: user.uid,
-        email: user.email || 'usuario@firebase.com',
-        full_name: user.displayName || user.email?.split('@')[0] || 'Usuario PronounceIt',
-        username: user.email?.split('@')[0] || 'usuario',
-        avatar_url: user.photoURL || existingAvatar || undefined,
-        role: 'user',
+        email: user.email || this.currentUser?.email || 'usuario@firebase.com',
+        full_name: (currentFullName && currentFullName !== 'Usuario PronounceIt')
+          ? currentFullName
+          : (user.displayName || user.email?.split('@')[0] || 'Usuario PronounceIt'),
+        username: (currentUsername && currentUsername !== 'usuario')
+          ? currentUsername
+          : (user.email?.split('@')[0] || 'usuario'),
+        avatar_url: existingAvatar || (user.photoURL?.startsWith('http') ? user.photoURL : undefined),
+        role: this.currentUser?.role || 'user',
       };
-      localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(this.currentUser));
+
+      if (existingAvatar) {
+        this.saveAvatar(user.uid, existingAvatar, this.currentUser.username, this.currentUser.email);
+      }
+
+      this.persistCurrentUser();
       this.notify();
     }
-    // Do NOT wipe localStorage on null auth - preserves offline/credentials session!
   }
 
   public async setConfig(newConfig: Partial<FirebaseConfig>): Promise<{ success: boolean; message: string }> {
@@ -235,6 +335,18 @@ class FirebaseService {
           return val;
         }
       }
+
+      // Check registered accounts
+      const accounts = this.getStoredAccounts();
+      const match = accounts.find(
+        (a) =>
+          (userId && a.id === userId) ||
+          (username && a.username.toLowerCase() === username.toLowerCase()) ||
+          (email && a.email.toLowerCase() === email.toLowerCase())
+      );
+      if (match?.avatarUrl && (match.avatarUrl.startsWith('data:image') || match.avatarUrl.startsWith('http'))) {
+        return match.avatarUrl;
+      }
     } catch {}
     return undefined;
   }
@@ -246,7 +358,16 @@ class FirebaseService {
       if (username) localStorage.setItem(`pronounceit_avatar_${username.toLowerCase()}`, avatarUrl);
       if (email) localStorage.setItem(`pronounceit_avatar_${email.toLowerCase()}`, avatarUrl);
       localStorage.setItem('pronounceit_last_avatar', avatarUrl);
-    } catch {}
+    } catch (e) {
+      console.warn('[FirebaseClient] localStorage setItem in saveAvatar failed (quota?):', e);
+    }
+
+    // Always also persist to IndexedDB
+    idbSaveAvatar('current_avatar', avatarUrl);
+    idbSaveAvatar('last_avatar', avatarUrl);
+    if (userId) idbSaveAvatar(`avatar_${userId}`, avatarUrl);
+    if (username) idbSaveAvatar(`avatar_${username}`, avatarUrl);
+    if (email) idbSaveAvatar(`avatar_${email}`, avatarUrl);
   }
 
   // ==========================================
@@ -569,7 +690,7 @@ class FirebaseService {
       email: cleanEmail || this.currentUser.email,
       avatar_url: resolvedAvatar,
     };
-    localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(this.currentUser));
+    this.persistCurrentUser();
 
     if (resolvedAvatar) {
       this.saveAvatar(this.currentUser.id, resolvedAvatar, this.currentUser.username, this.currentUser.email);
@@ -609,13 +730,16 @@ class FirebaseService {
       this.saveStoredAccounts(accounts);
     } catch {}
 
-    // Update in Firebase Auth
+    // Update in Firebase Auth (Note: photoURL must be a real HTTP web URL; Firebase Auth rejects base64 data URIs)
     if (this.auth?.currentUser) {
       try {
-        await fbUpdateProfile(this.auth.currentUser, {
+        const authUpdates: { displayName?: string; photoURL?: string } = {
           displayName: cleanFullName || this.currentUser.full_name,
-          photoURL: resolvedAvatar || undefined,
-        });
+        };
+        if (resolvedAvatar && resolvedAvatar.startsWith('http')) {
+          authUpdates.photoURL = resolvedAvatar;
+        }
+        await fbUpdateProfile(this.auth.currentUser, authUpdates);
         if (updates.newPassword) {
           await fbUpdatePassword(this.auth.currentUser, updates.newPassword);
         }

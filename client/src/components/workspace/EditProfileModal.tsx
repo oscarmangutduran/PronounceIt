@@ -65,7 +65,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          const maxDim = 256;
+          const maxDim = 192;
           let width = img.width;
           let height = img.height;
 
@@ -90,7 +90,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             return;
           }
           ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.88));
+          resolve(canvas.toDataURL('image/jpeg', 0.82));
         };
         img.onerror = () => reject(new Error('No se pudo cargar la imagen seleccionada'));
         img.src = e.target?.result as string;
