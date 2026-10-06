@@ -17,7 +17,7 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words })
   const inReview = words.filter((w) => w.status === 'en_repaso').length;
   const newWords = words.filter((w) => w.status === 'nueva').length;
 
-  const retentionPercent = total > 0 ? Math.round((mastered / total) * 100) : 68;
+  const retentionPercent = total > 0 ? Math.round((mastered / total) * 100) : 0;
 
   const levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
   const levelCounts = levels.map((lvl) => ({
@@ -70,15 +70,11 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words })
       <div className="bg-[#181226]/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl p-6 flex flex-col gap-5">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-bold text-white">Curva del Olvido y Rendimiento SRS SM-2</h3>
+            <h3 className="text-base font-bold text-white">Curva del Olvido y Rendimiento</h3>
             <p className="text-xs text-slate-400">
-              Distribución de términos según el algoritmo de repetición espaciada
+              Distribución de términos según repetición espaciada
             </p>
           </div>
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            Algoritmo SM-2 Activo
-          </span>
         </div>
 
         {/* Multi-segment Bar */}

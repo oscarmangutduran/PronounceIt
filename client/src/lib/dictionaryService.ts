@@ -17,6 +17,45 @@ export interface AutoEnrichResult {
 
 // Comprehensive built-in lexical database for instant offline and rich responses
 const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
+  the: {
+    partOfSpeech: 'article',
+    level: 'A1',
+    ipa: '/ðiː/',
+    phoneticGuide: '"de"',
+    phoneticNote: 'Artículo definido. Suena /ðiː/ ante vocales y /ðə/ ante consonantes',
+    translation: 'El / La / Los / Las',
+    definition: 'Artículo determinado usado para referirse a personas o cosas específicas',
+    exampleEn: 'The Little Prince lives on a small asteroid.',
+    exampleEs: 'El Principito vive en un pequeño asteroide.',
+    categoryGroup: 'Readings',
+    categorySub: 'The little Prince',
+  },
+  a: {
+    partOfSpeech: 'article',
+    level: 'A1',
+    ipa: '/eɪ/',
+    phoneticGuide: '"ei" / "a"',
+    phoneticNote: 'Artículo indefinido usado ante sonido consonante',
+    translation: 'Un / Una',
+    definition: 'Artículo indeterminado para sustantivos singulares contables',
+    exampleEn: 'Draw me a sheep, please.',
+    exampleEs: 'Dibújame una oveja, por favor.',
+    categoryGroup: 'Readings',
+    categorySub: 'The little Prince',
+  },
+  an: {
+    partOfSpeech: 'article',
+    level: 'A1',
+    ipa: '/æn/',
+    phoneticGuide: '"an"',
+    phoneticNote: 'Artículo indefinido usado ante sonido vocal',
+    translation: 'Un / Una',
+    definition: 'Artículo indeterminado para sustantivos que empiezan con vocal',
+    exampleEn: 'An asteroid is a celestial body.',
+    exampleEs: 'Un asteroide es un cuerpo celeste.',
+    categoryGroup: 'Readings',
+    categorySub: 'The little Prince',
+  },
   breakthrough: {
     partOfSpeech: 'noun/verb',
     level: 'B2',
@@ -354,11 +393,66 @@ function generateContextualSentence(word: string, pos: string, translation: stri
     };
   }
 
+  if (p.includes('art')) {
+    return {
+      exampleEn: `${w.charAt(0).toUpperCase() + w.slice(1)} rose in the garden is very special.`,
+      exampleEs: `${t.charAt(0).toUpperCase() + t.slice(1)} rosa en el jardín es muy especial.`,
+    };
+  }
+
+  if (p.includes('prep')) {
+    return {
+      exampleEn: `We placed the notebook ${lowerW} the desk.`,
+      exampleEs: `Colocamos el cuaderno ${lowerT} el escritorio.`,
+    };
+  }
+
+  if (p.includes('pron')) {
+    return {
+      exampleEn: `${w.charAt(0).toUpperCase() + w.slice(1)} went to explore the new chapter.`,
+      exampleEs: `${t.charAt(0).toUpperCase() + t.slice(1)} fue a explorar el nuevo capítulo.`,
+    };
+  }
+
+  if (p.includes('conj')) {
+    return {
+      exampleEn: `We practiced every day ${lowerW} we could improve quickly.`,
+      exampleEs: `Practicamos todos los días ${lowerT} pudiéramos mejorar rápidamente.`,
+    };
+  }
+
   // Default noun
   return {
     exampleEn: `The team highlighted the importance of this ${lowerW} in today's session.`,
     exampleEs: `El equipo destacó la importancia de este/a ${lowerT} en la sesión de hoy.`,
   };
+}
+
+export function normalizePartOfSpeech(pos: string): string {
+  const p = (pos || '').toLowerCase().trim();
+  if (!p) return 'noun';
+  if (p.includes('art') || p === 'determiner') return 'article';
+  if (p.includes('phrasal')) return 'phrasal verb';
+  if (p.includes('verb')) return 'verb';
+  if (p.includes('noun')) return 'noun';
+  if (p.includes('adj')) return 'adjective';
+  if (p.includes('adv')) return 'adverb';
+  if (p.includes('pron')) return 'pronoun';
+  if (p.includes('prep')) return 'preposition';
+  if (p.includes('conj')) return 'conjunction';
+  if (p.includes('interj')) return 'interjection';
+  if (p.includes('phrase') || p.includes('idiom') || p.includes('expression')) return 'phrase';
+  return p;
+}
+
+export function detectQuickPartOfSpeech(word: string): string | null {
+  const w = word.toLowerCase().trim();
+  if (['the', 'a', 'an'].includes(w)) return 'article';
+  if (['in', 'on', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'off', 'over', 'under'].includes(w)) return 'preposition';
+  if (['and', 'but', 'or', 'so', 'because', 'although', 'since', 'unless', 'while', 'whereas', 'if'].includes(w)) return 'conjunction';
+  if (['i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'our', 'their', 'mine', 'yours', 'hers', 'ours', 'theirs', 'this', 'that', 'these', 'those'].includes(w)) return 'pronoun';
+  if (['be', 'is', 'are', 'was', 'were', 'have', 'has', 'do', 'does', 'go', 'make', 'take', 'see', 'come', 'get', 'give', 'know', 'think', 'say', 'look', 'want', 'use', 'find', 'tell', 'ask', 'work', 'seem', 'feel', 'try', 'leave', 'call', 'run', 'read', 'write', 'learn'].includes(w)) return 'verb';
+  return null;
 }
 
 // Algorithmic phonetic approximation generator
@@ -400,7 +494,7 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
     const data = BUILTIN_VOCABULARY[clean];
     const capitalizedWord = rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1);
     const trans = data.translation || clean;
-    const pos = data.partOfSpeech || 'noun';
+    const pos = normalizePartOfSpeech(data.partOfSpeech || 'noun');
 
     // Verify example explicitly contains the word
     let exEn = data.exampleEn || '';
@@ -429,7 +523,7 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
 
   // 2. Fetch from Free Dictionary API (for real IPA, part of speech, definition, and example)
   let foundIpa = '';
-  let foundPos = 'noun';
+  let foundPos = detectQuickPartOfSpeech(clean) || 'noun';
   let foundDef = '';
   let foundExEn = '';
 
@@ -448,7 +542,9 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
 
         if (item.meanings && Array.isArray(item.meanings) && item.meanings.length > 0) {
           const firstMeaning = item.meanings[0];
-          foundPos = firstMeaning.partOfSpeech || 'noun';
+          if (firstMeaning.partOfSpeech) {
+            foundPos = normalizePartOfSpeech(firstMeaning.partOfSpeech);
+          }
           if (firstMeaning.definitions && firstMeaning.definitions[0]) {
             foundDef = firstMeaning.definitions[0].definition || '';
             const candExample = firstMeaning.definitions[0].example || '';

@@ -83,7 +83,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
     );
   };
 
-  const retentionPercent = totalWords > 0 ? Math.round((masteredCount / totalWords) * 100) : 68;
+  const retentionPercent = totalWords > 0 ? Math.round((masteredCount / totalWords) * 100) : 0;
 
   // Collapsed Sidebar View (Rail on Desktop, Compact Bar on Mobile)
   if (isCollapsed) {
@@ -427,12 +427,12 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
           </div>
         </div>
 
-        {/* SRS algorithm status badge */}
+        {/* SRS status badge */}
         <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px]">
-          <span className="text-slate-400 font-medium">Algoritmo SRS SM-2</span>
+          <span className="text-slate-400 font-medium">Repetición espaciada</span>
           <span className="px-2 py-0.5 rounded-full font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Activo
+            Activa
           </span>
         </div>
       </div>

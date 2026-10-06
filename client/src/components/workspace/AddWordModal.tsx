@@ -26,6 +26,20 @@ interface AddWordModalProps {
   defaultCategorySub?: string;
 }
 
+export const WORD_POS_OPTIONS = [
+  { value: 'article', label: 'article (Artículo)' },
+  { value: 'verb', label: 'verb (Verbo)' },
+  { value: 'noun', label: 'noun (Sustantivo)' },
+  { value: 'adjective', label: 'adjective (Adjetivo)' },
+  { value: 'adverb', label: 'adverb (Adverbio)' },
+  { value: 'pronoun', label: 'pronoun (Pronombre)' },
+  { value: 'preposition', label: 'preposition (Preposición)' },
+  { value: 'conjunction', label: 'conjunction (Conjunción)' },
+  { value: 'interjection', label: 'interjection (Interjección)' },
+  { value: 'phrasal verb', label: 'phrasal verb (Verbo compuesto)' },
+  { value: 'phrase', label: 'phrase (Frase / Modismo)' },
+] as const;
+
 export const AddWordModal: React.FC<AddWordModalProps> = ({
   isOpen,
   onClose,
@@ -170,10 +184,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     if (word) vocabService.speak(word);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanWord = word.trim();
-    if (!cleanWord) return;
+    if (!cleanWord) {
+      alert('Por favor, escribe la palabra en inglés.');
+      return;
+    }
 
     const finalCategoryGroup = isCustomCategory ? customCategoryName.trim() : categoryGroup.trim();
     const finalCategorySub = (isCustomCategory || isCustomSubcategory) ? customSubcategoryName.trim() : categorySub.trim();
@@ -188,17 +205,43 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       return;
     }
 
+    let finalPos = partOfSpeech;
+    let finalTrans = translation;
+    let finalLevel = level;
+    let finalIpa = ipa;
+    let finalPhoneticGuide = phoneticGuide;
+    let finalPhoneticNote = phoneticNote;
+    let finalDef = definition;
+    let finalExEn = exampleEn;
+    let finalExEs = exampleEs;
+
+    // If translation or part of speech haven't been resolved yet, enrich on the fly
+    if (!finalTrans || !finalIpa || !finalPos) {
+      try {
+        const enriched = await autoEnrichWord(cleanWord);
+        if (!finalPos) finalPos = enriched.partOfSpeech;
+        if (!finalTrans) finalTrans = enriched.translation;
+        if (!finalLevel) finalLevel = enriched.level;
+        if (!finalIpa) finalIpa = enriched.ipa;
+        if (!finalPhoneticGuide) finalPhoneticGuide = enriched.phoneticGuide;
+        if (!finalPhoneticNote) finalPhoneticNote = enriched.phoneticNote;
+        if (!finalDef) finalDef = enriched.definition;
+        if (!finalExEn) finalExEn = enriched.exampleEn;
+        if (!finalExEs) finalExEs = enriched.exampleEs;
+      } catch {}
+    }
+
     onSave({
       word: cleanWord.charAt(0).toUpperCase() + cleanWord.slice(1),
-      partOfSpeech: partOfSpeech.trim() || 'noun',
-      level,
-      ipa: ipa.trim() || `/${cleanWord.toLowerCase()}/`,
-      phoneticGuide: phoneticGuide.trim() || `"${cleanWord.toLowerCase()}"`,
-      phoneticNote: phoneticNote.trim() || 'Pronunciación estándar en inglés',
-      translation: translation.trim() || cleanWord,
-      definition: definition.trim(),
-      exampleEn: exampleEn.trim() || `${cleanWord} is used in professional contexts.`,
-      exampleEs: exampleEs.trim() || `Se utiliza en contextos profesionales.`,
+      partOfSpeech: (finalPos || 'noun').trim(),
+      level: finalLevel || 'B1',
+      ipa: (finalIpa || `/${cleanWord.toLowerCase()}/`).trim(),
+      phoneticGuide: (finalPhoneticGuide || `"${cleanWord.toLowerCase()}"`).trim(),
+      phoneticNote: (finalPhoneticNote || 'Pronunciación estándar en inglés').trim(),
+      translation: (finalTrans || cleanWord).trim(),
+      definition: (finalDef || '').trim(),
+      exampleEn: (finalExEn || `${cleanWord} is used in English.`).trim(),
+      exampleEs: (finalExEs || `Se utiliza en inglés.`).trim(),
       highlightWord: cleanWord.toLowerCase(),
       status,
       isFavorite: initialWord ? initialWord.isFavorite : false,
@@ -221,11 +264,11 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <span>{initialWord ? 'Editar Palabra' : 'Añadir Palabra'}</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-pink-300 bg-[#e62e4c]/20 border border-[#e62e4c]/30 px-2 py-0.5 rounded-full">
-                  Auto-Completado Mágico ✨
+                  Auto-Rellenado ✨
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
-                Escribe la palabra, asigna su categoría y subcategoría, y la fonética se generará sola.
+                Solo introduce la palabra en inglés, categoría y subcategoría. Todo lo demás se auto-completa solo.
               </p>
             </div>
           </div>
@@ -277,20 +320,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             </div>
           </div>
 
-          {/* Traducción al español (Editable directamente) */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold uppercase text-slate-300 tracking-wide">
-              Traducción al español *
-            </label>
-            <input
-              type="text"
-              value={translation}
-              onChange={(e) => setTranslation(e.target.value)}
-              placeholder="ej. Avance decisivo, Parte interesada, Resiliencia..."
-              className="w-full px-4 py-2.5 rounded-2xl bg-black/40 border border-white/15 text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#e62e4c] transition-all"
-              required
-            />
-          </div>
 
           {/* SECCIÓN OBLIGATORIA: Categoría y Subcategoría */}
           <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-3.5 shadow-sm">
@@ -440,42 +469,94 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             </div>
           </div>
 
-          {/* Real-Time Auto-Generated Preview Card */}
-          {autoEnriched && (
-            <div className="p-4 rounded-2xl bg-gradient-to-b from-[#241a3a] to-[#1a142b] border border-[#e62e4c]/30 shadow-lg space-y-3 animate-fadeIn">
+          {/* Detalles generados automáticamente ✨ */}
+          {word.trim() && (
+            <div className="p-4 rounded-2xl bg-gradient-to-b from-[#241a3a] to-[#1a142b] border border-[#e62e4c]/30 shadow-lg space-y-3.5 animate-fadeIn">
               <div className="flex items-center justify-between border-b border-white/10 pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg font-black text-white">{word}</span>
-                  <span className="text-xs italic text-slate-400 font-medium">({partOfSpeech})</span>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#e62e4c]/20 text-pink-300 border border-[#e62e4c]/40">
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-[#ff4d6d]" />
+                    <span>Detalles automáticos</span>
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-pink-300 bg-[#e62e4c]/20 border border-[#e62e4c]/30 px-2 py-0.5 rounded-full">
+                    Auto-Rellenado ✨
+                  </span>
+                </div>
+                {loadingAuto ? (
+                  <span className="flex items-center gap-1 text-[11px] text-pink-300 animate-pulse font-semibold">
+                    <Loader2 size={12} className="animate-spin text-[#ff4d6d]" />
+                    <span>Detectando...</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold">
+                    <CheckCircle2 size={13} />
+                    <span>Listo</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Fila: Tipo de palabra y Traducción (Auto-detectados) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 1. Tipo de palabra */}
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold uppercase text-slate-300">
+                    Tipo de palabra (Auto)
+                  </label>
+                  <select
+                    value={partOfSpeech}
+                    onChange={(e) => setPartOfSpeech(e.target.value)}
+                    className="w-full h-9 px-3 rounded-xl bg-black/50 border border-white/15 text-xs font-semibold text-white focus:outline-none focus:border-[#e62e4c] transition-all cursor-pointer"
+                  >
+                    {WORD_POS_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value} className="bg-[#1c162e]">
+                        {opt.label}
+                      </option>
+                    ))}
+                    {!WORD_POS_OPTIONS.some((opt) => opt.value === partOfSpeech) && partOfSpeech && (
+                      <option value={partOfSpeech} className="bg-[#1c162e]">
+                        {partOfSpeech}
+                      </option>
+                    )}
+                  </select>
+                </div>
+
+                {/* 2. Traducción al español */}
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold uppercase text-slate-300">
+                    Traducción al español (Auto)
+                  </label>
+                  <input
+                    type="text"
+                    value={translation}
+                    onChange={(e) => setTranslation(e.target.value)}
+                    placeholder={loadingAuto ? 'Traduciendo...' : 'Traducción automática...'}
+                    className="w-full h-9 px-3 rounded-xl bg-black/50 border border-white/15 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#e62e4c] transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Fonética IPA y Guía generadas */}
+              {(ipa || phoneticGuide) && (
+                <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[10px] uppercase font-bold text-slate-400">IPA:</span>
+                    <span className="font-mono text-[#ff758c] font-bold text-xs">{ipa}</span>
+                    <span className="text-slate-300 text-xs italic">{phoneticGuide}</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#e62e4c]/20 text-pink-300 border border-[#e62e4c]/30">
                     {level}
                   </span>
                 </div>
-                <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold">
-                  <CheckCircle2 size={14} />
-                  <span>Campos listos</span>
-                </div>
-              </div>
-
-              {/* Fonética IPA */}
-              <div className="text-xs">
-                <span className="text-slate-400 text-[10px] uppercase font-bold block">
-                  Fonética IPA & Guía
-                </span>
-                <div className="flex items-baseline gap-2 mt-0.5">
-                  <span className="font-mono text-[#ff758c] font-bold text-sm">{ipa}</span>
-                  <span className="text-slate-300 text-xs">{phoneticGuide}</span>
-                </div>
-              </div>
+              )}
 
               {/* Bilingual Example sentence */}
               {exampleEn && (
-                <div className="pt-1 text-xs space-y-1.5">
+                <div className="pt-1 text-xs space-y-1">
                   <span className="text-slate-400 text-[10px] uppercase font-bold flex items-center gap-1.5">
                     <span>Frase de ejemplo con</span>
                     <span className="text-[#ff758c] font-black underline">{word}</span>
                   </span>
-                  <p className="text-slate-200 font-medium leading-relaxed italic bg-black/30 p-2.5 rounded-xl border border-white/10">
+                  <p className="text-slate-200 font-medium leading-relaxed italic bg-black/30 p-2 rounded-xl border border-white/10 text-[11px]">
                     "{exampleEn}"
                   </p>
                   {exampleEs && (
@@ -529,17 +610,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                      Parte de la oración
-                    </label>
-                    <input
-                      type="text"
-                      value={partOfSpeech}
-                      onChange={(e) => setPartOfSpeech(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
                       Nivel CEFR
                     </label>
                     <select
@@ -554,6 +624,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                       <option value="C1" className="bg-[#1c162e]">C1 - Avanzado</option>
                       <option value="C2" className="bg-[#1c162e]">C2 - Dominio Nativo</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                      Nota Fonética / Regla
+                    </label>
+                    <input
+                      type="text"
+                      value={phoneticNote}
+                      onChange={(e) => setPhoneticNote(e.target.value)}
+                      placeholder="ej. Sílaba tónica destacada..."
+                      className="w-full px-3 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c]"
+                    />
                   </div>
                 </div>
 

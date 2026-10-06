@@ -20,9 +20,15 @@ import { ExportImportModal } from './components/workspace/ExportImportModal';
 import { EditProfileModal } from './components/workspace/EditProfileModal';
 
 export default function App() {
-  // Always start unauthenticated on app launch so login is always shown first
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  // Restore user session and profile picture across reloads and visits
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    return firebaseService.getCurrentUser();
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    const remembered = localStorage.getItem('pronounceit_remember_me') === 'true';
+    const user = firebaseService.getCurrentUser();
+    return Boolean(user && (remembered || localStorage.getItem('pronounceit_firebase_user_v1')));
+  });
 
   // Active navigation tab
   const [activeTab, setActiveTab] = useState<MainNavTab>('vocabulary');

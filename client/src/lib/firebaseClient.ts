@@ -15,6 +15,7 @@ import {
   getFirestore,
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
   deleteDoc,
@@ -79,6 +80,12 @@ class FirebaseService {
       const cached = localStorage.getItem(STORAGE_KEY_FIREBASE_USER);
       if (cached) {
         this.currentUser = JSON.parse(cached);
+        if (this.currentUser) {
+          const savedAvatar = this.getSavedAvatar(this.currentUser.id, this.currentUser.username, this.currentUser.email);
+          if (savedAvatar) {
+            this.currentUser.avatar_url = savedAvatar;
+          }
+        }
       }
     } catch {
       // ignore
@@ -116,21 +123,19 @@ class FirebaseService {
 
   private handleAuthStateChange(user: User | null) {
     if (user) {
+      const existingAvatar = this.getSavedAvatar(user.uid, user.email?.split('@')[0], user.email || undefined);
       this.currentUser = {
         id: user.uid,
         email: user.email || 'usuario@firebase.com',
         full_name: user.displayName || user.email?.split('@')[0] || 'Usuario PronounceIt',
         username: user.email?.split('@')[0] || 'usuario',
-        avatar_url: user.photoURL || undefined,
+        avatar_url: user.photoURL || existingAvatar || undefined,
         role: 'user',
       };
       localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(this.currentUser));
-    } else {
-      // If we don't have an active Firebase auth session, fallback to cached or null
-      this.currentUser = null;
-      localStorage.removeItem(STORAGE_KEY_FIREBASE_USER);
+      this.notify();
     }
-    this.notify();
+    // Do NOT wipe localStorage on null auth - preserves offline/credentials session!
   }
 
   public async setConfig(newConfig: Partial<FirebaseConfig>): Promise<{ success: boolean; message: string }> {
@@ -181,6 +186,12 @@ class FirebaseService {
   }
 
   public getCurrentUser(): UserProfile | null {
+    if (this.currentUser && !this.currentUser.avatar_url) {
+      const saved = this.getSavedAvatar(this.currentUser.id, this.currentUser.username, this.currentUser.email);
+      if (saved) {
+        this.currentUser.avatar_url = saved;
+      }
+    }
     return this.currentUser;
   }
 
@@ -209,6 +220,35 @@ class FirebaseService {
     localStorage.setItem('pronounceit_registered_accounts_v1', JSON.stringify(accounts));
   }
 
+  public getSavedAvatar(userId?: string, username?: string, email?: string): string | undefined {
+    try {
+      const keys = [
+        userId ? `pronounceit_avatar_${userId}` : null,
+        username ? `pronounceit_avatar_${username.toLowerCase()}` : null,
+        email ? `pronounceit_avatar_${email.toLowerCase()}` : null,
+        'pronounceit_last_avatar',
+      ].filter(Boolean) as string[];
+
+      for (const k of keys) {
+        const val = localStorage.getItem(k);
+        if (val && (val.startsWith('data:image') || val.startsWith('http'))) {
+          return val;
+        }
+      }
+    } catch {}
+    return undefined;
+  }
+
+  public saveAvatar(userId?: string, avatarUrl?: string, username?: string, email?: string) {
+    if (!avatarUrl) return;
+    try {
+      if (userId) localStorage.setItem(`pronounceit_avatar_${userId}`, avatarUrl);
+      if (username) localStorage.setItem(`pronounceit_avatar_${username.toLowerCase()}`, avatarUrl);
+      if (email) localStorage.setItem(`pronounceit_avatar_${email.toLowerCase()}`, avatarUrl);
+      localStorage.setItem('pronounceit_last_avatar', avatarUrl);
+    } catch {}
+  }
+
   // ==========================================
   // AUTH OPERATIONS
   // ==========================================
@@ -226,12 +266,24 @@ class FirebaseService {
       try {
         const cred = await signInWithEmailAndPassword(this.auth, input, password);
         const u = cred.user;
+        let avatarUrl = u.photoURL || this.getSavedAvatar(u.uid, input.split('@')[0], u.email || input);
+        if (this.db) {
+          try {
+            const uDoc = await getDoc(doc(this.db, 'users', u.uid));
+            if (uDoc.exists() && uDoc.data()?.avatar_url) {
+              avatarUrl = uDoc.data()?.avatar_url;
+            }
+          } catch {}
+        }
+        if (avatarUrl) {
+          this.saveAvatar(u.uid, avatarUrl, input.split('@')[0], u.email || input);
+        }
         const profile: UserProfile = {
           id: u.uid,
           email: u.email || input,
           full_name: u.displayName || input.split('@')[0],
           username: input.split('@')[0],
-          avatar_url: u.photoURL || undefined,
+          avatar_url: avatarUrl,
           role: 'user',
         };
         this.currentUser = profile;
@@ -253,13 +305,25 @@ class FirebaseService {
       if (existing.password !== password) {
         return { success: false, message: 'Contraseña incorrecta' };
       }
+      let avatarUrl = existing.avatarUrl || this.getSavedAvatar(existing.id, existing.username, existing.email);
+      if (this.db) {
+        try {
+          const uDoc = await getDoc(doc(this.db, 'users', existing.id));
+          if (uDoc.exists() && uDoc.data()?.avatar_url) {
+            avatarUrl = uDoc.data()?.avatar_url;
+          }
+        } catch {}
+      }
+      if (avatarUrl) {
+        this.saveAvatar(existing.id, avatarUrl, existing.username, existing.email);
+      }
       const profile: UserProfile = {
         id: existing.id,
         email: existing.email,
         full_name: existing.fullName || existing.username,
         username: existing.username,
         must_change_password: existing.mustChangePassword,
-        avatar_url: existing.avatarUrl,
+        avatar_url: avatarUrl,
         role: 'user',
         created_at: existing.createdAt,
       };
@@ -275,11 +339,30 @@ class FirebaseService {
 
     // Demo account access (alexgorbatow)
     if (input === 'alexgorbatow' || input === 'alexgorbatow@yandex.ru') {
+      let avatarUrl = this.getSavedAvatar('usr-alex-gorbatow', 'alexgorbatow', 'alexgorbatow@yandex.ru');
+      let fullName = 'Alex Gorbatow';
+
+      if (this.db) {
+        try {
+          const uDoc = await getDoc(doc(this.db, 'users', 'usr-alex-gorbatow'));
+          if (uDoc.exists()) {
+            const data = uDoc.data();
+            if (data?.avatar_url) avatarUrl = data.avatar_url;
+            if (data?.full_name) fullName = data.full_name;
+          }
+        } catch {}
+      }
+
+      if (avatarUrl) {
+        this.saveAvatar('usr-alex-gorbatow', avatarUrl, 'alexgorbatow', 'alexgorbatow@yandex.ru');
+      }
+
       const demoProfile: UserProfile = {
         id: 'usr-alex-gorbatow',
         email: 'alexgorbatow@yandex.ru',
-        full_name: 'Alex Gorbatow',
+        full_name: fullName,
         username: 'alexgorbatow',
+        avatar_url: avatarUrl,
         must_change_password: password === '12345',
         role: 'user',
         created_at: new Date().toISOString(),
@@ -295,11 +378,22 @@ class FirebaseService {
     }
 
     // Standard default user fallback
+    let fallbackAvatar = this.getSavedAvatar(undefined, input, input);
+    if (this.db && input) {
+      try {
+        const uDoc = await getDoc(doc(this.db, 'users', input));
+        if (uDoc.exists() && uDoc.data()?.avatar_url) {
+          fallbackAvatar = uDoc.data()?.avatar_url;
+        }
+      } catch {}
+    }
+
     const fallbackProfile: UserProfile = {
       id: `usr-${Date.now().toString(36)}`,
       email: input.includes('@') ? input : `${input}@pronounceit.app`,
       full_name: input.split('@')[0],
       username: input.split('@')[0],
+      avatar_url: fallbackAvatar,
       must_change_password: password === '12345',
       role: 'user',
       created_at: new Date().toISOString(),
@@ -466,22 +560,61 @@ class FirebaseService {
       return { success: false, message: 'La nueva contraseña debe tener al menos 6 caracteres.' };
     }
 
+    const resolvedAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl : this.currentUser.avatar_url;
+
     this.currentUser = {
       ...this.currentUser,
       full_name: cleanFullName || this.currentUser.full_name,
       username: cleanUsername || this.currentUser.username,
       email: cleanEmail || this.currentUser.email,
-      avatar_url: updates.avatarUrl !== undefined ? updates.avatarUrl : this.currentUser.avatar_url,
+      avatar_url: resolvedAvatar,
     };
     localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(this.currentUser));
+
+    if (resolvedAvatar) {
+      this.saveAvatar(this.currentUser.id, resolvedAvatar, this.currentUser.username, this.currentUser.email);
+    }
     this.notify();
+
+    // Update in registered accounts array
+    try {
+      const accounts = this.getStoredAccounts();
+      const existingIdx = accounts.findIndex(
+        (a) =>
+          a.id === this.currentUser!.id ||
+          a.username.toLowerCase() === this.currentUser!.username.toLowerCase() ||
+          a.email.toLowerCase() === this.currentUser!.email.toLowerCase()
+      );
+      if (existingIdx !== -1) {
+        accounts[existingIdx] = {
+          ...accounts[existingIdx],
+          fullName: cleanFullName || accounts[existingIdx].fullName,
+          username: cleanUsername || accounts[existingIdx].username,
+          email: cleanEmail || accounts[existingIdx].email,
+          avatarUrl: resolvedAvatar || accounts[existingIdx].avatarUrl,
+          password: updates.newPassword || accounts[existingIdx].password,
+        };
+      } else {
+        accounts.push({
+          id: this.currentUser.id,
+          email: this.currentUser.email,
+          username: this.currentUser.username,
+          fullName: this.currentUser.full_name,
+          password: updates.newPassword || '12345',
+          avatarUrl: resolvedAvatar,
+          mustChangePassword: false,
+          createdAt: new Date().toISOString(),
+        });
+      }
+      this.saveStoredAccounts(accounts);
+    } catch {}
 
     // Update in Firebase Auth
     if (this.auth?.currentUser) {
       try {
         await fbUpdateProfile(this.auth.currentUser, {
           displayName: cleanFullName || this.currentUser.full_name,
-          photoURL: updates.avatarUrl || this.currentUser.avatar_url,
+          photoURL: resolvedAvatar || undefined,
         });
         if (updates.newPassword) {
           await fbUpdatePassword(this.auth.currentUser, updates.newPassword);
@@ -494,17 +627,17 @@ class FirebaseService {
     // Update in Firestore
     if (this.db) {
       try {
-        await setDoc(
-          doc(this.db, 'users', this.currentUser.id),
-          {
-            full_name: this.currentUser.full_name,
-            username: this.currentUser.username,
-            avatar_url: this.currentUser.avatar_url,
-            email: this.currentUser.email,
-            updated_at: new Date().toISOString(),
-          },
-          { merge: true }
-        );
+        const userData = {
+          full_name: this.currentUser.full_name,
+          username: this.currentUser.username,
+          avatar_url: resolvedAvatar || null,
+          email: this.currentUser.email,
+          updated_at: new Date().toISOString(),
+        };
+        await Promise.all([
+          setDoc(doc(this.db, 'users', this.currentUser.id), userData, { merge: true }),
+          setDoc(doc(this.db, 'users', this.currentUser.username.toLowerCase()), userData, { merge: true }),
+        ]);
       } catch (err) {
         console.warn('[Firebase] Error actualizando usuario en Firestore:', err);
       }
