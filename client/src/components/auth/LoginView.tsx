@@ -11,6 +11,7 @@ import {
   Image,
   Linking,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import {
   Mail,
@@ -212,11 +213,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
       >
         <View style={styles.overlay} />
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={0}
         >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="none"
+          >
           {/* Header Brand */}
           <View style={styles.brandContainer}>
             <View style={styles.logoBadge}>
@@ -325,6 +332,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                     onFocus={() => setFocusedField('username')}
                     onBlur={() => setFocusedField(null)}
                     autoCapitalize="words"
+                    autoCorrect={false}
+                    spellCheck={false}
+                    underlineColorAndroid="transparent"
                   />
                 </View>
               </View>
@@ -356,6 +366,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                     onBlur={() => setFocusedField(null)}
                     keyboardType="email-address"
                     autoCapitalize="none"
+                    autoCorrect={false}
+                    spellCheck={false}
+                    textContentType="emailAddress"
+                    autoComplete="email"
+                    underlineColorAndroid="transparent"
                   />
                 </View>
               </View>
@@ -389,6 +404,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                     onFocus={() => setFocusedField('password')}
                     onBlur={() => setFocusedField(null)}
                     secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    spellCheck={false}
+                    textContentType="password"
+                    autoComplete="current-password"
+                    underlineColorAndroid="transparent"
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}
@@ -428,6 +449,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                       onFocus={() => setFocusedField('newPassword')}
                       onBlur={() => setFocusedField(null)}
                       secureTextEntry={!showNewPassword}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      spellCheck={false}
+                      textContentType="newPassword"
+                      underlineColorAndroid="transparent"
                     />
                     <TouchableOpacity
                       onPress={() => setShowNewPassword(!showNewPassword)}
@@ -464,6 +490,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                       onFocus={() => setFocusedField('confirmPassword')}
                       onBlur={() => setFocusedField(null)}
                       secureTextEntry={!showNewPassword}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      spellCheck={false}
+                      textContentType="newPassword"
+                      underlineColorAndroid="transparent"
                     />
                   </View>
                 </View>
@@ -546,6 +577,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
             </View>
           </View>
         </ScrollView>
+        </KeyboardAvoidingView>
       </ImageBackground>
     </View>
   );
@@ -567,10 +599,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 36,
+    paddingTop: Platform.OS === 'web' ? 36 : 28,
+    paddingBottom: 56,
   },
   brandContainer: {
     alignItems: 'center',
@@ -724,12 +757,15 @@ const styles = StyleSheet.create({
   },
   inputWrapperFocused: {
     borderColor: THEME.colors.crimson,
-    backgroundColor: 'rgba(230, 46, 76, 0.05)',
-    shadowColor: THEME.colors.crimson,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
+    ...(Platform.OS === 'web'
+      ? {
+          shadowColor: THEME.colors.crimson,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.4,
+          shadowRadius: 8,
+        }
+      : {}),
   },
   inputIcon: {
     marginRight: 10,
@@ -738,6 +774,8 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#ffffff',
     fontSize: 14,
+    height: '100%',
+    paddingVertical: 0,
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as any) : {}),
   },
   eyeIcon: {
