@@ -15,6 +15,7 @@ import {
 } from 'lucide-react-native';
 import { UserProfile, MainNavTab } from '../../types';
 import { THEME } from '../../theme';
+import { PronounceItLogo } from '../common/PronounceItLogo';
 
 interface TopNavigationProps {
   activeTab: MainNavTab;
@@ -35,9 +36,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
     <View style={styles.container}>
       {/* Brand logo & title */}
       <View style={styles.brandRow}>
-        <View style={styles.logoBadge}>
-          <BookOpen size={18} color={THEME.colors.crimsonLight} />
-        </View>
+        <PronounceItLogo size={36} />
         <View>
           <Text style={styles.brandTitle}>PronounceIt</Text>
           <Text style={styles.brandSubtitle}>Inglés & Fonética</Text>

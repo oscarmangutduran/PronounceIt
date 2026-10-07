@@ -28,6 +28,7 @@ import {
 import { firebaseService, WelcomeEmailNotice } from '../../lib/firebaseClient';
 import { appStorage } from '../../lib/storage';
 import { THEME } from '../../theme';
+import { PronounceItLogo } from '../common/PronounceItLogo';
 
 interface LoginViewProps {
   onSuccess: () => void;
@@ -207,10 +208,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
           {/* Header Brand */}
           <View style={styles.brandContainer}>
             <View style={styles.logoBadge}>
-              <BookOpen size={28} color={THEME.colors.crimsonLight} />
-              <View style={styles.sparkleDot}>
-                <Sparkles size={12} color="#ffffff" />
-              </View>
+              <PronounceItLogo size={64} />
             </View>
             <Text style={styles.brandTitle}>PronounceIt</Text>
             <Text style={styles.brandSubtitle}>
@@ -528,16 +526,12 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   logoBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: 'rgba(230, 46, 76, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(230, 46, 76, 0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 14,
-    position: 'relative',
+    shadowColor: '#e62e4c',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 8,
   },
   sparkleDot: {
     position: 'absolute',
