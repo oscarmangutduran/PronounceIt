@@ -6,6 +6,10 @@ import {
   StyleSheet,
   SafeAreaView,
   Platform,
+  ScrollView,
+  useWindowDimensions,
+  Image,
+  Linking,
   StatusBar as RNStatusBar,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -41,6 +45,9 @@ import { ExportImportModal } from './components/workspace/ExportImportModal';
 import { EditProfileModal } from './components/workspace/EditProfileModal';
 
 export default function App() {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 1024;
+
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     return firebaseService.getCurrentUser();
   });
@@ -168,199 +175,251 @@ export default function App() {
       />
 
       {/* Workspace Content */}
-      <View style={styles.mainContent}>
-        {activeTab === 'vocabulary' && (
-          <View style={{ flex: 1 }}>
-            <SidebarCategories
-              categories={categories}
-              selectedFilter={selectedFilter}
-              onSelectFilter={setSelectedFilter}
-              totalWords={totalWords}
-              favoritesCount={favoritesCount}
-              reviewCount={reviewCount}
-              masteredCount={masteredCount}
-              onAddNewCategory={() => {
-                setEditingWord(null);
-                setIsAddModalOpen(true);
-              }}
-            />
+      <ScrollView
+        style={styles.mainContent}
+        contentContainerStyle={[
+          styles.mainScrollContent,
+          isDesktop && styles.mainScrollContentDesktop,
+        ]}
+      >
+        <View style={isDesktop ? styles.workspaceDesktop : styles.workspaceMobile}>
+          {activeTab === 'vocabulary' && (
+            <View style={isDesktop ? styles.vocabularyRowDesktop : styles.vocabularyColumnMobile}>
+              <SidebarCategories
+                categories={categories}
+                selectedFilter={selectedFilter}
+                onSelectFilter={setSelectedFilter}
+                totalWords={totalWords}
+                favoritesCount={favoritesCount}
+                reviewCount={reviewCount}
+                masteredCount={masteredCount}
+                onAddNewCategory={() => {
+                  setEditingWord(null);
+                  setIsAddModalOpen(true);
+                }}
+              />
 
-            <VocabularyTableView
+              <VocabularyTableView
+                words={words}
+                selectedFilter={selectedFilter}
+                onOpenAddModal={() => {
+                  setEditingWord(null);
+                  setIsAddModalOpen(true);
+                }}
+                onOpenExportModal={() => setIsExportModalOpen(true)}
+                onStartPractice={() => setActiveTab('flashcards')}
+                onEditWord={handleEditWord}
+                onToggleFavorite={handleToggleFavorite}
+                onUpdateStatus={handleUpdateStatus}
+                onDeleteWord={handleDeleteWord}
+              />
+            </View>
+          )}
+
+          {activeTab === 'flashcards' && (
+            <FlashcardPracticeView
               words={words}
-              selectedFilter={selectedFilter}
-              onOpenAddModal={() => {
-                setEditingWord(null);
-                setIsAddModalOpen(true);
-              }}
-              onOpenExportModal={() => setIsExportModalOpen(true)}
-              onStartPractice={() => setActiveTab('flashcards')}
-              onEditWord={handleEditWord}
-              onToggleFavorite={handleToggleFavorite}
+              onBackToVocabulary={() => setActiveTab('vocabulary')}
               onUpdateStatus={handleUpdateStatus}
-              onDeleteWord={handleDeleteWord}
             />
+          )}
+
+          {activeTab === 'test' && (
+            <TestView
+              words={words}
+              onBackToVocabulary={() => setActiveTab('vocabulary')}
+            />
+          )}
+
+          {activeTab === 'stats' && <StatsDashboardView words={words} />}
+
+          {activeTab === 'settings' && (
+            <SettingsView currentUser={currentUser} onLogout={handleLogout} />
+          )}
+        </View>
+
+        {/* Global Footer (shown on Desktop) */}
+        {isDesktop && (
+          <View style={styles.footerContainer}>
+            <Text style={styles.footerCopyright}>
+              © PronounceIt | Desarrollado con ❤️ Oscar Mangut Dev
+            </Text>
+            <View style={styles.footerPartners}>
+              <Text style={styles.footerPartnerTitle}>APLICACIONES RECOMENDADAS:</Text>
+              <TouchableOpacity
+                style={styles.footerPartnerBadge}
+                onPress={() => Linking.openURL('https://www.duolingo.com/')}
+              >
+                <Image
+                  source={require('./assets/duolingo.png')}
+                  style={styles.footerPartnerLogo}
+                />
+                <Text style={styles.footerPartnerName}>Duolingo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.footerPartnerBadge}
+                onPress={() => Linking.openURL('https://beespeaker.com/')}
+              >
+                <Image
+                  source={require('./assets/beespeaker.png')}
+                  style={styles.footerPartnerLogo}
+                />
+                <Text style={styles.footerPartnerName}>BeeSpeaker</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.footerPartnerBadge}
+                onPress={() => Linking.openURL('https://wlingua.com/')}
+              >
+                <Image
+                  source={require('./assets/wlingua.png')}
+                  style={styles.footerPartnerLogo}
+                />
+                <Text style={styles.footerPartnerName}>Wlingua</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
+      </ScrollView>
 
-        {activeTab === 'flashcards' && (
-          <FlashcardPracticeView
-            words={words}
-            onBackToVocabulary={() => setActiveTab('vocabulary')}
-            onUpdateStatus={handleUpdateStatus}
-          />
-        )}
+      {/* Bottom Tab Navigation Bar (Mobile only) */}
+      {!isDesktop && (
+        <View style={styles.tabBar}>
+          {/* Tab 1: Vocabulario */}
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => setActiveTab('vocabulary')}
+            activeOpacity={0.8}
+          >
+            <View
+              style={[
+                styles.tabIconBox,
+                activeTab === 'vocabulary' && styles.tabIconBoxActive,
+              ]}
+            >
+              <BookOpen
+                size={18}
+                color={activeTab === 'vocabulary' ? '#ffffff' : THEME.colors.textMuted}
+              />
+            </View>
+            <Text
+              style={[
+                styles.tabLabel,
+                activeTab === 'vocabulary' && styles.tabLabelActive,
+              ]}
+            >
+              Vocabulario
+            </Text>
+          </TouchableOpacity>
 
-        {activeTab === 'test' && (
-          <TestView
-            words={words}
-            onBackToVocabulary={() => setActiveTab('vocabulary')}
-          />
-        )}
+          {/* Tab 2: Flashcards */}
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => setActiveTab('flashcards')}
+            activeOpacity={0.8}
+          >
+            <View
+              style={[
+                styles.tabIconBox,
+                activeTab === 'flashcards' && styles.tabIconBoxActive,
+              ]}
+            >
+              <Layers
+                size={18}
+                color={activeTab === 'flashcards' ? '#ffffff' : THEME.colors.textMuted}
+              />
+            </View>
+            <Text
+              style={[
+                styles.tabLabel,
+                activeTab === 'flashcards' && styles.tabLabelActive,
+              ]}
+            >
+              Flashcards
+            </Text>
+          </TouchableOpacity>
 
-        {activeTab === 'stats' && <StatsDashboardView words={words} />}
+          {/* Tab 3: Test */}
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => setActiveTab('test')}
+            activeOpacity={0.8}
+          >
+            <View
+              style={[
+                styles.tabIconBox,
+                activeTab === 'test' && styles.tabIconBoxActive,
+              ]}
+            >
+              <ClipboardCheck
+                size={18}
+                color={activeTab === 'test' ? '#ffffff' : THEME.colors.textMuted}
+              />
+            </View>
+            <Text
+              style={[
+                styles.tabLabel,
+                activeTab === 'test' && styles.tabLabelActive,
+              ]}
+            >
+              Test
+            </Text>
+          </TouchableOpacity>
 
-        {activeTab === 'settings' && (
-          <SettingsView currentUser={currentUser} onLogout={handleLogout} />
-        )}
-      </View>
+          {/* Tab 4: Progreso */}
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => setActiveTab('stats')}
+            activeOpacity={0.8}
+          >
+            <View
+              style={[
+                styles.tabIconBox,
+                activeTab === 'stats' && styles.tabIconBoxActive,
+              ]}
+            >
+              <BarChart3
+                size={18}
+                color={activeTab === 'stats' ? '#ffffff' : THEME.colors.textMuted}
+              />
+            </View>
+            <Text
+              style={[
+                styles.tabLabel,
+                activeTab === 'stats' && styles.tabLabelActive,
+              ]}
+            >
+              Progreso
+            </Text>
+          </TouchableOpacity>
 
-      {/* Bottom Tab Navigation Bar */}
-      <View style={styles.tabBar}>
-        {/* Tab 1: Vocabulario */}
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => setActiveTab('vocabulary')}
-          activeOpacity={0.8}
-        >
-          <View
-            style={[
-              styles.tabIconBox,
-              activeTab === 'vocabulary' && styles.tabIconBoxActive,
-            ]}
+          {/* Tab 5: Ajustes */}
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => setActiveTab('settings')}
+            activeOpacity={0.8}
           >
-            <BookOpen
-              size={18}
-              color={activeTab === 'vocabulary' ? '#ffffff' : THEME.colors.textMuted}
-            />
-          </View>
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === 'vocabulary' && styles.tabLabelActive,
-            ]}
-          >
-            Vocabulario
-          </Text>
-        </TouchableOpacity>
-
-        {/* Tab 2: Flashcards */}
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => setActiveTab('flashcards')}
-          activeOpacity={0.8}
-        >
-          <View
-            style={[
-              styles.tabIconBox,
-              activeTab === 'flashcards' && styles.tabIconBoxActive,
-            ]}
-          >
-            <Layers
-              size={18}
-              color={activeTab === 'flashcards' ? '#ffffff' : THEME.colors.textMuted}
-            />
-          </View>
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === 'flashcards' && styles.tabLabelActive,
-            ]}
-          >
-            Flashcards
-          </Text>
-        </TouchableOpacity>
-
-        {/* Tab 3: Test */}
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => setActiveTab('test')}
-          activeOpacity={0.8}
-        >
-          <View
-            style={[
-              styles.tabIconBox,
-              activeTab === 'test' && styles.tabIconBoxActive,
-            ]}
-          >
-            <ClipboardCheck
-              size={18}
-              color={activeTab === 'test' ? '#ffffff' : THEME.colors.textMuted}
-            />
-          </View>
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === 'test' && styles.tabLabelActive,
-            ]}
-          >
-            Test
-          </Text>
-        </TouchableOpacity>
-
-        {/* Tab 4: Progreso */}
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => setActiveTab('stats')}
-          activeOpacity={0.8}
-        >
-          <View
-            style={[
-              styles.tabIconBox,
-              activeTab === 'stats' && styles.tabIconBoxActive,
-            ]}
-          >
-            <BarChart3
-              size={18}
-              color={activeTab === 'stats' ? '#ffffff' : THEME.colors.textMuted}
-            />
-          </View>
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === 'stats' && styles.tabLabelActive,
-            ]}
-          >
-            Progreso
-          </Text>
-        </TouchableOpacity>
-
-        {/* Tab 5: Ajustes */}
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => setActiveTab('settings')}
-          activeOpacity={0.8}
-        >
-          <View
-            style={[
-              styles.tabIconBox,
-              activeTab === 'settings' && styles.tabIconBoxActive,
-            ]}
-          >
-            <Settings
-              size={18}
-              color={activeTab === 'settings' ? '#ffffff' : THEME.colors.textMuted}
-            />
-          </View>
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === 'settings' && styles.tabLabelActive,
-            ]}
-          >
-            Ajustes
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <View
+              style={[
+                styles.tabIconBox,
+                activeTab === 'settings' && styles.tabIconBoxActive,
+              ]}
+            >
+              <Settings
+                size={18}
+                color={activeTab === 'settings' ? '#ffffff' : THEME.colors.textMuted}
+              />
+            </View>
+            <Text
+              style={[
+                styles.tabLabel,
+                activeTab === 'settings' && styles.tabLabelActive,
+              ]}
+            >
+              Ajustes
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Add / Edit Word Modal */}
       {isAddModalOpen && (
@@ -413,6 +472,90 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
   },
+  mainScrollContent: {
+    flexGrow: 1,
+    paddingBottom: 24,
+  },
+  mainScrollContentDesktop: {
+    justifyContent: 'space-between',
+  },
+  workspaceDesktop: {
+    width: '100%',
+    maxWidth: 1560,
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
+    flex: 1,
+  },
+  workspaceMobile: {
+    flex: 1,
+  },
+  vocabularyRowDesktop: {
+    flexDirection: 'row',
+    gap: 20,
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  vocabularyColumnMobile: {
+    flex: 1,
+  },
+
+  // Footer styles
+  footerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#0a0712',
+    marginTop: 24,
+    width: '100%',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  footerCopyright: {
+    fontSize: 12,
+    color: THEME.colors.textSubtle,
+    fontWeight: '500',
+  },
+  footerPartners: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  footerPartnerTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: THEME.colors.textSubtle,
+    letterSpacing: 1,
+    marginRight: 4,
+  },
+  footerPartnerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 6,
+  },
+  footerPartnerLogo: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+  },
+  footerPartnerName: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#e2e8f0',
+  },
+
+  // Mobile Bottom Tab Bar
   tabBar: {
     flexDirection: 'row',
     alignItems: 'center',

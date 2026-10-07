@@ -1,5 +1,33 @@
 {
-  "users": [],
+  "users": [
+    {
+      "id": "demo-user-1",
+      "email": "usuario@pronounceit.com",
+      "username": "Usuario PronounceIt",
+      "password": "password123",
+      "must_change_password": false,
+      "created_at": "2026-10-07T06:50:11.666Z",
+      "updated_at": "2026-10-07T06:50:11.666Z"
+    },
+    {
+      "id": "usr_cfa3eda3",
+      "email": "oscar@pronounceit.com",
+      "username": "oscar",
+      "password": "12345",
+      "must_change_password": true,
+      "created_at": "2026-10-07T06:53:33.648Z",
+      "updated_at": "2026-10-07T06:53:33.648Z"
+    },
+    {
+      "id": "usr_0bb29857",
+      "email": "oscarmangutd91@gmail.com",
+      "username": "oscarmd91",
+      "password": "Londres2025",
+      "must_change_password": false,
+      "created_at": "2026-10-07T10:54:32.624Z",
+      "updated_at": "2026-10-07T11:01:01.864Z"
+    }
+  ],
   "words": [
     {
       "id": "w_61acaea8",
