@@ -23,7 +23,6 @@ import {
   ArrowLeft,
   Sparkles,
   BookOpen,
-  Volume2,
 } from 'lucide-react-native';
 import { firebaseService, WelcomeEmailNotice } from '../../lib/firebaseClient';
 import { appStorage } from '../../lib/storage';
@@ -183,13 +182,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
         setError(res.message || 'Credenciales incorrectas.');
       }
     }
-  };
-
-  const handleGuestLogin = async () => {
-    setLoading(true);
-    await firebaseService.signInAsGuest();
-    setLoading(false);
-    onSuccess();
   };
 
   return (
@@ -491,23 +483,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                 </Text>
               )}
             </TouchableOpacity>
-
-            {/* Guest mode */}
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>O BIEN</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <TouchableOpacity
-              style={styles.guestButton}
-              onPress={handleGuestLogin}
-              disabled={loading}
-              activeOpacity={0.8}
-            >
-              <Volume2 size={16} color={THEME.colors.crimsonLight} style={{ marginRight: 8 }} />
-              <Text style={styles.guestButtonText}>Continuar como Invitado (Modo Práctica)</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Recommended Resources Footer */}
@@ -798,38 +773,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.3,
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: THEME.colors.border,
-  },
-  dividerText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: THEME.colors.textSubtle,
-    paddingHorizontal: 12,
-    letterSpacing: 1,
-  },
-  guestButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    borderRadius: THEME.radius.md,
-    height: 46,
-  },
-  guestButtonText: {
-    color: THEME.colors.textWhite,
-    fontSize: 13,
-    fontWeight: '600',
   },
   partnerFooter: {
     marginTop: 28,
