@@ -83,12 +83,15 @@ export default function App() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
-  // Left sidebar collapsed state (default collapsed on mobile screens < 768px)
+  // Left sidebar collapsed state (always collapsed by default on mobile < 768px)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     try {
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        return true;
+      }
       const stored = localStorage.getItem('pronounceit_sidebar_collapsed');
       if (stored !== null) return stored === 'true';
-      return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+      return false;
     } catch {
       return false;
     }
