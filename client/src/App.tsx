@@ -1,5 +1,13 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { Copyright, Heart } from 'lucide-react';
+import {
+  Copyright,
+  Heart,
+  BookOpen,
+  Layers,
+  ClipboardCheck,
+  BarChart3,
+  Settings,
+} from 'lucide-react';
 import { MainNavTab, WordItem, WordStatus, UserProfile } from './types';
 import { firebaseService } from './lib/firebaseClient';
 import { vocabService } from './lib/vocabularyStore';
@@ -75,10 +83,12 @@ export default function App() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
-  // Left sidebar collapsed state
+  // Left sidebar collapsed state (default collapsed on mobile screens < 768px)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('pronounceit_sidebar_collapsed') === 'true';
+      const stored = localStorage.getItem('pronounceit_sidebar_collapsed');
+      if (stored !== null) return stored === 'true';
+      return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
     } catch {
       return false;
     }
@@ -228,7 +238,7 @@ export default function App() {
         />
 
         {/* 2. Main Workspace Body Container */}
-        <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col">
+        <main className="flex-1 max-w-[1720px] w-full mx-auto px-3 sm:px-6 py-4 sm:py-8 flex flex-col pb-24 md:pb-8">
           {activeTab === 'vocabulary' && (
             <div className="flex flex-col md:flex-row gap-6 items-start">
               {/* Left Sidebar: Categories & Retención Lexical Card */}
@@ -308,7 +318,7 @@ export default function App() {
         </main>
 
         {/* 3. Bottom Footer */}
-        <footer className="w-full bg-[#130f1e]/90 border-t border-white/10 py-4 px-6 text-xs text-slate-400 select-none">
+        <footer className="w-full bg-[#130f1e]/90 border-t border-white/10 py-4 px-4 sm:px-6 pb-24 md:pb-4 text-xs text-slate-400 select-none">
           <div className="max-w-[1720px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
             <div className="flex items-center flex-wrap justify-center sm:justify-start gap-2 text-slate-300">
               <span className="flex items-center gap-1.5 font-medium text-white">
@@ -375,6 +385,122 @@ export default function App() {
             </div>
           </div>
         </footer>
+
+        {/* 4. Mobile / Tablet Bottom Navigation Bar (md:hidden) */}
+        <nav
+          aria-label="Navegación principal móvil"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#140f21]/95 backdrop-blur-xl border-t border-white/10 px-2 py-1.5 flex items-center justify-around shadow-[0_-8px_30px_rgba(0,0,0,0.7)]"
+        >
+          {/* Tab 1: Vocabulario */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('vocabulary')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'vocabulary'
+                ? 'text-[#ff4d6d]'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <div
+              className={`p-1 rounded-lg transition-transform ${
+                activeTab === 'vocabulary'
+                  ? 'bg-[#e62e4c]/20 shadow-[0_0_12px_rgba(230,46,76,0.35)] scale-110'
+                  : ''
+              }`}
+            >
+              <BookOpen size={18} />
+            </div>
+            <span className="text-[10px] font-bold mt-0.5 tracking-tight">Vocabulario</span>
+          </button>
+
+          {/* Tab 2: Flashcards */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('flashcards')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'flashcards'
+                ? 'text-[#ff4d6d]'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <div
+              className={`p-1 rounded-lg transition-transform ${
+                activeTab === 'flashcards'
+                  ? 'bg-[#e62e4c]/20 shadow-[0_0_12px_rgba(230,46,76,0.35)] scale-110'
+                  : ''
+              }`}
+            >
+              <Layers size={18} />
+            </div>
+            <span className="text-[10px] font-bold mt-0.5 tracking-tight">Flashcards</span>
+          </button>
+
+          {/* Tab 3: Test */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('test')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'test'
+                ? 'text-[#ff4d6d]'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <div
+              className={`p-1 rounded-lg transition-transform ${
+                activeTab === 'test'
+                  ? 'bg-[#e62e4c]/20 shadow-[0_0_12px_rgba(230,46,76,0.35)] scale-110'
+                  : ''
+              }`}
+            >
+              <ClipboardCheck size={18} />
+            </div>
+            <span className="text-[10px] font-bold mt-0.5 tracking-tight">Test</span>
+          </button>
+
+          {/* Tab 4: Estadísticas */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('stats')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'stats'
+                ? 'text-[#ff4d6d]'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <div
+              className={`p-1 rounded-lg transition-transform ${
+                activeTab === 'stats'
+                  ? 'bg-[#e62e4c]/20 shadow-[0_0_12px_rgba(230,46,76,0.35)] scale-110'
+                  : ''
+              }`}
+            >
+              <BarChart3 size={18} />
+            </div>
+            <span className="text-[10px] font-bold mt-0.5 tracking-tight">Progreso</span>
+          </button>
+
+          {/* Tab 5: Ajustes */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('settings')}
+            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'settings'
+                ? 'text-[#ff4d6d]'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <div
+              className={`p-1 rounded-lg transition-transform ${
+                activeTab === 'settings'
+                  ? 'bg-[#e62e4c]/20 shadow-[0_0_12px_rgba(230,46,76,0.35)] scale-110'
+                  : ''
+              }`}
+            >
+              <Settings size={18} />
+            </div>
+            <span className="text-[10px] font-bold mt-0.5 tracking-tight">Ajustes</span>
+          </button>
+        </nav>
       </div>
 
       {/* Add / Edit Word Modal */}

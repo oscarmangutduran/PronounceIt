@@ -169,54 +169,56 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <label className="text-xs font-semibold text-slate-300 block">
             Google Gemini API Key
           </label>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <input
                 type={showKey ? 'text' : 'password'}
                 value={geminiKey}
                 onChange={(e) => setGeminiKey(e.target.value)}
                 placeholder="Pega aquí tu clave: AIzaSy..."
-                className="w-full h-10 pl-3.5 pr-10 rounded-xl bg-black/40 border border-white/15 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#e62e4c] font-mono transition-all"
+                className="w-full h-11 sm:h-10 pl-3.5 pr-10 rounded-xl bg-black/40 border border-white/15 text-base sm:text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#e62e4c] font-mono transition-all"
               />
               <button
                 type="button"
                 onClick={() => setShowKey(!showKey)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer p-1"
                 title={showKey ? 'Ocultar clave' : 'Mostrar clave'}
               >
                 {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={handleSaveAndTestGemini}
-              disabled={testStatus.state === 'testing'}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#e62e4c] to-purple-600 hover:opacity-90 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-pink-500/20 shrink-0"
-            >
-              {testStatus.state === 'testing' ? (
-                <>
-                  <RefreshCw size={13} className="animate-spin" />
-                  <span>Verificando...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 size={13} />
-                  <span>Guardar y Probar</span>
-                </>
-              )}
-            </button>
-
-            {geminiKey && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={handleClearGeminiKey}
-                className="p-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-xs transition-colors cursor-pointer"
-                title="Eliminar clave"
+                onClick={handleSaveAndTestGemini}
+                disabled={testStatus.state === 'testing'}
+                className="flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-xl bg-gradient-to-r from-[#e62e4c] to-purple-600 hover:opacity-90 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md shadow-pink-500/20 shrink-0"
               >
-                <Trash2 size={15} />
+                {testStatus.state === 'testing' ? (
+                  <>
+                    <RefreshCw size={13} className="animate-spin" />
+                    <span>Verificando...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={13} />
+                    <span>Guardar y Probar</span>
+                  </>
+                )}
               </button>
-            )}
+
+              {geminiKey && (
+                <button
+                  type="button"
+                  onClick={handleClearGeminiKey}
+                  className="p-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-xs transition-colors cursor-pointer"
+                  title="Eliminar clave"
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Feedback message */}

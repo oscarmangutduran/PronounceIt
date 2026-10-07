@@ -192,7 +192,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn"
       onClick={onClose}
     >
       <div
@@ -200,7 +200,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="relative p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-purple-900/30 via-transparent to-pink-900/20">
+        <div className="relative p-4 sm:p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-purple-900/30 via-transparent to-pink-900/20">
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <span>Editar Perfil</span>
@@ -229,7 +229,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         />
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 flex flex-col gap-4 sm:gap-5">
           {error && (
             <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 animate-shake">
               <AlertCircle size={15} className="shrink-0 text-rose-400" />
@@ -317,7 +317,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Ej. Oscar Mangut"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-[#e62e4c] focus:ring-1 focus:ring-[#e62e4c] text-white text-xs placeholder-slate-500 outline-none transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-[#e62e4c] focus:ring-1 focus:ring-[#e62e4c] text-white text-base sm:text-xs placeholder-slate-500 outline-none transition-all"
             />
           </div>
 
@@ -332,7 +332,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Ej. oscarmangut"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-[#e62e4c] focus:ring-1 focus:ring-[#e62e4c] text-white text-xs placeholder-slate-500 outline-none transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-[#e62e4c] focus:ring-1 focus:ring-[#e62e4c] text-white text-base sm:text-xs placeholder-slate-500 outline-none transition-all"
             />
           </div>
 
@@ -347,7 +347,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@correo.com"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-[#e62e4c] focus:ring-1 focus:ring-[#e62e4c] text-white text-xs placeholder-slate-500 outline-none transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-[#e62e4c] focus:ring-1 focus:ring-[#e62e4c] text-white text-base sm:text-xs placeholder-slate-500 outline-none transition-all"
             />
           </div>
 
@@ -368,7 +368,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Nueva contraseña"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-[#e62e4c] focus:ring-1 focus:ring-[#e62e4c] text-white text-xs placeholder-slate-500 outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-[#e62e4c] focus:ring-1 focus:ring-[#e62e4c] text-white text-base sm:text-xs placeholder-slate-500 outline-none transition-all"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -377,7 +377,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirmar contraseña"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-[#e62e4c] focus:ring-1 focus:ring-[#e62e4c] text-white text-xs placeholder-slate-500 outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-[#e62e4c] focus:ring-1 focus:ring-[#e62e4c] text-white text-base sm:text-xs placeholder-slate-500 outline-none transition-all"
                 />
               </div>
             </div>

@@ -312,7 +312,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
             Temarios de estudio
           </p>
 
-          <div className="space-y-1">
+          <div className="space-y-1 max-h-[280px] md:max-h-none overflow-y-auto pr-1">
             {categories.map((cat) => {
               const isExpanded = !!expandedGroups[cat.name];
               const groupActive = isGroupActive(cat.name);

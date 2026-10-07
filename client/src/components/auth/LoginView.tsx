@@ -200,7 +200,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
       {/* Main Split-Screen Container Card */}
       <div className="relative z-10 w-full max-w-[960px] min-h-[580px] rounded-2xl overflow-hidden shadow-[0_25px_70px_rgba(0,0,0,0.85)] border border-white/10 grid grid-cols-1 md:grid-cols-2 bg-[#171224]">
         {/* LEFT PANEL: Hero Banner with Warm Study Desk */}
-        <div className="relative flex flex-col justify-between p-8 sm:p-10 min-h-[340px] md:min-h-full overflow-hidden bg-slate-900">
+        <div className="relative flex flex-col justify-between p-6 sm:p-10 min-h-[220px] sm:min-h-[320px] md:min-h-full overflow-hidden bg-slate-900">
           {/* Background Photo */}
           <div
             className="absolute inset-0 bg-cover bg-center"
@@ -285,7 +285,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
         </div>
 
         {/* RIGHT PANEL: Form Section */}
-        <div className="flex flex-col justify-between p-8 sm:p-12 md:p-14 bg-gradient-to-b from-[#1b152b] to-[#141021] text-white">
+        <div className="flex flex-col justify-between p-6 sm:p-10 md:p-14 bg-gradient-to-b from-[#1b152b] to-[#141021] text-white">
           <div>
             {/* Title */}
             <div>
@@ -394,7 +394,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="tu_correo@ejemplo.com"
-                        className="w-full pb-2 pt-0.5 bg-transparent border-b border-white/20 text-xs sm:text-sm text-white placeholder-slate-500/60 focus:outline-none focus:border-white transition-colors pr-7"
+                        className="w-full pb-2 pt-0.5 bg-transparent border-b border-white/20 text-base sm:text-sm text-white placeholder-slate-500/60 focus:outline-none focus:border-white transition-colors pr-7"
                         required
                       />
                       <Mail
@@ -416,7 +416,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
                           placeholder="tu_usuario"
-                          className="w-full pb-2 pt-0.5 bg-transparent border-b border-white/20 text-xs sm:text-sm text-white placeholder-slate-500/60 focus:outline-none focus:border-white transition-colors pr-7"
+                          className="w-full pb-2 pt-0.5 bg-transparent border-b border-white/20 text-base sm:text-sm text-white placeholder-slate-500/60 focus:outline-none focus:border-white transition-colors pr-7"
                           required
                         />
                         <User
@@ -439,7 +439,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="••••••••••••"
-                          className="w-full pb-2 pt-0.5 bg-transparent border-b border-white/20 text-xs sm:text-sm text-white placeholder-slate-500/60 focus:outline-none focus:border-white transition-colors pr-7 tracking-wider"
+                          className="w-full pb-2 pt-0.5 bg-transparent border-b border-white/20 text-base sm:text-sm text-white placeholder-slate-500/60 focus:outline-none focus:border-white transition-colors pr-7 tracking-wider"
                           required
                         />
                         <button

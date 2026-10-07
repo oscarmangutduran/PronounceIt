@@ -378,7 +378,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
             <label className="block text-xs font-bold uppercase text-slate-300 tracking-wider">
               2. Cantidad de Preguntas en el Test
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
               {[
                 { count: 5, label: '5 Preguntas (Test Express)' },
                 { count: 10, label: '10 Preguntas (Completo)' },
@@ -415,19 +415,19 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
           </div>
 
           {/* Start Test Button */}
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onBackToVocabulary}
-                className="px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 cursor-pointer transition-all"
+                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 cursor-pointer transition-all text-center"
               >
                 Volver a la Biblioteca
               </button>
               <button
                 type="button"
                 onClick={() => setIsResultsModalOpen(true)}
-                className="px-4 py-2.5 rounded-xl border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 text-xs font-bold text-amber-300 cursor-pointer transition-all flex items-center gap-1.5 shadow-sm"
+                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 text-xs font-bold text-amber-300 cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm"
               >
                 <Trophy size={14} className="text-amber-400" />
                 <span>Ver resultados</span>
@@ -438,7 +438,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
               type="button"
               disabled={availableWordsForLevel.length === 0}
               onClick={handleStartTest}
-              className="px-7 py-3 rounded-2xl bg-[#e62e4c] hover:bg-[#ff3b59] text-white text-xs font-extrabold shadow-xl shadow-[#e62e4c]/30 disabled:opacity-50 cursor-pointer flex items-center gap-2 transition-all active:scale-[0.99]"
+              className="w-full sm:w-auto px-7 py-3 rounded-2xl bg-[#e62e4c] hover:bg-[#ff3b59] text-white text-xs font-extrabold shadow-xl shadow-[#e62e4c]/30 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
             >
               <Sparkles size={16} />
               <span>Comenzar Test Ahora</span>
@@ -450,7 +450,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
 
       {/* 2. ACTIVE TESTING SCREEN */}
       {testState === 'testing' && currentWordItem && (
-        <div className="bg-[#181226]/85 backdrop-blur-md rounded-3xl border border-white/10 shadow-2xl p-6 sm:p-10 flex flex-col gap-6">
+        <div className="bg-[#181226]/85 backdrop-blur-md rounded-3xl border border-white/10 shadow-2xl p-4 sm:p-10 flex flex-col gap-5 sm:gap-6">
           {/* Top Progress Bar */}
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
@@ -505,28 +505,28 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
                 value={currentAnswer.word}
                 onChange={(e) => handleWordInput(e.target.value)}
                 placeholder="Escribe la palabra o término en inglés..."
-                className="w-full h-12 px-4 rounded-xl bg-black/50 border border-white/20 text-sm font-bold text-white placeholder-slate-500 focus:outline-none focus:border-[#e62e4c]"
+                className="w-full h-12 px-4 rounded-xl bg-black/50 border border-white/20 text-base sm:text-sm font-bold text-white placeholder-slate-500 focus:outline-none focus:border-[#e62e4c]"
                 autoFocus
               />
             </div>
 
             {/* Input 2: Sentence in English containing the word */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                 <label className="block text-xs font-bold uppercase text-slate-300 tracking-wide">
                   2. Escribe una oración en inglés con esa palabra *
                 </label>
                 {/* Live validation indicator */}
                 {currentAnswer.sentence.trim() && (
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 self-start sm:self-auto ${
                       hasWordInSentence
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                         : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                     }`}
                   >
                     {hasWordInSentence ? <Check size={11} /> : <AlertCircle size={11} />}
-                    <span>{hasWordInSentence ? 'Palabra incluida en la oración' : 'Falta incluir la palabra'}</span>
+                    <span>{hasWordInSentence ? 'Palabra incluida' : 'Falta incluir la palabra'}</span>
                   </span>
                 )}
               </div>
@@ -535,7 +535,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
                 onChange={(e) => handleSentenceInput(e.target.value)}
                 rows={3}
                 placeholder="Ejemplo: We achieved a major breakthrough in the negotiations..."
-                className="w-full p-3.5 rounded-xl bg-black/50 border border-white/20 text-xs font-medium text-white placeholder-slate-500 focus:outline-none focus:border-[#e62e4c] resize-none leading-relaxed"
+                className="w-full p-3.5 rounded-xl bg-black/50 border border-white/20 text-base sm:text-xs font-medium text-white placeholder-slate-500 focus:outline-none focus:border-[#e62e4c] resize-none leading-relaxed"
               />
             </div>
           </div>

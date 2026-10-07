@@ -351,7 +351,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
           {/* Separator / Delimiter selector */}
           <div className="flex items-center gap-2">
             <span className="text-slate-400 font-medium">Separador de columnas:</span>
-            <div className="flex items-center gap-1 bg-black/40 p-0.5 rounded-xl border border-white/10">
+            <div className="flex flex-wrap items-center gap-1 bg-black/40 p-0.5 rounded-xl border border-white/10">
               <button
                 type="button"
                 onClick={() => setDelimiter(';')}

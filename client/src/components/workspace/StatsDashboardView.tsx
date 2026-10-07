@@ -97,17 +97,17 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words })
             />
           </div>
 
-          <div className="flex items-center justify-between text-xs text-slate-300 pt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-slate-300 pt-2">
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-emerald-400" />
+              <span className="w-3 h-3 rounded-full bg-emerald-400 shrink-0" />
               <span>Dominadas ({mastered})</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-amber-400" />
+              <span className="w-3 h-3 rounded-full bg-amber-400 shrink-0" />
               <span>En repaso ({inReview})</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-purple-400" />
+              <span className="w-3 h-3 rounded-full bg-purple-400 shrink-0" />
               <span>Nuevas sin repasar ({newWords})</span>
             </div>
           </div>

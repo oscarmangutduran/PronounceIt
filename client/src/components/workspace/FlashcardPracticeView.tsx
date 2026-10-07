@@ -74,21 +74,21 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
   return (
     <div className="max-w-3xl mx-auto flex flex-col gap-6 select-none animate-fadeIn text-white">
       {/* Top Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <button
           type="button"
           onClick={onBackToVocabulary}
-          className="px-3.5 py-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
+          className="px-3.5 py-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all self-start sm:self-auto"
         >
           <ArrowLeft size={14} />
           <span>Volver a la Biblioteca</span>
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between sm:justify-end gap-3">
           <span className="text-xs font-bold text-slate-300">
             Tarjeta {currentIndex + 1} de {practiceList.length}
           </span>
-          <div className="w-32 h-2 rounded-full bg-white/10 overflow-hidden">
+          <div className="w-28 sm:w-32 h-2 rounded-full bg-white/10 overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-[#e62e4c] to-amber-400 transition-all duration-300"
               style={{ width: `${progressPercent}%` }}
@@ -100,7 +100,7 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
       {/* Main Flip Flashcard Card matching dark login style */}
       <div
         onClick={() => setIsFlipped(!isFlipped)}
-        className="w-full min-h-[400px] bg-gradient-to-b from-[#1b152b] to-[#141021] rounded-3xl border border-white/15 shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-8 sm:p-12 flex flex-col justify-between cursor-pointer hover:border-[#e62e4c]/50 transition-all relative overflow-hidden group"
+        className="w-full min-h-[360px] sm:min-h-[400px] bg-gradient-to-b from-[#1b152b] to-[#141021] rounded-3xl border border-white/15 shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-5 sm:p-12 flex flex-col justify-between cursor-pointer hover:border-[#e62e4c]/50 transition-all relative overflow-hidden group"
       >
         <div className="flex items-center justify-between text-xs text-slate-400">
           <span className="px-2.5 py-0.5 rounded-full font-bold bg-[#e62e4c]/20 text-pink-300 border border-[#e62e4c]/30">
@@ -225,36 +225,39 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
 
       {/* SRS Rating Evaluation Bar */}
       <div className="bg-[#181226]/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <span className="text-xs font-bold text-slate-200">
+        <span className="text-xs font-bold text-slate-200 text-center sm:text-left">
           ¿Cómo recuerdas la pronunciación de esta palabra?
         </span>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="grid grid-cols-3 gap-2 w-full sm:w-auto">
           {/* Difícil */}
           <button
             type="button"
             onClick={() => handleRate('en_repaso')}
-            className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs border border-rose-500/40 transition-all cursor-pointer shadow-sm"
+            className="px-2.5 sm:px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs border border-rose-500/40 transition-all cursor-pointer shadow-sm text-center"
           >
-            🔴 Difícil (Repasar)
+            <span className="hidden sm:inline">🔴 Difícil (Repasar)</span>
+            <span className="sm:hidden">🔴 Difícil</span>
           </button>
 
           {/* Bien */}
           <button
             type="button"
             onClick={() => handleRate('en_repaso')}
-            className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs border border-amber-500/40 transition-all cursor-pointer shadow-sm"
+            className="px-2.5 sm:px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs border border-amber-500/40 transition-all cursor-pointer shadow-sm text-center"
           >
-            🟠 Bien (Consolidar)
+            <span className="hidden sm:inline">🟠 Bien (Consolidar)</span>
+            <span className="sm:hidden">🟠 Bien</span>
           </button>
 
           {/* Fácil / Dominada */}
           <button
             type="button"
             onClick={() => handleRate('dominada')}
-            className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs border border-emerald-500/40 transition-all cursor-pointer shadow-sm"
+            className="px-2.5 sm:px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs border border-emerald-500/40 transition-all cursor-pointer shadow-sm text-center"
           >
-            🟢 Fácil (Dominada)
+            <span className="hidden sm:inline">🟢 Fácil (Dominada)</span>
+            <span className="sm:hidden">🟢 Fácil</span>
           </button>
         </div>
       </div>

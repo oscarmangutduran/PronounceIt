@@ -427,12 +427,12 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
           </div>
 
           {/* Bottom Actions */}
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onBackToVocabulary}
-                className="px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 cursor-pointer transition-all"
+                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 cursor-pointer transition-all text-center"
               >
                 Volver a la Biblioteca
               </button>
@@ -440,7 +440,7 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
                 <button
                   type="button"
                   onClick={onOpenResultsModal}
-                  className="px-4 py-2.5 rounded-xl border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 text-xs font-bold text-amber-300 cursor-pointer transition-all flex items-center gap-1.5 shadow-sm"
+                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20 text-xs font-bold text-amber-300 cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-sm"
                 >
                   <Trophy size={14} className="text-amber-400" />
                   <span>Ver resultados</span>
@@ -452,7 +452,7 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
               type="button"
               disabled={availableVerbs.length === 0}
               onClick={() => handleStartTest()}
-              className="px-7 py-3 rounded-2xl bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white text-xs font-extrabold shadow-xl shadow-purple-900/40 border border-purple-500/30 disabled:opacity-50 cursor-pointer flex items-center gap-2 transition-all active:scale-[0.99]"
+              className="w-full sm:w-auto px-7 py-3 rounded-2xl bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white text-xs font-extrabold shadow-xl shadow-purple-900/40 border border-purple-500/30 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
             >
               <Zap size={16} className="text-amber-300" />
               <span>Comenzar Test de Verbos</span>
@@ -464,7 +464,7 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
 
       {/* 2. ACTIVE TESTING SCREEN */}
       {testState === 'testing' && currentVerb && (
-        <div className="bg-[#181226]/85 backdrop-blur-md rounded-3xl border border-white/10 shadow-2xl p-6 sm:p-10 flex flex-col gap-6">
+        <div className="bg-[#181226]/85 backdrop-blur-md rounded-3xl border border-white/10 shadow-2xl p-4 sm:p-10 flex flex-col gap-5 sm:gap-6">
           {/* Header with Progress Bar */}
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
@@ -556,7 +556,7 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
                   }
                 }}
                 placeholder="Escribe el Pasado Simple..."
-                className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/15 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 text-sm font-semibold text-white placeholder-slate-500 focus:outline-none transition-all"
+                className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/15 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 text-base sm:text-sm font-semibold text-white placeholder-slate-500 focus:outline-none transition-all"
               />
               <p className="text-[11px] text-slate-400">
                 Pulsa <kbd className="px-1 py-0.5 rounded bg-white/10 text-slate-300 text-[10px]">Enter</kbd> para pasar al participio
@@ -596,7 +596,7 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
                   }
                 }}
                 placeholder="Escribe el Participio Pasado..."
-                className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/15 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 text-sm font-semibold text-white placeholder-slate-500 focus:outline-none transition-all"
+                className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/15 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 text-base sm:text-sm font-semibold text-white placeholder-slate-500 focus:outline-none transition-all"
               />
               <p className="text-[11px] text-slate-400">
                 Pulsa <kbd className="px-1 py-0.5 rounded bg-white/10 text-slate-300 text-[10px]">Enter</kbd> para siguiente pregunta

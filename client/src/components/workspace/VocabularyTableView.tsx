@@ -232,35 +232,35 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
         </div>
 
         {/* Right Action Buttons */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
           {/* Exportar / Importar */}
           <button
             type="button"
             onClick={onOpenExportModal}
-            className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold text-xs transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-[0.99]"
+            className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
           >
             <Download size={14} className="text-slate-300" />
-            <span>Exportar / Importar</span>
-          </button>
-
-          {/* + Añadir Palabra */}
-          <button
-            type="button"
-            onClick={onOpenAddModal}
-            className="px-4 py-2 rounded-xl bg-[#e62e4c] hover:bg-[#ff3b59] text-white font-semibold text-xs tracking-tight transition-all shadow-md shadow-[#e62e4c]/30 flex items-center gap-1.5 cursor-pointer active:scale-[0.99]"
-          >
-            <Plus size={15} />
-            <span>Añadir Palabra</span>
+            <span className="truncate">Exportar / Importar</span>
           </button>
 
           {/* Practicar esta categoría */}
           <button
             type="button"
             onClick={() => onStartPractice(filteredWords)}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold text-xs tracking-tight transition-all shadow-md shadow-purple-900/30 border border-white/10 flex items-center gap-1.5 cursor-pointer active:scale-[0.99]"
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold text-xs tracking-tight transition-all shadow-md shadow-purple-900/30 border border-white/10 flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
           >
-            <Layers size={15} />
-            <span>Practicar esta categoría</span>
+            <Layers size={14} />
+            <span className="truncate">Practicar</span>
+          </button>
+
+          {/* + Añadir Palabra */}
+          <button
+            type="button"
+            onClick={onOpenAddModal}
+            className="col-span-2 sm:col-span-1 px-4 py-2 rounded-xl bg-[#e62e4c] hover:bg-[#ff3b59] text-white font-semibold text-xs tracking-tight transition-all shadow-md shadow-[#e62e4c]/30 flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
+          >
+            <Plus size={15} />
+            <span>Añadir Palabra</span>
           </button>
         </div>
       </div>
@@ -330,7 +330,175 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
 
       {/* Main Vocabulary Table Container */}
       <div className="bg-[#181226]/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-[0_15px_40px_rgba(0,0,0,0.6)] overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Mobile View: High-Performance Card Feed (< 768px) */}
+        <div className="md:hidden divide-y divide-white/5">
+          {pageWords.length === 0 ? (
+            <div className="py-12 px-4 text-center text-slate-400">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[#ff4d6d] mb-3">
+                <BookOpen size={22} />
+              </div>
+              <p className="text-sm font-bold text-white">No hay palabras en esta sección</p>
+              <button
+                type="button"
+                onClick={onOpenAddModal}
+                className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#e62e4c] text-white text-xs font-bold shadow-lg cursor-pointer"
+              >
+                <Plus size={14} />
+                <span>Añadir primera palabra</span>
+              </button>
+            </div>
+          ) : (
+            pageWords.map((item) => (
+              <div key={item.id} className="p-4 space-y-3 bg-[#181226]/40 hover:bg-[#181226]/70 transition-colors">
+                {/* Header: Word + Level + Part of speech + Audio & Favorite */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-extrabold text-white tracking-tight">
+                        {item.word}
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#e62e4c]/20 text-pink-300 border border-[#e62e4c]/30 whitespace-nowrap">
+                        {item.level || 'B1'}
+                      </span>
+                      {item.partOfSpeech && (
+                        <span className="text-[10px] italic text-slate-400">
+                          {item.partOfSpeech}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Phonetics */}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="font-mono text-xs font-bold text-[#ff758c]">
+                        {item.ipa || (item as any).phonetic || `/${item.word.toLowerCase()}/`}
+                      </span>
+                      {item.phoneticGuide && (
+                        <span className="text-[11px] text-slate-300">
+                          {item.phoneticGuide}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions: Audio & Star */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleSpeak(item)}
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-all cursor-pointer ${
+                        speakingWordId === item.id
+                          ? 'bg-[#e62e4c] text-white border-transparent shadow-[0_0_15px_rgba(230,46,76,0.6)] animate-pulse'
+                          : 'bg-[#e62e4c]/15 hover:bg-[#e62e4c]/25 text-[#ff4d6d] border-[#e62e4c]/30'
+                      }`}
+                      title="Pronunciar"
+                    >
+                      <Volume2 size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onToggleFavorite(item.id)}
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-all cursor-pointer ${
+                        item.isFavorite
+                          ? 'bg-amber-400/20 text-amber-400 border-amber-400/30'
+                          : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
+                      }`}
+                      title="Favorito"
+                    >
+                      <Star size={16} className={item.isFavorite ? 'fill-amber-400' : ''} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Translation & Definition */}
+                <div className="bg-black/30 rounded-xl p-2.5 border border-white/5 space-y-0.5">
+                  <p className="text-xs font-bold text-white">
+                    {item.translation}
+                  </p>
+                  {item.definition && (
+                    <p className="text-[11px] text-slate-400">
+                      {item.definition}
+                    </p>
+                  )}
+                </div>
+
+                {/* Example sentence */}
+                {(() => {
+                  const enSentence = item.exampleEn || (item as any).example || '';
+                  const esSentence = item.exampleEs || (item as any).exampleTranslation || '';
+                  if (!enSentence && !esSentence) return null;
+                  return (
+                    <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 space-y-1">
+                      {enSentence && (
+                        <p className="text-xs text-slate-200 leading-relaxed font-normal">
+                          "{highlightWordInSentence(enSentence, item.word)}"
+                        </p>
+                      )}
+                      {esSentence && (
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          "{esSentence}"
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Status & Edit/Delete */}
+                <div className="flex items-center justify-between pt-1">
+                  <span
+                    onClick={() => {
+                      const nextStatus: WordStatus =
+                        item.status === 'dominada' ? 'nueva' : item.status === 'nueva' ? 'en_repaso' : 'dominada';
+                      onUpdateStatus(item.id, nextStatus);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border cursor-pointer active:scale-95 transition-all flex items-center gap-1 ${
+                      item.status === 'dominada'
+                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                        : item.status === 'en_repaso'
+                        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                        : 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                    }`}
+                  >
+                    {item.status === 'dominada' ? (
+                      <>
+                        <CheckCircle2 size={11} />
+                        <span>Dominada</span>
+                      </>
+                    ) : item.status === 'en_repaso' ? (
+                      <>
+                        <Clock size={11} />
+                        <span>En repaso</span>
+                      </>
+                    ) : (
+                      <span>Nueva</span>
+                    )}
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onEditWord(item)}
+                      className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-medium flex items-center gap-1 cursor-pointer"
+                    >
+                      <Edit2 size={12} />
+                      <span>Editar</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDeleteWord(item.id)}
+                      className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 cursor-pointer"
+                      title="Eliminar"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop & Tablet Table (>= 768px) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
             {/* Table Header matching login dark theme */}
             <thead>
