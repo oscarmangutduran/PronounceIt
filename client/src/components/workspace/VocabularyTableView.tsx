@@ -35,6 +35,26 @@ interface VocabularyTableViewProps {
   onDeleteWord: (id: string) => void;
 }
 
+function highlightWordInSentence(sentence?: string, targetWord?: string) {
+  if (!sentence) return null;
+  if (!targetWord) return sentence;
+  try {
+    const escaped = targetWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    return sentence.split(regex).map((part, i) =>
+      part.toLowerCase() === targetWord.toLowerCase() ? (
+        <strong key={i} className="text-[#ff758c] font-black not-italic underline decoration-1 underline-offset-2">
+          {part}
+        </strong>
+      ) : (
+        part
+      )
+    );
+  } catch {
+    return sentence;
+  }
+}
+
 export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   words,
   selectedFilter,
@@ -73,11 +93,13 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
 
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase();
-        const matchesWord = w.word.toLowerCase().includes(q);
-        const matchesTranslation = w.translation.toLowerCase().includes(q);
-        const matchesIpa = w.ipa.toLowerCase().includes(q);
-        const matchesGuide = w.phoneticGuide.toLowerCase().includes(q);
-        if (!matchesWord && !matchesTranslation && !matchesIpa && !matchesGuide) return false;
+        const wordText = (w.word || '').toLowerCase();
+        const translationText = (w.translation || '').toLowerCase();
+        const ipaText = (w.ipa || (w as any).phonetic || '').toLowerCase();
+        const guideText = (w.phoneticGuide || '').toLowerCase();
+        if (!wordText.includes(q) && !translationText.includes(q) && !ipaText.includes(q) && !guideText.includes(q)) {
+          return false;
+        }
       }
 
       return true;
@@ -431,20 +453,27 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
                       {/* Column 4: Frase de ejemplo (Bilingüe) */}
                       <td className="py-4 px-4 align-top">
                         <div className="space-y-1">
-                          <p className="text-[11px] sm:text-xs text-slate-200 leading-relaxed font-normal">
-                            "{item.exampleEn.split(new RegExp(`(${item.word})`, 'gi')).map((part, i) =>
-                              part.toLowerCase() === item.word.toLowerCase() ? (
-                                <strong key={i} className="text-[#ff758c] font-black not-italic underline decoration-1 underline-offset-2">
-                                  {part}
-                                </strong>
-                              ) : (
-                                part
-                              )
-                            )}"
-                          </p>
-                          <p className="text-[10px] sm:text-[11px] text-slate-400 leading-relaxed">
-                            "{item.exampleEs}"
-                          </p>
+                          {(() => {
+                            const enSentence = item.exampleEn || (item as any).example || '';
+                            const esSentence = item.exampleEs || (item as any).exampleTranslation || '';
+                            if (!enSentence && !esSentence) {
+                              return <span className="text-[11px] text-slate-500 italic block">Sin ejemplo registrado</span>;
+                            }
+                            return (
+                              <>
+                                {enSentence && (
+                                  <p className="text-[11px] sm:text-xs text-slate-200 leading-relaxed font-normal">
+                                    "{highlightWordInSentence(enSentence, item.word)}"
+                                  </p>
+                                )}
+                                {esSentence && (
+                                  <p className="text-[10px] sm:text-[11px] text-slate-400 leading-relaxed">
+                                    "{esSentence}"
+                                  </p>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </td>
 

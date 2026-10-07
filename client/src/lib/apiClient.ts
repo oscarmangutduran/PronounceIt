@@ -82,7 +82,27 @@ class BackendApiClient {
       const res = await fetch(url);
       if (!res.ok) return null;
       const data = await res.json();
-      return Array.isArray(data.words) ? data.words : null;
+      if (!Array.isArray(data.words)) return null;
+      return data.words.map((w: any) => ({
+        ...w,
+        id: String(w.id || `w-${Math.random().toString(36).slice(2, 7)}`),
+        word: String(w.word || ''),
+        partOfSpeech: w.partOfSpeech || 'noun',
+        level: w.level || 'B1',
+        ipa: w.ipa || w.phonetic || '',
+        phoneticGuide: w.phoneticGuide || `"${(w.word || '').toLowerCase()}"`,
+        phoneticNote: w.phoneticNote || '',
+        translation: String(w.translation || ''),
+        definition: w.definition || '',
+        exampleEn: w.exampleEn || w.example || '',
+        exampleEs: w.exampleEs || w.exampleTranslation || '',
+        highlightWord: w.highlightWord || w.word || '',
+        status: w.status || 'learning',
+        isFavorite: Boolean(w.isFavorite),
+        categoryGroup: w.categoryGroup || w.category || 'General',
+        categorySub: w.categorySub || 'General',
+        createdAt: w.createdAt || w.created_at || new Date().toISOString(),
+      }));
     } catch {
       return null;
     }
