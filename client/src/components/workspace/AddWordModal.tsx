@@ -22,10 +22,11 @@ import {
   ChevronDown,
   ChevronUp,
   Plus,
+  Volume2,
 } from 'lucide-react-native';
 import { WordItem, CategoryItem } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
-import { autoEnrichWord } from '../../lib/dictionaryService';
+import { autoEnrichWord, AutoEnrichResult } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 
 interface AddWordModalProps {
@@ -55,6 +56,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [categorySub, setCategorySub] = useState('');
   const [saving, setSaving] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  // Live Auto-Enrich Preview
+  const [previewData, setPreviewData] = useState<AutoEnrichResult | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   // Dropdown states
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
@@ -132,6 +137,20 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setCategorySub(initialWord.categorySub || '');
       setIsCustomCategory(false);
       setIsCustomSubcategory(false);
+      setPreviewData({
+        word: initialWord.word,
+        translation: initialWord.translation,
+        ipa: initialWord.ipa,
+        phoneticGuide: initialWord.phoneticGuide,
+        phoneticNote: initialWord.phoneticNote || '',
+        definition: initialWord.definition || '',
+        exampleEn: initialWord.exampleEn || (initialWord as any).example || '',
+        exampleEs: initialWord.exampleEs || (initialWord as any).exampleTranslation || '',
+        level: initialWord.level,
+        partOfSpeech: initialWord.partOfSpeech,
+        categoryGroup: initialWord.categoryGroup,
+        categorySub: initialWord.categorySub,
+      });
     } else {
       setWord('');
       const defaultGroup = defaultCategoryGroup || (allCategories[0]?.name || 'Grammar');
@@ -139,10 +158,35 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setCategorySub(defaultCategorySub || '');
       setIsCustomCategory(false);
       setIsCustomSubcategory(false);
+      setPreviewData(null);
     }
     setIsCategoryOpen(false);
     setIsSubcategoryOpen(false);
   }, [initialWord, defaultCategoryGroup, defaultCategorySub, isOpen, allCategories]);
+
+  // Debounced live auto-enrichment as the user types
+  useEffect(() => {
+    const clean = word.trim();
+    if (!clean || clean.length < 2) {
+      if (!initialWord) setPreviewData(null);
+      setLoadingPreview(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setLoadingPreview(true);
+      try {
+        const res = await autoEnrichWord(clean);
+        setPreviewData(res);
+      } catch (e) {
+        console.warn('Auto enrich preview error:', e);
+      } finally {
+        setLoadingPreview(false);
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [word, initialWord]);
 
   const handleSelectCategory = (name: string) => {
     setCategoryGroup(name);
@@ -175,11 +219,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     }
 
     setSaving(true);
-    let enrichedData: any = null;
-    try {
-      enrichedData = await autoEnrichWord(word.trim());
-    } catch (e) {
-      console.warn('Auto enrich error on save:', e);
+    let enrichedData: any = previewData;
+    if (!enrichedData || enrichedData.word.toLowerCase() !== word.trim().toLowerCase()) {
+      try {
+        enrichedData = await autoEnrichWord(word.trim());
+      } catch (e) {
+        console.warn('Auto enrich error on save:', e);
+      }
     }
 
     const finalGroup = categoryGroup.trim() || enrichedData?.categoryGroup || 'Grammar';
@@ -242,7 +288,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             <View style={styles.noticeBox}>
               <Sparkles size={14} color="#ff4d6d" style={{ marginTop: 2 }} />
               <Text style={styles.noticeText}>
-                Selecciona la palabra, categoría y subcategoría. Los detalles fonéticos, traducción y ejemplos se generan automáticamente.
+                Escribe la palabra y selecciona su categoría. La traducción, fonética en inglés y las frases de ejemplo en inglés y español se autogeneran al instante.
               </Text>
             </View>
 
@@ -254,7 +300,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   styles.input,
                   focusedField === 'word' && styles.inputFocused,
                 ]}
-                placeholder="Ej: breakthrough, ubiquitous..."
+                placeholder="Ej: breakthrough, eloquent, serendipity..."
                 placeholderTextColor={THEME.colors.textSubtle}
                 value={word}
                 onChangeText={setWord}
@@ -268,6 +314,59 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 autoFocus
               />
             </View>
+
+            {/* Live Auto-Enrichment Preview Box */}
+            {loadingPreview && (
+              <View style={styles.previewLoadingBox}>
+                <ActivityIndicator size="small" color="#ff4d6d" />
+                <Text style={styles.previewLoadingText}>
+                  Buscando traducción, fonética y frases de ejemplo...
+                </Text>
+              </View>
+            )}
+
+            {previewData && !loadingPreview && (
+              <View style={styles.previewCard}>
+                <View style={styles.previewHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Sparkles size={13} color="#ff4d6d" />
+                    <Text style={styles.previewBadgeText}>Auto-Generado</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => vocabService.speak(previewData.word || word)}
+                    style={styles.previewSpeakerBtn}
+                    activeOpacity={0.8}
+                  >
+                    <Volume2 size={13} color={THEME.colors.crimsonLight} />
+                    <Text style={styles.previewAudioText}>Escuchar pronunciación</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Traducción y Fonética en inglés */}
+                <View style={styles.previewRow}>
+                  <View style={{ flex: 1.2 }}>
+                    <Text style={styles.previewLabel}>Traducción (Español)</Text>
+                    <Text style={styles.previewTranslation}>{previewData.translation}</Text>
+                  </View>
+                  <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                    <Text style={styles.previewLabel}>Fonéticamente (Inglés)</Text>
+                    <Text style={styles.previewIpa}>{previewData.ipa || '—'}</Text>
+                    {previewData.phoneticGuide ? (
+                      <Text style={styles.previewGuide}>{previewData.phoneticGuide}</Text>
+                    ) : null}
+                  </View>
+                </View>
+
+                {/* Frase en inglés y frase en español */}
+                <View style={styles.previewSentenceBox}>
+                  <Text style={styles.previewLabel}>Frase en inglés con esta palabra</Text>
+                  <Text style={styles.previewSentenceEn}>{previewData.exampleEn}</Text>
+
+                  <Text style={[styles.previewLabel, { marginTop: 8 }]}>Traducción en español</Text>
+                  <Text style={styles.previewSentenceEs}>{previewData.exampleEs}</Text>
+                </View>
+              </View>
+            )}
 
             {/* 2. Categoría (Lista Desplegable) */}
             <View style={[styles.inputGroup, { zIndex: 50 }]}>
@@ -556,7 +655,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               {saving ? (
                 <>
                   <ActivityIndicator size="small" color="#ffffff" style={{ marginRight: 8 }} />
-                  <Text style={styles.saveButtonText}>Enriqueciendo...</Text>
+                  <Text style={styles.saveButtonText}>Guardando...</Text>
                 </>
               ) : (
                 <>
@@ -598,7 +697,7 @@ const styles = StyleSheet.create({
   },
   modalCardDesktop: {
     width: '100%',
-    maxWidth: 480,
+    maxWidth: 500,
     borderRadius: THEME.radius.xl,
   },
   modalHeader: {
@@ -698,6 +797,109 @@ const styles = StyleSheet.create({
     color: THEME.colors.textMuted,
     fontSize: 11,
     fontWeight: '600',
+  },
+
+  // Live Preview Styles
+  previewLoadingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: THEME.radius.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  previewLoadingText: {
+    fontSize: 12,
+    color: THEME.colors.textMuted,
+  },
+  previewCard: {
+    backgroundColor: '#120d1e',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.35)',
+    borderRadius: THEME.radius.lg,
+    padding: 14,
+    gap: 12,
+    shadowColor: '#e62e4c',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  previewBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ff758c',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  previewSpeakerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(230, 46, 76, 0.12)',
+    borderRadius: 6,
+  },
+  previewAudioText: {
+    fontSize: 11,
+    color: THEME.colors.crimsonLight,
+    fontWeight: '600',
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  previewLabel: {
+    fontSize: 10,
+    color: THEME.colors.textSubtle,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 2,
+  },
+  previewTranslation: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  previewIpa: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#93c5fd',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  previewGuide: {
+    fontSize: 11,
+    color: THEME.colors.textSubtle,
+  },
+  previewSentenceBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: THEME.radius.md,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  previewSentenceEn: {
+    fontSize: 12,
+    color: '#e2e8f0',
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
+  previewSentenceEs: {
+    fontSize: 11,
+    color: '#94a3b8',
+    lineHeight: 16,
   },
 
   // Dropdown Styles

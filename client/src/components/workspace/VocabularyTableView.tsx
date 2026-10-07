@@ -283,25 +283,29 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
 
                 {/* 2. Phonetics */}
                 <View style={{ flex: 1.5 }}>
-                  <Text style={styles.rowIpa}>{word.ipa || '—'}</Text>
-                  {word.phoneticGuide ? (
-                    <Text style={styles.rowGuide}>{word.phoneticGuide}</Text>
+                  <Text style={styles.rowIpa}>
+                    {word.ipa || (word as any).phonetic || '—'}
+                  </Text>
+                  {(word.phoneticGuide || (word as any).phoneticNote) ? (
+                    <Text style={styles.rowGuide}>
+                      {word.phoneticGuide || (word as any).phoneticNote}
+                    </Text>
                   ) : null}
                 </View>
 
                 {/* 3. Translation */}
                 <View style={{ flex: 1.5 }}>
-                  <Text style={styles.rowTranslation}>{word.translation}</Text>
+                  <Text style={styles.rowTranslation}>{word.translation || '—'}</Text>
                 </View>
 
                 {/* 4. Example Sentence */}
                 <View style={{ flex: 2.2 }}>
                   <Text style={styles.rowExampleEn} numberOfLines={2}>
-                    {word.exampleSentence || '—'}
+                    {word.exampleEn || (word as any).exampleSentence || (word as any).example || '—'}
                   </Text>
-                  {word.exampleTranslation ? (
+                  {(word.exampleEs || (word as any).exampleTranslation) ? (
                     <Text style={styles.rowExampleEs} numberOfLines={2}>
-                      {word.exampleTranslation}
+                      {word.exampleEs || (word as any).exampleTranslation}
                     </Text>
                   ) : null}
                 </View>
