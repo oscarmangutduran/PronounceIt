@@ -225,10 +225,12 @@ export default function App() {
           )}
 
           {activeTab === 'test' && (
-            <TestView
-              words={words}
-              onBackToVocabulary={() => setActiveTab('vocabulary')}
-            />
+            <View style={styles.testSectionContainer}>
+              <TestView
+                words={words}
+                onBackToVocabulary={() => setActiveTab('vocabulary')}
+              />
+            </View>
           )}
 
           {activeTab === 'stats' && <StatsDashboardView words={words} />}
@@ -503,6 +505,12 @@ const styles = StyleSheet.create({
   },
   vocabularyColumnMobile: {
     flex: 1,
+  },
+  testSectionContainer: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
   },
 
   // Footer styles

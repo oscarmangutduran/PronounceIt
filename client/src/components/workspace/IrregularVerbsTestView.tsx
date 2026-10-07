@@ -168,63 +168,65 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
   if (!testActive && !testCompleted) {
     return (
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.setupCard}>
-          <View style={styles.setupHeader}>
-            <View style={styles.setupIconBadge}>
-              <Zap size={24} color={THEME.colors.crimsonLight} />
+        <View style={styles.contentWrapper}>
+          <View style={styles.setupCard}>
+            <View style={styles.setupHeader}>
+              <View style={styles.setupIconBadge}>
+                <Zap size={24} color={THEME.colors.crimsonLight} />
+              </View>
+              <Text style={styles.setupTitle}>Test de Verbos Irregulares</Text>
+              <Text style={styles.setupSubtitle}>
+                Pon a prueba tu dominio de las 3 formas: Infinitivo, Pasado Simple y Participio.
+              </Text>
             </View>
-            <Text style={styles.setupTitle}>Test de Verbos Irregulares</Text>
-            <Text style={styles.setupSubtitle}>
-              Pon a prueba tu dominio de las 3 formas: Infinitivo, Pasado Simple y Participio.
-            </Text>
-          </View>
 
-          {/* Level selector */}
-          <Text style={styles.sectionLabel}>Selecciona el Nivel:</Text>
-          <View style={styles.levelRow}>
-            {['TODOS', 'A1', 'A2', 'B1', 'B2'].map((lvl) => (
-              <TouchableOpacity
-                key={lvl}
-                style={[styles.levelBtn, selectedLevel === lvl && styles.levelBtnActive]}
-                onPress={() => setSelectedLevel(lvl)}
-              >
-                <Text
-                  style={[
-                    styles.levelBtnText,
-                    selectedLevel === lvl && styles.levelBtnTextActive,
-                  ]}
+            {/* Level selector */}
+            <Text style={styles.sectionLabel}>Selecciona el Nivel:</Text>
+            <View style={styles.levelRow}>
+              {['TODOS', 'A1', 'A2', 'B1', 'B2'].map((lvl) => (
+                <TouchableOpacity
+                  key={lvl}
+                  style={[styles.levelBtn, selectedLevel === lvl && styles.levelBtnActive]}
+                  onPress={() => setSelectedLevel(lvl)}
                 >
-                  {lvl}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                  <Text
+                    style={[
+                      styles.levelBtnText,
+                      selectedLevel === lvl && styles.levelBtnTextActive,
+                    ]}
+                  >
+                    {lvl}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-          {/* Questions count */}
-          <Text style={styles.sectionLabel}>Número de preguntas:</Text>
-          <View style={styles.countRow}>
-            {[5, 10, 15, 20].map((num) => (
-              <TouchableOpacity
-                key={num}
-                style={[styles.countBtn, questionCount === num && styles.countBtnActive]}
-                onPress={() => setQuestionCount(num)}
-              >
-                <Text
-                  style={[
-                    styles.countBtnText,
-                    questionCount === num && styles.countBtnTextActive,
-                  ]}
+            {/* Questions count */}
+            <Text style={styles.sectionLabel}>Número de preguntas:</Text>
+            <View style={styles.countRow}>
+              {[5, 10, 15, 20].map((num) => (
+                <TouchableOpacity
+                  key={num}
+                  style={[styles.countBtn, questionCount === num && styles.countBtnActive]}
+                  onPress={() => setQuestionCount(num)}
                 >
-                  {num}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                  <Text
+                    style={[
+                      styles.countBtnText,
+                      questionCount === num && styles.countBtnTextActive,
+                    ]}
+                  >
+                    {num}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-          <TouchableOpacity style={styles.startBtn} onPress={startTest} activeOpacity={0.85}>
-            <Text style={styles.startBtnText}>Comenzar Evaluación</Text>
-            <ArrowRight size={18} color="#ffffff" style={{ marginLeft: 6 }} />
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.startBtn} onPress={startTest} activeOpacity={0.85}>
+              <Text style={styles.startBtnText}>Comenzar Evaluación</Text>
+              <ArrowRight size={18} color="#ffffff" style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ConfirmModal
@@ -251,26 +253,28 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
 
     return (
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.setupCard}>
-          <View style={styles.resultsBadge}>
-            <Trophy size={40} color={THEME.colors.amber} />
-          </View>
-          <Text style={styles.setupTitle}>¡Test Completado!</Text>
-          <Text style={styles.scoreBig}>{score10} / 10</Text>
-          <Text style={styles.scoreSub}>
-            Acertaste {fullyCorrect} de {total} verbos irregulares.
-          </Text>
+        <View style={styles.contentWrapper}>
+          <View style={styles.setupCard}>
+            <View style={styles.resultsBadge}>
+              <Trophy size={40} color={THEME.colors.amber} />
+            </View>
+            <Text style={styles.setupTitle}>¡Test Completado!</Text>
+            <Text style={styles.scoreBig}>{score10} / 10</Text>
+            <Text style={styles.scoreSub}>
+              Acertaste {fullyCorrect} de {total} verbos irregulares.
+            </Text>
 
-          <TouchableOpacity
-            style={styles.startBtn}
-            onPress={() => {
-              setTestCompleted(false);
-              setTestActive(false);
-            }}
-          >
-            <RotateCcw size={16} color="#ffffff" style={{ marginRight: 6 }} />
-            <Text style={styles.startBtnText}>Hacer otro test</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.startBtn}
+              onPress={() => {
+                setTestCompleted(false);
+                setTestActive(false);
+              }}
+            >
+              <RotateCcw size={16} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={styles.startBtnText}>Hacer otro test</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     );
@@ -279,24 +283,25 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
   // 3. TESTING SCREEN
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-      {/* Header bar */}
-      <View style={styles.testHeader}>
-        <Text style={styles.testProgress}>
-          Pregunta {currentIndex + 1} de {activeVerbs.length}
-        </Text>
-        <TouchableOpacity
-          style={styles.cancelBtn}
-          onPress={() => {
-            setTestActive(false);
-            setTestCompleted(false);
-          }}
-        >
-          <Text style={styles.cancelBtnText}>Salir</Text>
-        </TouchableOpacity>
-      </View>
+      <View style={styles.contentWrapper}>
+        {/* Header bar */}
+        <View style={styles.testHeader}>
+          <Text style={styles.testProgress}>
+            Pregunta {currentIndex + 1} de {activeVerbs.length}
+          </Text>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={() => {
+              setTestActive(false);
+              setTestCompleted(false);
+            }}
+          >
+            <Text style={styles.cancelBtnText}>Salir</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Verb Question Card */}
-      <View style={styles.questionCard}>
+        {/* Verb Question Card */}
+        <View style={styles.questionCard}>
         <View style={styles.verbPromptRow}>
           <View>
             <Text style={styles.infinitiveText}>{currentVerb?.infinitive}</Text>
@@ -378,6 +383,7 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
             <ArrowRight size={18} color="#ffffff" style={{ marginLeft: 6 }} />
           </TouchableOpacity>
         )}
+        </View>
       </View>
     </ScrollView>
   );
@@ -387,6 +393,13 @@ const styles = StyleSheet.create({
   scrollContainer: {
     padding: 16,
     paddingBottom: 40,
+    alignItems: 'center',
+    width: '100%',
+  },
+  contentWrapper: {
+    width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
   },
   setupCard: {
     backgroundColor: THEME.colors.bgCard,
@@ -395,6 +408,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: THEME.colors.border,
     alignItems: 'center',
+    width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 8,
   },
   setupHeader: {
     alignItems: 'center',
@@ -520,9 +541,17 @@ const styles = StyleSheet.create({
   questionCard: {
     backgroundColor: THEME.colors.bgCard,
     borderRadius: THEME.radius.xl,
-    padding: 22,
+    padding: 24,
     borderWidth: 1,
     borderColor: THEME.colors.border,
+    width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 8,
   },
   verbPromptRow: {
     flexDirection: 'row',

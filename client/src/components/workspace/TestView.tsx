@@ -133,28 +133,30 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
 
   if (testType === 'irregular_verbs') {
     return (
-      <View style={styles.container}>
-        <View style={styles.modeTabBar}>
-          <TouchableOpacity
-            style={styles.modeTab}
-            onPress={() => setTestType('vocabulary')}
-          >
-            <BookOpen size={16} color={THEME.colors.textMuted} />
-            <Text style={styles.modeTabText}>Test Vocabulario</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.modeTab, styles.modeTabActive]}
-            onPress={() => setTestType('irregular_verbs')}
-          >
-            <Zap size={16} color="#ffffff" />
-            <Text style={[styles.modeTabText, styles.modeTabTextActive]}>
-              Verbos Irregulares
-            </Text>
-          </TouchableOpacity>
-        </View>
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.contentWrapper}>
+          <View style={styles.modeTabBar}>
+            <TouchableOpacity
+              style={styles.modeTab}
+              onPress={() => setTestType('vocabulary')}
+            >
+              <BookOpen size={16} color={THEME.colors.textMuted} />
+              <Text style={styles.modeTabText}>Test Vocabulario</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeTab, styles.modeTabActive]}
+              onPress={() => setTestType('irregular_verbs')}
+            >
+              <Zap size={16} color="#ffffff" />
+              <Text style={[styles.modeTabText, styles.modeTabTextActive]}>
+                Verbos Irregulares
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        <IrregularVerbsTestView onBackToVocabulary={onBackToVocabulary} />
-      </View>
+          <IrregularVerbsTestView onBackToVocabulary={onBackToVocabulary} />
+        </View>
+      </ScrollView>
     );
   }
 
@@ -165,30 +167,32 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
 
     return (
       <ScrollView contentContainerStyle={styles.centerContainer}>
-        <View style={styles.card}>
-          <View style={styles.resultsBadge}>
-            <Trophy size={42} color={THEME.colors.amber} />
+        <View style={styles.contentWrapper}>
+          <View style={styles.card}>
+            <View style={styles.resultsBadge}>
+              <Trophy size={42} color={THEME.colors.amber} />
+            </View>
+            <Text style={styles.resultTitle}>¡Test de Vocabulario Finalizado!</Text>
+            <Text style={styles.resultScore}>{score10} / 10</Text>
+            <Text style={styles.resultSub}>
+              Has respondido correctamente {score} de {total} preguntas.
+            </Text>
+
+            <TouchableOpacity style={styles.primaryBtn} onPress={startVocabTest}>
+              <RotateCcw size={16} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={styles.primaryBtnText}>Repetir Evaluación</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryBtn}
+              onPress={() => {
+                setIsTestFinished(false);
+                setIsTestActive(false);
+              }}
+            >
+              <Text style={styles.secondaryBtnText}>Cambiar Nivel o Modo</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={styles.resultTitle}>¡Test de Vocabulario Finalizado!</Text>
-          <Text style={styles.resultScore}>{score10} / 10</Text>
-          <Text style={styles.resultSub}>
-            Has respondido correctamente {score} de {total} preguntas.
-          </Text>
-
-          <TouchableOpacity style={styles.primaryBtn} onPress={startVocabTest}>
-            <RotateCcw size={16} color="#ffffff" style={{ marginRight: 6 }} />
-            <Text style={styles.primaryBtnText}>Repetir Evaluación</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            onPress={() => {
-              setIsTestFinished(false);
-              setIsTestActive(false);
-            }}
-          >
-            <Text style={styles.secondaryBtnText}>Cambiar Nivel o Modo</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     );
@@ -200,102 +204,104 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
 
     return (
       <ScrollView contentContainerStyle={styles.container}>
-        {/* Header Progress */}
-        <View style={styles.quizHeader}>
-          <Text style={styles.quizStep}>
-            Pregunta {currentIdx + 1} de {questions.length}
-          </Text>
-          <TouchableOpacity
-            onPress={() => {
-              setIsTestActive(false);
-              setIsTestFinished(false);
-            }}
-          >
-            <Text style={styles.cancelLink}>Salir</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Progress track */}
-        <View style={styles.progressBarTrack}>
-          <View
-            style={[
-              styles.progressBarFill,
-              { width: `${((currentIdx + 1) / questions.length) * 100}%` },
-            ]}
-          />
-        </View>
-
-        {/* Question Prompt Card */}
-        <View style={styles.card}>
-          <Text style={styles.questionPrompt}>¿Cuál es la traducción correcta?</Text>
-
-          <View style={styles.wordAudioRow}>
-            <Text style={styles.quizWord}>{q.targetWord.word}</Text>
-            <TouchableOpacity
-              style={styles.speakerBtn}
-              onPress={() => vocabService.speak(q.targetWord.word)}
-            >
-              <Volume2 size={20} color={THEME.colors.crimsonLight} />
-            </TouchableOpacity>
-          </View>
-
-          {q.targetWord.phoneticGuide ? (
-            <Text style={styles.phoneticPrompt}>
-              Pronunciación: {q.targetWord.phoneticGuide}
+        <View style={styles.contentWrapper}>
+          {/* Header Progress */}
+          <View style={styles.quizHeader}>
+            <Text style={styles.quizStep}>
+              Pregunta {currentIdx + 1} de {questions.length}
             </Text>
-          ) : null}
-
-          {/* 4 Options */}
-          <View style={styles.optionsList}>
-            {q.options.map((opt, i) => {
-              const isSelected = selectedAnswer === opt;
-              const isCorrect = opt === q.correctAnswer;
-
-              let btnStyle = styles.optionBtn;
-              if (selectedAnswer !== null) {
-                if (isCorrect) btnStyle = [styles.optionBtn, styles.optionCorrect];
-                else if (isSelected) btnStyle = [styles.optionBtn, styles.optionWrong];
-              }
-
-              return (
-                <TouchableOpacity
-                  key={i}
-                  style={btnStyle}
-                  onPress={() => handleSelectOption(opt)}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      selectedAnswer !== null && isCorrect && styles.optionTextCorrect,
-                    ]}
-                  >
-                    {opt}
-                  </Text>
-                  {selectedAnswer !== null && isCorrect && (
-                    <CheckCircle2 size={18} color={THEME.colors.emerald} />
-                  )}
-                  {selectedAnswer !== null && isSelected && !isCorrect && (
-                    <XCircle size={18} color="#f87171" />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+            <TouchableOpacity
+              onPress={() => {
+                setIsTestActive(false);
+                setIsTestFinished(false);
+              }}
+            >
+              <Text style={styles.cancelLink}>Salir</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Next Button */}
-          {selectedAnswer !== null && (
-            <TouchableOpacity
-              style={styles.nextQuestionBtn}
-              onPress={handleNextQuestion}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.nextQuestionBtnText}>
-                {currentIdx + 1 < questions.length ? 'Siguiente Pregunta' : 'Ver Resultados'}
+          {/* Progress track */}
+          <View style={styles.progressBarTrack}>
+            <View
+              style={[
+                styles.progressBarFill,
+                { width: `${((currentIdx + 1) / questions.length) * 100}%` },
+              ]}
+            />
+          </View>
+
+          {/* Question Prompt Card */}
+          <View style={styles.card}>
+            <Text style={styles.questionPrompt}>¿Cuál es la traducción correcta?</Text>
+
+            <View style={styles.wordAudioRow}>
+              <Text style={styles.quizWord}>{q.targetWord.word}</Text>
+              <TouchableOpacity
+                style={styles.speakerBtn}
+                onPress={() => vocabService.speak(q.targetWord.word)}
+              >
+                <Volume2 size={20} color={THEME.colors.crimsonLight} />
+              </TouchableOpacity>
+            </View>
+
+            {q.targetWord.phoneticGuide ? (
+              <Text style={styles.phoneticPrompt}>
+                Pronunciación: {q.targetWord.phoneticGuide}
               </Text>
-              <ArrowRight size={18} color="#ffffff" style={{ marginLeft: 6 }} />
-            </TouchableOpacity>
-          )}
+            ) : null}
+
+            {/* 4 Options */}
+            <View style={styles.optionsList}>
+              {q.options.map((opt, i) => {
+                const isSelected = selectedAnswer === opt;
+                const isCorrect = opt === q.correctAnswer;
+
+                let btnStyle = styles.optionBtn;
+                if (selectedAnswer !== null) {
+                  if (isCorrect) btnStyle = [styles.optionBtn, styles.optionCorrect];
+                  else if (isSelected) btnStyle = [styles.optionBtn, styles.optionWrong];
+                }
+
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    style={btnStyle}
+                    onPress={() => handleSelectOption(opt)}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.optionText,
+                        selectedAnswer !== null && isCorrect && styles.optionTextCorrect,
+                      ]}
+                    >
+                      {opt}
+                    </Text>
+                    {selectedAnswer !== null && isCorrect && (
+                      <CheckCircle2 size={18} color={THEME.colors.emerald} />
+                    )}
+                    {selectedAnswer !== null && isSelected && !isCorrect && (
+                      <XCircle size={18} color="#f87171" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Next Button */}
+            {selectedAnswer !== null && (
+              <TouchableOpacity
+                style={styles.nextQuestionBtn}
+                onPress={handleNextQuestion}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.nextQuestionBtnText}>
+                  {currentIdx + 1 < questions.length ? 'Siguiente Pregunta' : 'Ver Resultados'}
+                </Text>
+                <ArrowRight size={18} color="#ffffff" style={{ marginLeft: 6 }} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </ScrollView>
     );
@@ -304,75 +310,77 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
   // Setup / Entry Screen
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* Mode switcher tabs */}
-      <View style={styles.modeTabBar}>
-        <TouchableOpacity
-          style={[styles.modeTab, styles.modeTabActive]}
-          onPress={() => setTestType('vocabulary')}
-        >
-          <BookOpen size={16} color="#ffffff" />
-          <Text style={[styles.modeTabText, styles.modeTabTextActive]}>Test Vocabulario</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.modeTab}
-          onPress={() => setTestType('irregular_verbs')}
-        >
-          <Zap size={16} color={THEME.colors.textMuted} />
-          <Text style={styles.modeTabText}>Verbos Irregulares</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.card}>
-        <View style={styles.introHeader}>
-          <View style={styles.introIconCircle}>
-            <Trophy size={28} color={THEME.colors.crimsonLight} />
-          </View>
-          <Text style={styles.introTitle}>Evaluación de Vocabulario</Text>
-          <Text style={styles.introSubtitle}>
-            Preguntas tipo test de opción múltiple para medir tu retención y reconocimiento léxico.
-          </Text>
+      <View style={styles.contentWrapper}>
+        {/* Mode switcher tabs */}
+        <View style={styles.modeTabBar}>
+          <TouchableOpacity
+            style={[styles.modeTab, styles.modeTabActive]}
+            onPress={() => setTestType('vocabulary')}
+          >
+            <BookOpen size={16} color="#ffffff" />
+            <Text style={[styles.modeTabText, styles.modeTabTextActive]}>Test Vocabulario</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.modeTab}
+            onPress={() => setTestType('irregular_verbs')}
+          >
+            <Zap size={16} color={THEME.colors.textMuted} />
+            <Text style={styles.modeTabText}>Verbos Irregulares</Text>
+          </TouchableOpacity>
         </View>
 
-        <Text style={styles.filterTitle}>Selecciona el Nivel:</Text>
-        <View style={styles.levelSelector}>
-          {['TODOS', 'A1', 'A2', 'B1', 'B2', 'C1'].map((lvl) => (
-            <TouchableOpacity
-              key={lvl}
-              style={[
-                styles.levelChip,
-                selectedLevel === lvl && styles.levelChipActive,
-              ]}
-              onPress={() => setSelectedLevel(lvl)}
-            >
-              <Text
-                style={[
-                  styles.levelChipText,
-                  selectedLevel === lvl && styles.levelChipTextActive,
-                ]}
-              >
-                {lvl}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.statsSummaryBox}>
-          <Text style={styles.statsSummaryText}>
-            Palabras disponibles para este nivel:{' '}
-            <Text style={{ color: '#ffffff', fontWeight: '700' }}>
-              {availableWords.length}
+        <View style={styles.card}>
+          <View style={styles.introHeader}>
+            <View style={styles.introIconCircle}>
+              <Trophy size={28} color={THEME.colors.crimsonLight} />
+            </View>
+            <Text style={styles.introTitle}>Evaluación de Vocabulario</Text>
+            <Text style={styles.introSubtitle}>
+              Preguntas tipo test de opción múltiple para medir tu retención y reconocimiento léxico.
             </Text>
-          </Text>
-        </View>
+          </View>
 
-        <TouchableOpacity
-          style={styles.primaryBtn}
-          onPress={startVocabTest}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.primaryBtnText}>Iniciar Evaluación</Text>
-          <ArrowRight size={18} color="#ffffff" style={{ marginLeft: 6 }} />
-        </TouchableOpacity>
+          <Text style={styles.filterTitle}>Selecciona el Nivel:</Text>
+          <View style={styles.levelSelector}>
+            {['TODOS', 'A1', 'A2', 'B1', 'B2', 'C1'].map((lvl) => (
+              <TouchableOpacity
+                key={lvl}
+                style={[
+                  styles.levelChip,
+                  selectedLevel === lvl && styles.levelChipActive,
+                ]}
+                onPress={() => setSelectedLevel(lvl)}
+              >
+                <Text
+                  style={[
+                    styles.levelChipText,
+                    selectedLevel === lvl && styles.levelChipTextActive,
+                  ]}
+                >
+                  {lvl}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.statsSummaryBox}>
+            <Text style={styles.statsSummaryText}>
+              Palabras disponibles para este nivel:{' '}
+              <Text style={{ color: '#ffffff', fontWeight: '700' }}>
+                {availableWords.length}
+              </Text>
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.primaryBtn}
+            onPress={startVocabTest}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.primaryBtnText}>Iniciar Evaluación</Text>
+            <ArrowRight size={18} color="#ffffff" style={{ marginLeft: 6 }} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ConfirmModal
@@ -394,12 +402,21 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
     backgroundColor: THEME.colors.bgDark,
+    alignItems: 'center',
+    width: '100%',
   },
   centerContainer: {
     padding: 16,
     paddingBottom: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: THEME.colors.bgDark,
+    width: '100%',
+  },
+  contentWrapper: {
+    width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
   },
   modeTabBar: {
     flexDirection: 'row',
@@ -407,6 +424,9 @@ const styles = StyleSheet.create({
     borderRadius: THEME.radius.lg,
     padding: 4,
     marginBottom: 16,
+    width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
   },
   modeTab: {
     flex: 1,
@@ -432,10 +452,17 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: THEME.colors.bgCard,
     borderRadius: THEME.radius.xl,
-    padding: 22,
+    padding: 24,
     borderWidth: 1,
     borderColor: THEME.colors.border,
     width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 8,
   },
   introHeader: {
     alignItems: 'center',
