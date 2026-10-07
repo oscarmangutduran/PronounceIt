@@ -4,7 +4,8 @@ import { firebaseService } from './firebaseClient';
 import { backendApi } from './apiClient';
 import { appStorage } from './storage';
 
-const STORAGE_KEY_WORDS = 'pronounceit_vocab_words_v3';
+const STORAGE_KEY_WORDS = 'pronounceit_vocab_words_v5';
+const STORAGE_KEY_CATEGORIES = 'pronounceit_user_categories_v4';
 const STORAGE_KEY_AUDIO_SETTINGS = 'pronounceit_audio_settings';
 
 export interface AudioSettings {
@@ -13,29 +14,13 @@ export interface AudioSettings {
   voiceName: string;
 }
 
-export const INITIAL_CATEGORIES: CategoryItem[] = [
-  {
-    id: 'grammar',
-    name: 'Grammar',
-    icon: 'BookOpen',
-    count: 0,
-    subcategories: [],
-  },
-  {
-    id: 'readings',
-    name: 'Readings',
-    icon: 'FileText',
-    count: 0,
-    subcategories: [
-      { id: 'the-little-prince', name: 'The little Prince', count: 0 },
-    ],
-  },
-];
+export const INITIAL_CATEGORIES: CategoryItem[] = [];
 
 export const INITIAL_WORDS: WordItem[] = [];
 
 class VocabularyService {
   private words: WordItem[] = [];
+  private customCategories: CategoryItem[] = [];
   private listeners: (() => void)[] = [];
   private audioSettings: AudioSettings = {
     rate: 0.95,
@@ -78,8 +63,8 @@ class VocabularyService {
 
     if (firebaseService.isFirebaseConnected()) {
       try {
-        const remoteWords = await firebaseService.fetchWords();
-        if (remoteWords !== null) {
+        const remoteWords = await (firebaseService as any).fetchWords?.();
+        if (remoteWords && Array.isArray(remoteWords)) {
           this.words = remoteWords;
           this.saveWords();
           this.notify();
@@ -93,8 +78,19 @@ class VocabularyService {
 
   private loadInitialData() {
     try {
-      appStorage.removeItem('pronounceit_vocab_words_v1');
-      appStorage.removeItem('pronounceit_vocab_words_v2');
+      // Clean up all legacy storage versions so user starts with a completely clean slate
+      [
+        'pronounceit_vocab_words_v1',
+        'pronounceit_vocab_words_v2',
+        'pronounceit_vocab_words_v3',
+        'pronounceit_vocab_words_v4',
+        'pronounceit_categories_v1',
+        'pronounceit_categories_v2',
+        'pronounceit_user_categories_v1',
+        'pronounceit_user_categories_v2',
+        'pronounceit_user_categories_v3',
+      ].forEach((key) => appStorage.removeItem(key));
+
       const stored = appStorage.getItem(STORAGE_KEY_WORDS);
       if (stored) {
         this.words = JSON.parse(stored);
@@ -103,12 +99,30 @@ class VocabularyService {
         this.saveWords();
       }
 
+      const storedCats = appStorage.getItem(STORAGE_KEY_CATEGORIES);
+      if (storedCats) {
+        this.customCategories = JSON.parse(storedCats);
+      } else {
+        this.customCategories = [];
+        this.saveCategories();
+      }
+
       const audioStored = appStorage.getItem(STORAGE_KEY_AUDIO_SETTINGS);
       if (audioStored) {
         this.audioSettings = JSON.parse(audioStored);
       }
     } catch {
       this.words = [];
+      this.customCategories = [];
+    }
+    this.notify();
+  }
+
+  private saveCategories() {
+    try {
+      appStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(this.customCategories));
+    } catch (e) {
+      console.error('Error saving categories', e);
     }
     this.notify();
   }
@@ -138,67 +152,238 @@ class VocabularyService {
   }
 
   public getCategories(): CategoryItem[] {
-    const categoryMap = new Map<string, CategoryItem>();
-
-    for (const cat of INITIAL_CATEGORIES) {
-      const groupWords = this.words.filter((w) => w.categoryGroup === cat.name);
-      const subMap = new Map<string, { id: string; name: string; count: number }>();
-
-      if (cat.subcategories) {
-        for (const sub of cat.subcategories) {
-          const subWords = this.words.filter((w) => w.categoryGroup === cat.name && w.categorySub === sub.name);
-          subMap.set(sub.name, {
-            ...sub,
-            count: subWords.length,
-          });
-        }
-      }
-
-      for (const w of groupWords) {
-        if (w.categorySub && !subMap.has(w.categorySub)) {
-          const subWords = groupWords.filter((gw) => gw.categorySub === w.categorySub);
-          subMap.set(w.categorySub, {
-            id: `sub-${w.categorySub.toLowerCase().replace(/\s+/g, '-')}`,
-            name: w.categorySub,
-            count: subWords.length,
-          });
-        }
-      }
-
-      categoryMap.set(cat.name, {
-        ...cat,
-        count: groupWords.length,
-        subcategories: Array.from(subMap.values()),
-      });
-    }
-
+    // Ensure any words with categoryGroup are represented
     for (const w of this.words) {
-      if (w.categoryGroup && !categoryMap.has(w.categoryGroup)) {
-        const groupWords = this.words.filter((gw) => gw.categoryGroup === w.categoryGroup);
-        const subMap = new Map<string, { id: string; name: string; count: number }>();
+      if (w.categoryGroup?.trim()) {
+        const groupTrimmed = w.categoryGroup.trim();
+        let cat = this.customCategories.find(
+          (c) => c.name.toLowerCase() === groupTrimmed.toLowerCase()
+        );
+        if (!cat) {
+          cat = {
+            id: `cat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            name: groupTrimmed,
+            icon: 'Folder',
+            count: 0,
+            subcategories: [],
+          };
+          this.customCategories.push(cat);
+        }
 
-        for (const gw of groupWords) {
-          if (gw.categorySub && !subMap.has(gw.categorySub)) {
-            const subWords = groupWords.filter((sw) => sw.categorySub === gw.categorySub);
-            subMap.set(gw.categorySub, {
-              id: `sub-${gw.categorySub.toLowerCase().replace(/\s+/g, '-')}`,
-              name: gw.categorySub,
-              count: subWords.length,
+        if (w.categorySub?.trim()) {
+          const subTrimmed = w.categorySub.trim();
+          if (!cat.subcategories) cat.subcategories = [];
+          const subExists = cat.subcategories.some(
+            (s) => s.name.toLowerCase() === subTrimmed.toLowerCase()
+          );
+          if (!subExists) {
+            cat.subcategories.push({
+              id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              name: subTrimmed,
+              count: 0,
             });
           }
         }
-
-        categoryMap.set(w.categoryGroup, {
-          id: `cat-${w.categoryGroup.toLowerCase().replace(/\s+/g, '-')}`,
-          name: w.categoryGroup,
-          icon: 'Folder',
-          count: groupWords.length,
-          subcategories: Array.from(subMap.values()),
-        });
       }
     }
 
-    return Array.from(categoryMap.values());
+    return this.customCategories.map((cat) => {
+      const groupWords = this.words.filter(
+        (w) => (w.categoryGroup || '').trim().toLowerCase() === cat.name.trim().toLowerCase()
+      );
+      const subcategories = (cat.subcategories || []).map((sub) => {
+        const subWords = groupWords.filter(
+          (w) => (w.categorySub || '').trim().toLowerCase() === sub.name.trim().toLowerCase()
+        );
+        return {
+          ...sub,
+          count: subWords.length,
+        };
+      });
+
+      return {
+        ...cat,
+        count: groupWords.length,
+        subcategories,
+      };
+    });
+  }
+
+  public addCategory(name: string): CategoryItem {
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error('El nombre de la categoría es requerido.');
+
+    const existing = this.customCategories.find(
+      (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (existing) return existing;
+
+    const newCat: CategoryItem = {
+      id: `cat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      name: trimmed,
+      icon: 'Folder',
+      count: 0,
+      subcategories: [],
+    };
+    this.customCategories = [...this.customCategories, newCat];
+    this.saveCategories();
+    return newCat;
+  }
+
+  public editCategory(categoryId: string, newName: string): boolean {
+    const trimmed = newName.trim();
+    if (!trimmed) return false;
+    const cat = this.customCategories.find((c) => c.id === categoryId);
+    if (!cat) return false;
+
+    const oldName = cat.name;
+    cat.name = trimmed;
+
+    if (oldName.toLowerCase() !== trimmed.toLowerCase()) {
+      let changed = false;
+      this.words = this.words.map((w) => {
+        if ((w.categoryGroup || '').trim().toLowerCase() === oldName.trim().toLowerCase()) {
+          changed = true;
+          return { ...w, categoryGroup: trimmed };
+        }
+        return w;
+      });
+      if (changed) {
+        this.saveWords();
+        backendApi.bulkSaveWords(this.words).catch(() => {});
+      }
+    }
+
+    this.saveCategories();
+    return true;
+  }
+
+  public deleteCategory(categoryId: string): { deletedCategory: CategoryItem | null; deletedWordsCount: number } {
+    const cat = this.customCategories.find((c) => c.id === categoryId);
+    if (!cat) return { deletedCategory: null, deletedWordsCount: 0 };
+
+    const catNameLower = cat.name.trim().toLowerCase();
+
+    // Cascade delete: remove all words in this category
+    const remainingWords = this.words.filter(
+      (w) => (w.categoryGroup || '').trim().toLowerCase() !== catNameLower
+    );
+    const deletedWords = this.words.filter(
+      (w) => (w.categoryGroup || '').trim().toLowerCase() === catNameLower
+    );
+    const deletedWordsCount = deletedWords.length;
+
+    this.words = remainingWords;
+    this.saveWords();
+
+    deletedWords.forEach((dw) => {
+      backendApi.deleteWord(dw.id).catch(() => {});
+      if (firebaseService.isFirebaseConnected()) {
+        firebaseService.deleteWord(dw.id).catch(() => {});
+      }
+    });
+
+    this.customCategories = this.customCategories.filter((c) => c.id !== categoryId);
+    this.saveCategories();
+
+    return { deletedCategory: cat, deletedWordsCount };
+  }
+
+  public addSubcategory(categoryId: string, subName: string): boolean {
+    const trimmed = subName.trim();
+    if (!trimmed) return false;
+    const cat = this.customCategories.find((c) => c.id === categoryId);
+    if (!cat) return false;
+
+    if (!cat.subcategories) cat.subcategories = [];
+    const exists = cat.subcategories.some(
+      (s) => s.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (exists) return false;
+
+    cat.subcategories.push({
+      id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      name: trimmed,
+      count: 0,
+    });
+
+    this.saveCategories();
+    return true;
+  }
+
+  public editSubcategory(categoryId: string, subId: string, newName: string): boolean {
+    const trimmed = newName.trim();
+    if (!trimmed) return false;
+    const cat = this.customCategories.find((c) => c.id === categoryId);
+    if (!cat || !cat.subcategories) return false;
+
+    const sub = cat.subcategories.find((s) => s.id === subId);
+    if (!sub) return false;
+
+    const oldSubName = sub.name;
+    sub.name = trimmed;
+
+    if (oldSubName.toLowerCase() !== trimmed.toLowerCase()) {
+      let changed = false;
+      this.words = this.words.map((w) => {
+        if (
+          (w.categoryGroup || '').trim().toLowerCase() === cat.name.trim().toLowerCase() &&
+          (w.categorySub || '').trim().toLowerCase() === oldSubName.trim().toLowerCase()
+        ) {
+          changed = true;
+          return { ...w, categorySub: trimmed };
+        }
+        return w;
+      });
+      if (changed) {
+        this.saveWords();
+        backendApi.bulkSaveWords(this.words).catch(() => {});
+      }
+    }
+
+    this.saveCategories();
+    return true;
+  }
+
+  public deleteSubcategory(categoryId: string, subId: string): { deletedWordsCount: number } {
+    const cat = this.customCategories.find((c) => c.id === categoryId);
+    if (!cat || !cat.subcategories) return { deletedWordsCount: 0 };
+
+    const sub = cat.subcategories.find((s) => s.id === subId);
+    if (!sub) return { deletedWordsCount: 0 };
+
+    const catNameLower = cat.name.trim().toLowerCase();
+    const subNameLower = sub.name.trim().toLowerCase();
+
+    // Cascade delete words in this subcategory
+    const remainingWords = this.words.filter(
+      (w) =>
+        !(
+          (w.categoryGroup || '').trim().toLowerCase() === catNameLower &&
+          (w.categorySub || '').trim().toLowerCase() === subNameLower
+        )
+    );
+    const deletedWords = this.words.filter(
+      (w) =>
+        (w.categoryGroup || '').trim().toLowerCase() === catNameLower &&
+        (w.categorySub || '').trim().toLowerCase() === subNameLower
+    );
+    const deletedWordsCount = deletedWords.length;
+
+    this.words = remainingWords;
+    this.saveWords();
+
+    deletedWords.forEach((dw) => {
+      backendApi.deleteWord(dw.id).catch(() => {});
+      if (firebaseService.isFirebaseConnected()) {
+        firebaseService.deleteWord(dw.id).catch(() => {});
+      }
+    });
+
+    cat.subcategories = cat.subcategories.filter((s) => s.id !== subId);
+    this.saveCategories();
+
+    return { deletedWordsCount };
   }
 
   public addWord(wordData: Omit<WordItem, 'id'>): WordItem {
@@ -289,7 +474,9 @@ class VocabularyService {
 
   public async clearAllWords() {
     this.words = [];
+    this.customCategories = [];
     this.saveWords();
+    this.saveCategories();
     await backendApi.clearAllWords().catch((e) => console.warn('Backend clear error', e));
     if (firebaseService.isFirebaseConnected()) {
       await firebaseService.syncAllWords([]).catch((e) => console.warn('Firebase reset sync error', e));

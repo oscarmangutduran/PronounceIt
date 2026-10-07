@@ -20,9 +20,14 @@ import {
   Bookmark,
   Sparkles,
   PanelLeftClose,
+  Edit2,
+  Trash2,
 } from 'lucide-react-native';
 import { CategoryItem } from '../../types';
 import { THEME } from '../../theme';
+import { vocabService } from '../../lib/vocabularyStore';
+import { ConfirmModal } from '../common/ConfirmModal';
+import { CategoryFormModal, CategoryFormMode } from './CategoryFormModal';
 
 export type SelectedFilter =
   | { type: 'all' }
@@ -58,16 +63,89 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
 
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    Grammar: true,
-    Readings: true,
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  const [formModal, setFormModal] = useState<{
+    isOpen: boolean;
+    mode: CategoryFormMode;
+    categoryId?: string;
+    subId?: string;
+    categoryName?: string;
+    initialValue: string;
+  }>({
+    isOpen: false,
+    mode: 'create_category',
+    initialValue: '',
   });
+
+  const [deleteCategoryTarget, setDeleteCategoryTarget] = useState<CategoryItem | null>(null);
+  const [deleteSubTarget, setDeleteSubTarget] = useState<{
+    category: CategoryItem;
+    subcategory: { id: string; name: string; count: number };
+  } | null>(null);
 
   const toggleGroup = (groupName: string) => {
     setExpandedGroups((prev) => ({
       ...prev,
       [groupName]: !prev[groupName],
     }));
+  };
+
+  const handleOpenCreateCategory = () => {
+    setFormModal({
+      isOpen: true,
+      mode: 'create_category',
+      initialValue: '',
+    });
+  };
+
+  const handleOpenEditCategory = (cat: CategoryItem) => {
+    setFormModal({
+      isOpen: true,
+      mode: 'edit_category',
+      categoryId: cat.id,
+      initialValue: cat.name,
+    });
+  };
+
+  const handleOpenCreateSubcategory = (cat: CategoryItem) => {
+    setFormModal({
+      isOpen: true,
+      mode: 'create_subcategory',
+      categoryId: cat.id,
+      categoryName: cat.name,
+      initialValue: '',
+    });
+  };
+
+  const handleOpenEditSubcategory = (
+    cat: CategoryItem,
+    sub: { id: string; name: string; count: number }
+  ) => {
+    setFormModal({
+      isOpen: true,
+      mode: 'edit_subcategory',
+      categoryId: cat.id,
+      subId: sub.id,
+      categoryName: cat.name,
+      initialValue: sub.name,
+    });
+  };
+
+  const handleFormSubmit = (name: string) => {
+    if (formModal.mode === 'create_category') {
+      const created = vocabService.addCategory(name);
+      setExpandedGroups((prev) => ({ ...prev, [created.name]: true }));
+    } else if (formModal.mode === 'edit_category' && formModal.categoryId) {
+      vocabService.editCategory(formModal.categoryId, name);
+    } else if (formModal.mode === 'create_subcategory' && formModal.categoryId) {
+      vocabService.addSubcategory(formModal.categoryId, name);
+      if (formModal.categoryName) {
+        setExpandedGroups((prev) => ({ ...prev, [formModal.categoryName!]: true }));
+      }
+    } else if (formModal.mode === 'edit_subcategory' && formModal.categoryId && formModal.subId) {
+      vocabService.editSubcategory(formModal.categoryId, formModal.subId, name);
+    }
   };
 
   const isSelected = (type: string, key?: string, subKey?: string) => {
@@ -149,7 +227,48 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
               </Text>
             </View>
           </TouchableOpacity>
+
+          {/* Categories */}
+          {categories.map((cat) => (
+            <TouchableOpacity
+              key={cat.id}
+              style={[styles.chip, isSelected('category', cat.name) && styles.chipActive]}
+              onPress={() => onSelectFilter({ type: 'category', group: cat.name })}
+              activeOpacity={0.75}
+            >
+              <Folder size={14} color={isSelected('category', cat.name) ? '#ffffff' : '#38bdf8'} />
+              <Text style={[styles.chipText, isSelected('category', cat.name) && styles.chipTextActive]}>
+                {cat.name}
+              </Text>
+              <View style={[styles.badge, isSelected('category', cat.name) && styles.badgeActive]}>
+                <Text style={[styles.badgeText, isSelected('category', cat.name) && styles.badgeTextActive]}>
+                  {cat.count}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+
+          {/* + Nueva Categoría button */}
+          <TouchableOpacity
+            style={[styles.chip, styles.chipNew]}
+            onPress={handleOpenCreateCategory}
+            activeOpacity={0.75}
+          >
+            <Plus size={13} color="#e62e4c" />
+            <Text style={[styles.chipText, { color: '#e62e4c', fontWeight: '700' }]}>
+              + Categoría
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
+
+        <CategoryFormModal
+          isOpen={formModal.isOpen}
+          mode={formModal.mode}
+          initialValue={formModal.initialValue}
+          categoryName={formModal.categoryName}
+          onClose={() => setFormModal((prev) => ({ ...prev, isOpen: false }))}
+          onSubmit={handleFormSubmit}
+        />
       </View>
     );
   }
@@ -178,7 +297,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
         {/* Button: + Nueva Categoría */}
         <TouchableOpacity
           style={styles.newCategoryBtn}
-          onPress={onAddNewCategory}
+          onPress={handleOpenCreateCategory}
           activeOpacity={0.8}
         >
           <Plus size={14} color={THEME.colors.crimsonLight} style={{ marginRight: 6 }} />
@@ -257,79 +376,162 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
           <Text style={styles.sectionDividerText}>TEMARIOS DE ESTUDIO</Text>
         </View>
 
-        {/* Accordion Categories */}
-        <View style={styles.treeList}>
-          {categories.map((cat) => {
-            const isExpanded = !!expandedGroups[cat.name];
-            const groupActive = isSelected('category', cat.name);
+        {/* Categories Tree or Empty State */}
+        {categories.length === 0 ? (
+          <View style={styles.emptyCategoriesBox}>
+            <Folder size={22} color={THEME.colors.textSubtle} style={{ marginBottom: 6 }} />
+            <Text style={styles.emptyCategoriesTitle}>Sin categorías creadas</Text>
+            <Text style={styles.emptyCategoriesSub}>
+              Crea tus propios temarios para organizar tus palabras por temas.
+            </Text>
+            <TouchableOpacity
+              style={styles.emptyCreateBtn}
+              onPress={handleOpenCreateCategory}
+              activeOpacity={0.85}
+            >
+              <Plus size={12} color="#ffffff" style={{ marginRight: 4 }} />
+              <Text style={styles.emptyCreateBtnText}>Crear Categoría</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.treeList}>
+            {categories.map((cat) => {
+              const isExpanded = !!expandedGroups[cat.name];
+              const groupActive = isSelected('category', cat.name);
 
-            return (
-              <View key={cat.id} style={styles.treeNode}>
-                {/* Group Header */}
-                <TouchableOpacity
-                  style={[styles.treeHeader, groupActive && styles.treeHeaderActive]}
-                  onPress={() => onSelectFilter({ type: 'category', group: cat.name })}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.treeHeaderLeft}>
-                    <TouchableOpacity
-                      onPress={(e) => {
-                        e.stopPropagation?.();
-                        toggleGroup(cat.name);
-                      }}
-                      style={{ padding: 2 }}
-                    >
-                      {isExpanded ? (
-                        <ChevronDown size={14} color={THEME.colors.textSubtle} />
-                      ) : (
-                        <ChevronRight size={14} color={THEME.colors.textSubtle} />
-                      )}
-                    </TouchableOpacity>
-                    <BookOpen
-                      size={14}
-                      color={cat.name === 'Grammar' ? '#f87171' : '#38bdf8'}
-                    />
-                    <Text style={styles.treeHeaderText}>{cat.name}</Text>
-                  </View>
-                  <Text style={styles.treeCountText}>{cat.count}</Text>
-                </TouchableOpacity>
+              return (
+                <View key={cat.id} style={styles.treeNode}>
+                  {/* Group Header */}
+                  <TouchableOpacity
+                    style={[styles.treeHeader, groupActive && styles.treeHeaderActive]}
+                    onPress={() => onSelectFilter({ type: 'category', group: cat.name })}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.treeHeaderLeft}>
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          toggleGroup(cat.name);
+                        }}
+                        style={{ padding: 2 }}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown size={14} color={THEME.colors.textSubtle} />
+                        ) : (
+                          <ChevronRight size={14} color={THEME.colors.textSubtle} />
+                        )}
+                      </TouchableOpacity>
+                      <Folder size={14} color="#ff4d6d" />
+                      <Text style={styles.treeHeaderText}>{cat.name}</Text>
+                    </View>
 
-                {/* Subcategories */}
-                {isExpanded && cat.subcategories && (
-                  <View style={styles.subList}>
-                    {cat.subcategories.map((sub) => {
-                      const subActive = isSelected('category', cat.name, sub.name);
-                      return (
-                        <TouchableOpacity
-                          key={sub.id}
-                          style={[styles.subItem, subActive && styles.subItemActive]}
-                          onPress={() =>
-                            onSelectFilter({
-                              type: 'category',
-                              group: cat.name,
-                              sub: sub.name,
-                            })
-                          }
-                          activeOpacity={0.8}
-                        >
-                          <View style={styles.subItemLeft}>
-                            <Pin size={12} color={subActive ? '#ffffff' : THEME.colors.textSubtle} />
-                            <Text style={[styles.subItemText, subActive && styles.subItemTextActive]}>
-                              {sub.name}
-                            </Text>
-                          </View>
-                          <Text style={[styles.subCountText, subActive && styles.subCountTextActive]}>
-                            {sub.count}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-            );
-          })}
-        </View>
+                    <View style={styles.actionsContainer}>
+                      {/* Action: Add subcategory */}
+                      <TouchableOpacity
+                        style={styles.actionIconBtn}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          handleOpenCreateSubcategory(cat);
+                        }}
+                        accessibilityLabel="Añadir subcategoría"
+                      >
+                        <Plus size={12} color={THEME.colors.textMuted} />
+                      </TouchableOpacity>
+
+                      {/* Action: Edit category */}
+                      <TouchableOpacity
+                        style={styles.actionIconBtn}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          handleOpenEditCategory(cat);
+                        }}
+                        accessibilityLabel="Editar categoría"
+                      >
+                        <Edit2 size={11} color={THEME.colors.textMuted} />
+                      </TouchableOpacity>
+
+                      {/* Action: Delete category */}
+                      <TouchableOpacity
+                        style={styles.actionIconBtn}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          setDeleteCategoryTarget(cat);
+                        }}
+                        accessibilityLabel="Eliminar categoría"
+                      >
+                        <Trash2 size={11} color="#f87171" />
+                      </TouchableOpacity>
+
+                      {/* Count Badge */}
+                      <Text style={styles.treeCountText}>{cat.count}</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Subcategories */}
+                  {isExpanded && cat.subcategories && cat.subcategories.length > 0 && (
+                    <View style={styles.subList}>
+                      {cat.subcategories.map((sub) => {
+                        const subActive = isSelected('category', cat.name, sub.name);
+                        return (
+                          <TouchableOpacity
+                            key={sub.id}
+                            style={[styles.subItem, subActive && styles.subItemActive]}
+                            onPress={() =>
+                              onSelectFilter({
+                                type: 'category',
+                                group: cat.name,
+                                sub: sub.name,
+                              })
+                            }
+                            activeOpacity={0.8}
+                          >
+                            <View style={styles.subItemLeft}>
+                              <Pin size={11} color={subActive ? '#ffffff' : THEME.colors.textSubtle} />
+                              <Text
+                                style={[styles.subItemText, subActive && styles.subItemTextActive]}
+                                numberOfLines={1}
+                              >
+                                {sub.name}
+                              </Text>
+                            </View>
+
+                            <View style={styles.actionsContainer}>
+                              {/* Edit subcategory */}
+                              <TouchableOpacity
+                                style={styles.actionIconBtn}
+                                onPress={(e) => {
+                                  e.stopPropagation?.();
+                                  handleOpenEditSubcategory(cat, sub);
+                                }}
+                              >
+                                <Edit2 size={10} color={subActive ? '#ffffff' : THEME.colors.textMuted} />
+                              </TouchableOpacity>
+
+                              {/* Delete subcategory */}
+                              <TouchableOpacity
+                                style={styles.actionIconBtn}
+                                onPress={(e) => {
+                                  e.stopPropagation?.();
+                                  setDeleteSubTarget({ category: cat, subcategory: sub });
+                                }}
+                              >
+                                <Trash2 size={10} color="#f87171" />
+                              </TouchableOpacity>
+
+                              <Text style={[styles.subCountText, subActive && styles.subCountTextActive]}>
+                                {sub.count}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
       </View>
 
       {/* CARD 2: Retención Lexical */}
@@ -373,6 +575,74 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
           </View>
         </View>
       </View>
+
+      {/* Create / Edit Category Modal */}
+      <CategoryFormModal
+        isOpen={formModal.isOpen}
+        mode={formModal.mode}
+        initialValue={formModal.initialValue}
+        categoryName={formModal.categoryName}
+        onClose={() => setFormModal((prev) => ({ ...prev, isOpen: false }))}
+        onSubmit={handleFormSubmit}
+      />
+
+      {/* Delete Category Confirmation Modal (Cascade to all its words) */}
+      <ConfirmModal
+        isOpen={!!deleteCategoryTarget}
+        title={`¿Eliminar categoría "${deleteCategoryTarget?.name}"?`}
+        message={
+          (deleteCategoryTarget?.count || 0) > 0
+            ? `Esta categoría contiene ${deleteCategoryTarget?.count} palabra(s). Al eliminarla, también se eliminarán permanentemente todas las palabras asociadas a ella.`
+            : 'Esta categoría no tiene palabras asociadas. Se eliminará de tus temarios.'
+        }
+        confirmText="Eliminar Categoría y Palabras"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={() => {
+          if (deleteCategoryTarget) {
+            vocabService.deleteCategory(deleteCategoryTarget.id);
+            if (
+              selectedFilter.type === 'category' &&
+              selectedFilter.group.toLowerCase() === deleteCategoryTarget.name.toLowerCase()
+            ) {
+              onSelectFilter({ type: 'all' });
+            }
+            setDeleteCategoryTarget(null);
+          }
+        }}
+        onCancel={() => setDeleteCategoryTarget(null)}
+      />
+
+      {/* Delete Subcategory Confirmation Modal (Cascade to words in this subcategory) */}
+      <ConfirmModal
+        isOpen={!!deleteSubTarget}
+        title={`¿Eliminar subcategoría "${deleteSubTarget?.subcategory.name}"?`}
+        message={
+          (deleteSubTarget?.subcategory.count || 0) > 0
+            ? `Esta subcategoría contiene ${deleteSubTarget?.subcategory.count} palabra(s). Al eliminarla, también se eliminarán permanentemente todas las palabras que pertenecen a ella.`
+            : 'Esta subcategoría no tiene palabras asociadas. Se eliminará de la categoría.'
+        }
+        confirmText="Eliminar Subcategoría y Palabras"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={() => {
+          if (deleteSubTarget) {
+            vocabService.deleteSubcategory(
+              deleteSubTarget.category.id,
+              deleteSubTarget.subcategory.id
+            );
+            if (
+              selectedFilter.type === 'category' &&
+              selectedFilter.group.toLowerCase() === deleteSubTarget.category.name.toLowerCase() &&
+              selectedFilter.sub?.toLowerCase() === deleteSubTarget.subcategory.name.toLowerCase()
+            ) {
+              onSelectFilter({ type: 'category', group: deleteSubTarget.category.name });
+            }
+            setDeleteSubTarget(null);
+          }
+        }}
+        onCancel={() => setDeleteSubTarget(null)}
+      />
     </View>
   );
 };
@@ -713,4 +983,57 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#6ee7b7',
   },
+  actionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  actionIconBtn: {
+    padding: 3,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyCategoriesBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  emptyCategoriesTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  emptyCategoriesSub: {
+    fontSize: 11,
+    color: THEME.colors.textSubtle,
+    textAlign: 'center',
+    marginBottom: 10,
+    lineHeight: 15,
+  },
+  emptyCreateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.crimson,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  emptyCreateBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  chipNew: {
+    borderColor: 'rgba(230, 46, 76, 0.4)',
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
+  },
 });
+

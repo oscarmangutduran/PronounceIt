@@ -239,7 +239,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
             </View>
             <Text style={styles.emptyTitle}>No hay palabras en esta sección</Text>
             <Text style={styles.emptySubtitle}>
-              Las categorías Grammar y Readings están listas para que comiences a agregar tus
+              Crea tus categorías y subcategorías temáticas para comenzar a organizar y añadir tus
               propias palabras y expresiones.
             </Text>
             <TouchableOpacity
@@ -253,8 +253,8 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
           </View>
         ) : (
           <ScrollView style={styles.tableBody}>
-            {pageWords.map((word) => (
-              <View key={word.id} style={styles.tableRow}>
+            {pageWords.map((word, index) => (
+              <View key={`${word.id || index}_${index}`} style={styles.tableRow}>
                 {/* 1. Word (English) */}
                 <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <TouchableOpacity
@@ -316,7 +316,13 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
                       word.status === 'en_repaso' && styles.statusReview,
                     ]}
                   >
-                    <Text style={styles.statusPillText}>{word.status}</Text>
+                    <Text style={styles.statusPillText}>
+                      {word.status === 'dominada'
+                        ? 'dominada'
+                        : word.status === 'en_repaso'
+                        ? 'en repaso'
+                        : 'nueva'}
+                    </Text>
                   </View>
 
                   {/* Favorite star */}

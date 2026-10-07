@@ -52,8 +52,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const isDesktop = width >= 768;
 
   const [word, setWord] = useState('');
-  const [categoryGroup, setCategoryGroup] = useState('Grammar');
-  const [categorySub, setCategorySub] = useState('');
+  const [categoryGroup, setCategoryGroup] = useState(defaultCategoryGroup || '');
+  const [categorySub, setCategorySub] = useState(defaultCategorySub || '');
   const [saving, setSaving] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -98,12 +98,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       }
     });
 
-    // Defaults if empty
-    if (list.length === 0) {
-      list.push({ name: 'Grammar', count: 0, subcategories: [] });
-      list.push({ name: 'Readings', count: 0, subcategories: ['The little Prince'] });
-    }
-
     return list;
   }, [categories]);
 
@@ -134,7 +128,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   useEffect(() => {
     if (initialWord) {
       setWord(initialWord.word);
-      setCategoryGroup(initialWord.categoryGroup || 'Grammar');
+      setCategoryGroup(initialWord.categoryGroup || (allCategories[0]?.name || ''));
       setCategorySub(initialWord.categorySub || '');
       setIsCustomCategory(false);
       setIsCustomSubcategory(false);
@@ -154,7 +148,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       });
     } else {
       setWord('');
-      const defaultGroup = defaultCategoryGroup || (allCategories[0]?.name || 'Grammar');
+      const defaultGroup = defaultCategoryGroup || (allCategories[0]?.name || '');
       setCategoryGroup(defaultGroup);
       setCategorySub(defaultCategorySub || '');
       setIsCustomCategory(false);
@@ -225,8 +219,20 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       }
     }
 
-    const finalGroup = categoryGroup.trim() || enrichedData?.categoryGroup || 'Grammar';
+    const finalGroup = categoryGroup.trim() || enrichedData?.categoryGroup || (allCategories[0]?.name || 'General');
     const finalSub = categorySub.trim() || enrichedData?.categorySub || '';
+
+    // Automatically ensure the category & subcategory are registered in the user's categories list
+    if (finalGroup) {
+      try {
+        const cat = vocabService.addCategory(finalGroup);
+        if (finalSub && cat?.id) {
+          vocabService.addSubcategory(cat.id, finalSub);
+        }
+      } catch (e) {
+        console.warn('Category auto-register warning:', e);
+      }
+    }
 
     onSave({
       word: word.trim(),
@@ -390,7 +396,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     style={styles.cancelCustomBtn}
                     onPress={() => {
                       setIsCustomCategory(false);
-                      setCategoryGroup(allCategories[0]?.name || 'Grammar');
+                      setCategoryGroup(allCategories[0]?.name || '');
                     }}
                   >
                     <Text style={styles.cancelCustomBtnText}>Elegir existente</Text>
