@@ -57,8 +57,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header */}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContainer}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.contentWrapper}>
+        {/* Header */}
       <View style={styles.header}>
         <View style={styles.iconCircle}>
           <Settings size={24} color={THEME.colors.crimsonLight} />
@@ -184,6 +189,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <LogOut size={16} color="#ffffff" style={{ marginRight: 8 }} />
         <Text style={styles.logoutBtnText}>Cerrar Sesión</Text>
       </TouchableOpacity>
+      </View>
 
       <ConfirmModal
         isOpen={showLogoutModal}
@@ -204,9 +210,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    paddingBottom: 40,
+    flex: 1,
+    width: '100%',
     backgroundColor: THEME.colors.bgDark,
+  },
+  scrollContainer: {
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+    alignItems: 'center',
+    width: '100%',
+  },
+  contentWrapper: {
+    width: '80%',
+    alignSelf: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -238,6 +255,7 @@ const styles = StyleSheet.create({
     borderRadius: THEME.radius.lg,
     padding: 18,
     marginBottom: 16,
+    width: '100%',
   },
   sectionTitle: {
     fontSize: 15,

@@ -236,11 +236,13 @@ export default function App() {
           {activeTab === 'stats' && <StatsDashboardView words={words} />}
 
           {activeTab === 'settings' && (
-            <SettingsView
-              currentUser={currentUser}
-              onLogout={handleLogout}
-              onOpenEditProfile={() => setIsEditProfileOpen(true)}
-            />
+            <View style={styles.settingsSectionContainer}>
+              <SettingsView
+                currentUser={currentUser}
+                onLogout={handleLogout}
+                onOpenEditProfile={() => setIsEditProfileOpen(true)}
+              />
+            </View>
           )}
         </View>
 
@@ -507,6 +509,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   testSectionContainer: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  settingsSectionContainer: {
     flex: 1,
     width: '100%',
     alignItems: 'center',
