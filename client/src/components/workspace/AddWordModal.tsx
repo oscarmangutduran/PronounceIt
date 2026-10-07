@@ -9,17 +9,18 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
 import {
   X,
-  Volume2,
   Sparkles,
   Check,
   Folder,
   BookOpen,
+  Pin,
 } from 'lucide-react-native';
-import { WordItem, WordLevel, CategoryItem } from '../../types';
-import { vocabService } from '../../lib/vocabularyStore';
+import { WordItem, CategoryItem } from '../../types';
 import { autoEnrichWord } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 
@@ -38,116 +39,93 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   onClose,
   onSave,
   initialWord,
+  categories = [],
   defaultCategoryGroup,
   defaultCategorySub,
 }) => {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+
   const [word, setWord] = useState('');
-  const [translation, setTranslation] = useState('');
-  const [phoneticGuide, setPhoneticGuide] = useState('');
-  const [ipa, setIpa] = useState('');
-  const [definition, setDefinition] = useState('');
-  const [exampleEn, setExampleEn] = useState('');
-  const [exampleEs, setExampleEs] = useState('');
-  const [level, setLevel] = useState<WordLevel>('B1');
-  const [partOfSpeech, setPartOfSpeech] = useState('noun');
   const [categoryGroup, setCategoryGroup] = useState('General');
   const [categorySub, setCategorySub] = useState('');
-  const [loadingAuto, setLoadingAuto] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialWord) {
       setWord(initialWord.word);
-      setTranslation(initialWord.translation);
-      setPhoneticGuide(initialWord.phoneticGuide || '');
-      setIpa(initialWord.ipa || '');
-      setDefinition(initialWord.definition || '');
-      setExampleEn(initialWord.exampleEn || '');
-      setExampleEs(initialWord.exampleEs || '');
-      setLevel(initialWord.level || 'B1');
-      setPartOfSpeech(initialWord.partOfSpeech || 'noun');
       setCategoryGroup(initialWord.categoryGroup || 'General');
       setCategorySub(initialWord.categorySub || '');
     } else {
       setWord('');
-      setTranslation('');
-      setPhoneticGuide('');
-      setIpa('');
-      setDefinition('');
-      setExampleEn('');
-      setExampleEs('');
-      setLevel('B1');
-      setPartOfSpeech('noun');
       setCategoryGroup(defaultCategoryGroup || 'General');
       setCategorySub(defaultCategorySub || '');
     }
   }, [initialWord, defaultCategoryGroup, defaultCategorySub, isOpen]);
 
-  const handleAutoEnrich = async () => {
+  // Find subcategories for the current category group
+  const activeCategoryObj = categories.find(
+    (c) => c.name.toLowerCase() === categoryGroup.toLowerCase()
+  );
+  const availableSubcategories = activeCategoryObj?.subcategories || [];
+
+  const handleSave = async () => {
     if (!word.trim()) {
-      Alert.alert('Aviso', 'Escribe primero una palabra en inglés.');
-      return;
-    }
-
-    setLoadingAuto(true);
-    try {
-      const result = await autoEnrichWord(word.trim());
-      if (result) {
-        if (result.translation) setTranslation(result.translation);
-        if (result.phoneticGuide) setPhoneticGuide(result.phoneticGuide);
-        if (result.ipa) setIpa(result.ipa);
-        if (result.definition) setDefinition(result.definition);
-        if (result.exampleEn) setExampleEn(result.exampleEn);
-        if (result.exampleEs) setExampleEs(result.exampleEs);
-        if (result.level) setLevel(result.level);
-        if (result.partOfSpeech) setPartOfSpeech(result.partOfSpeech);
-        if (result.categoryGroup) setCategoryGroup(result.categoryGroup);
-        if (result.categorySub) setCategorySub(result.categorySub);
+      if (Platform.OS === 'web') {
+        window.alert('Por favor ingresa la palabra en inglés.');
+      } else {
+        Alert.alert('Campo requerido', 'Por favor ingresa la palabra en inglés.');
       }
-    } catch (e) {
-      console.warn('Auto enrich error:', e);
-    } finally {
-      setLoadingAuto(false);
-    }
-  };
-
-  const handleSave = () => {
-    if (!word.trim() || !translation.trim()) {
-      Alert.alert('Campos requeridos', 'Por favor ingresa la palabra y su traducción.');
       return;
     }
+
+    setSaving(true);
+    let enrichedData: any = null;
+    try {
+      enrichedData = await autoEnrichWord(word.trim());
+    } catch (e) {
+      console.warn('Auto enrich error on save:', e);
+    }
+
+    const finalGroup = categoryGroup.trim() || enrichedData?.categoryGroup || 'General';
+    const finalSub = categorySub.trim() || enrichedData?.categorySub || '';
 
     onSave({
       word: word.trim(),
-      translation: translation.trim(),
-      phoneticGuide: phoneticGuide.trim() || `"${word.trim().toLowerCase()}"`,
-      ipa: ipa.trim(),
-      definition: definition.trim(),
-      exampleEn: exampleEn.trim(),
-      exampleEs: exampleEs.trim(),
-      level,
-      partOfSpeech,
-      categoryGroup: categoryGroup.trim() || 'General',
-      categorySub: categorySub.trim(),
+      translation: enrichedData?.translation || (initialWord ? initialWord.translation : word.trim()),
+      phoneticGuide:
+        enrichedData?.phoneticGuide ||
+        (initialWord ? initialWord.phoneticGuide : `"${word.trim().toLowerCase()}"`),
+      ipa: enrichedData?.ipa || (initialWord ? initialWord.ipa : ''),
+      definition: enrichedData?.definition || (initialWord ? initialWord.definition : ''),
+      exampleEn: enrichedData?.exampleEn || (initialWord ? initialWord.exampleEn : ''),
+      exampleEs: enrichedData?.exampleEs || (initialWord ? initialWord.exampleEs : ''),
+      level: enrichedData?.level || (initialWord ? initialWord.level : 'B1'),
+      partOfSpeech: enrichedData?.partOfSpeech || (initialWord ? initialWord.partOfSpeech : 'noun'),
+      categoryGroup: finalGroup,
+      categorySub: finalSub,
       status: initialWord ? initialWord.status : 'nueva',
       isFavorite: initialWord ? initialWord.isFavorite : false,
       srsIntervalDays: initialWord?.srsIntervalDays ?? 1,
     });
 
+    setSaving(false);
     onClose();
   };
 
   return (
     <Modal
       visible={isOpen}
-      animationType="slide"
+      animationType="fade"
       transparent
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
+      <View style={[styles.modalOverlay, isDesktop && styles.modalOverlayDesktop]}>
+        <View style={[styles.modalCard, isDesktop && styles.modalCardDesktop]}>
           {/* Header */}
           <View style={styles.modalHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={styles.headerIcon}>
                 <BookOpen size={16} color={THEME.colors.crimsonLight} />
               </View>
@@ -166,172 +144,153 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.scrollBody}
           >
-            {/* Word Input + AI enrichment button */}
+            {/* Info notice */}
+            <View style={styles.noticeBox}>
+              <Sparkles size={14} color="#ff4d6d" style={{ marginTop: 2 }} />
+              <Text style={styles.noticeText}>
+                Ingresa únicamente la palabra y su ubicación. La traducción, fonética IPA, pronunciación y ejemplos se enriquecerán automáticamente.
+              </Text>
+            </View>
+
+            {/* 1. Palabra en Inglés */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Palabra en Inglés *</Text>
-              <View style={styles.wordInputRow}>
-                <TextInput
-                  style={[styles.input, { flex: 1 }]}
-                  placeholder="Ej: breakthrough"
-                  placeholderTextColor={THEME.colors.textSubtle}
-                  value={word}
-                  onChangeText={setWord}
-                  autoCapitalize="none"
-                />
-                <TouchableOpacity
-                  style={styles.aiButton}
-                  onPress={handleAutoEnrich}
-                  disabled={loadingAuto}
-                >
-                  {loadingAuto ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
-                  ) : (
-                    <>
-                      <Sparkles size={14} color="#ffffff" style={{ marginRight: 4 }} />
-                      <Text style={styles.aiButtonText}>IA</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Translation */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Traducción al Español *</Text>
               <TextInput
-                style={styles.input}
-                placeholder="Ej: avance importante / gran descubrimiento"
+                style={[
+                  styles.input,
+                  focusedField === 'word' && styles.inputFocused,
+                ]}
+                placeholder="Ej: breakthrough, ubiquitous..."
                 placeholderTextColor={THEME.colors.textSubtle}
-                value={translation}
-                onChangeText={setTranslation}
+                value={word}
+                onChangeText={setWord}
+                onFocus={() => setFocusedField('word')}
+                onBlur={() => setFocusedField(null)}
+                autoCapitalize="none"
+                autoFocus
               />
             </View>
 
-            {/* Phonetic guide */}
+            {/* 2. Categoría */}
             <View style={styles.inputGroup}>
               <View style={styles.labelRow}>
-                <Text style={styles.label}>Pronunciación en Español (Guía)</Text>
-                {word.trim() ? (
-                  <TouchableOpacity
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                    onPress={() => vocabService.speak(word)}
-                  >
-                    <Volume2 size={13} color={THEME.colors.crimsonLight} />
-                    <Text style={{ fontSize: 11, color: THEME.colors.crimsonLight }}>
-                      Escuchar
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-              <TextInput
-                style={styles.input}
-                placeholder='Ej: "breeik-thruu"'
-                placeholderTextColor={THEME.colors.textSubtle}
-                value={phoneticGuide}
-                onChangeText={setPhoneticGuide}
-              />
-            </View>
-
-            {/* IPA & Level */}
-            <View style={styles.twoColRow}>
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.label}>Fonética IPA</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ej: /ˈbreɪkˌθruː/"
-                  placeholderTextColor={THEME.colors.textSubtle}
-                  value={ipa}
-                  onChangeText={setIpa}
-                />
+                <Text style={styles.label}>Categoría *</Text>
+                <Text style={styles.sublabel}>Temario o grupo</Text>
               </View>
 
-              <View style={[styles.inputGroup, { width: 100 }]}>
-                <Text style={styles.label}>Nivel MCER</Text>
-                <View style={styles.levelPillRow}>
-                  {['A1', 'A2', 'B1', 'B2', 'C1'].map((lvl) => (
-                    <TouchableOpacity
-                      key={lvl}
-                      style={[
-                        styles.miniLevelPill,
-                        level === lvl && styles.miniLevelPillActive,
-                      ]}
-                      onPress={() => setLevel(lvl as WordLevel)}
-                    >
-                      <Text
-                        style={[
-                          styles.miniLevelPillText,
-                          level === lvl && styles.miniLevelPillTextActive,
-                        ]}
+              {/* Quick chips for existing categories */}
+              {categories.length > 0 && (
+                <View style={styles.chipsRow}>
+                  {categories.map((cat) => {
+                    const isSelected = categoryGroup.toLowerCase() === cat.name.toLowerCase();
+                    return (
+                      <TouchableOpacity
+                        key={cat.id}
+                        style={[styles.chip, isSelected && styles.chipActive]}
+                        onPress={() => setCategoryGroup(cat.name)}
+                        activeOpacity={0.7}
                       >
-                        {lvl}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        <Folder
+                          size={12}
+                          color={isSelected ? '#ffffff' : THEME.colors.crimsonLight}
+                        />
+                        <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                          {cat.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-              </View>
-            </View>
+              )}
 
-            {/* Example English */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Frase de Ejemplo (Inglés)</Text>
               <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Ej: Scientists made a major breakthrough."
+                style={[
+                  styles.input,
+                  focusedField === 'categoryGroup' && styles.inputFocused,
+                ]}
+                placeholder="Ej: Grammar, Readings, Negocios..."
                 placeholderTextColor={THEME.colors.textSubtle}
-                value={exampleEn}
-                onChangeText={setExampleEn}
-                multiline
+                value={categoryGroup}
+                onChangeText={setCategoryGroup}
+                onFocus={() => setFocusedField('categoryGroup')}
+                onBlur={() => setFocusedField(null)}
               />
             </View>
 
-            {/* Example Spanish */}
+            {/* 3. Subcategoría */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Traducción de Ejemplo (Español)</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Ej: Los científicos lograron un avance importante."
-                placeholderTextColor={THEME.colors.textSubtle}
-                value={exampleEs}
-                onChangeText={setExampleEs}
-                multiline
-              />
-            </View>
-
-            {/* Category group & sub */}
-            <View style={styles.twoColRow}>
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.label}>Categoría Grupo</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ej: Readings / Business"
-                  placeholderTextColor={THEME.colors.textSubtle}
-                  value={categoryGroup}
-                  onChangeText={setCategoryGroup}
-                />
-              </View>
-
-              <View style={[styles.inputGroup, { flex: 1 }]}>
+              <View style={styles.labelRow}>
                 <Text style={styles.label}>Subcategoría</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ej: Cap. 1 / Vocabulario"
-                  placeholderTextColor={THEME.colors.textSubtle}
-                  value={categorySub}
-                  onChangeText={setCategorySub}
-                />
+                <Text style={styles.sublabel}>Opcional (capítulo o tema)</Text>
               </View>
+
+              {/* Quick chips for subcategories */}
+              {availableSubcategories.length > 0 && (
+                <View style={styles.chipsRow}>
+                  {availableSubcategories.map((sub) => {
+                    const isSelected = categorySub.toLowerCase() === sub.name.toLowerCase();
+                    return (
+                      <TouchableOpacity
+                        key={sub.id}
+                        style={[styles.chip, isSelected && styles.chipActive]}
+                        onPress={() => setCategorySub(sub.name)}
+                        activeOpacity={0.7}
+                      >
+                        <Pin
+                          size={11}
+                          color={isSelected ? '#ffffff' : THEME.colors.textSubtle}
+                        />
+                        <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                          {sub.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              <TextInput
+                style={[
+                  styles.input,
+                  focusedField === 'categorySub' && styles.inputFocused,
+                ]}
+                placeholder="Ej: The little Prince, Phrasal Verbs..."
+                placeholderTextColor={THEME.colors.textSubtle}
+                value={categorySub}
+                onChangeText={setCategorySub}
+                onFocus={() => setFocusedField('categorySub')}
+                onBlur={() => setFocusedField(null)}
+              />
             </View>
           </ScrollView>
 
           {/* Modal Footer Actions */}
           <View style={styles.modalFooter}>
-            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={onClose}
+              disabled={saving}
+            >
               <Text style={styles.cancelButtonText}>Cancelar</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-              <Check size={16} color="#ffffff" style={{ marginRight: 6 }} />
-              <Text style={styles.saveButtonText}>Guardar Palabra</Text>
+            <TouchableOpacity
+              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+              onPress={handleSave}
+              disabled={saving}
+              activeOpacity={0.85}
+            >
+              {saving ? (
+                <>
+                  <ActivityIndicator size="small" color="#ffffff" style={{ marginRight: 8 }} />
+                  <Text style={styles.saveButtonText}>Enriqueciendo...</Text>
+                </>
+              ) : (
+                <>
+                  <Check size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                  <Text style={styles.saveButtonText}>Guardar Palabra</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -346,13 +305,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'flex-end',
   },
+  modalOverlayDesktop: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
   modalCard: {
-    backgroundColor: THEME.colors.bgCard,
+    backgroundColor: '#161026',
     borderTopLeftRadius: THEME.radius.xl,
     borderTopRightRadius: THEME.radius.xl,
     maxHeight: '90%',
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  modalCardDesktop: {
+    width: '100%',
+    maxWidth: 480,
+    borderRadius: THEME.radius.xl,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -361,7 +335,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.border,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   headerIcon: {
     width: 32,
@@ -381,84 +355,89 @@ const styles = StyleSheet.create({
   },
   scrollBody: {
     padding: 20,
-    gap: 12,
+    gap: 16,
+  },
+  noticeBox: {
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.25)',
+    borderRadius: THEME.radius.md,
+    padding: 12,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#ffb3c1',
+    lineHeight: 17,
   },
   inputGroup: {
     gap: 6,
   },
   label: {
     fontSize: 12,
-    fontWeight: '600',
-    color: THEME.colors.textMuted,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   labelRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sublabel: {
+    fontSize: 11,
+    color: THEME.colors.textSubtle,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 4,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  chipActive: {
+    backgroundColor: THEME.colors.crimson,
+    borderColor: THEME.colors.crimson,
+  },
+  chipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: THEME.colors.textMuted,
+  },
+  chipTextActive: {
+    color: '#ffffff',
   },
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: THEME.radius.md,
     paddingHorizontal: 12,
     height: 44,
     color: '#ffffff',
     fontSize: 13,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as any) : {}),
   },
-  textArea: {
-    height: 64,
-    textAlignVertical: 'top',
-    paddingVertical: 10,
-  },
-  wordInputRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  aiButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: THEME.colors.crimson,
-    paddingHorizontal: 14,
-    borderRadius: THEME.radius.md,
-  },
-  aiButtonText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  twoColRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  levelPillRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-  },
-  miniLevelPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  miniLevelPillActive: {
-    backgroundColor: THEME.colors.crimson,
-  },
-  miniLevelPillText: {
-    color: THEME.colors.textSubtle,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  miniLevelPillTextActive: {
-    color: '#ffffff',
+  inputFocused: {
+    borderColor: THEME.colors.crimson,
+    backgroundColor: 'rgba(230, 46, 76, 0.05)',
   },
   modalFooter: {
     flexDirection: 'row',
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: THEME.colors.border,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
     gap: 10,
   },
   cancelButton: {
@@ -482,6 +461,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: THEME.radius.md,
     backgroundColor: THEME.colors.crimson,
+    shadowColor: THEME.colors.crimson,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
   },
   saveButtonText: {
     color: '#ffffff',
