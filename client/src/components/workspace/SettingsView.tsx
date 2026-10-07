@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import {
   Settings,
@@ -22,6 +21,7 @@ import { UserProfile } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
 import { getGeminiApiKey, setGeminiApiKey } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
+import { ConfirmModal } from '../common/ConfirmModal';
 
 interface SettingsViewProps {
   currentUser: UserProfile | null;
@@ -32,6 +32,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser, onLogou
   const [audioSettings, setAudioSettings] = useState(() => vocabService.getAudioSettings());
   const [apiKey, setApiKey] = useState(() => getGeminiApiKey());
   const [isSavedKey, setIsSavedKey] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleUpdateRate = (rate: number) => {
     const updated = { ...audioSettings, rate };
@@ -50,18 +52,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser, onLogou
   };
 
   const confirmReset = () => {
-    Alert.alert(
-      'Restablecer Vocabulario',
-      '¿Seguro que deseas reiniciar el vocabulario a los valores iniciales?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Restablecer',
-          style: 'destructive',
-          onPress: () => vocabService.resetToDefault(),
-        },
-      ]
-    );
+    setShowResetModal(true);
   };
 
   return (
@@ -180,12 +171,41 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser, onLogou
       {/* Logout button */}
       <TouchableOpacity
         style={styles.logoutBtn}
-        onPress={onLogout}
+        onPress={() => setShowLogoutModal(true)}
         activeOpacity={0.85}
       >
         <LogOut size={16} color="#ffffff" style={{ marginRight: 8 }} />
         <Text style={styles.logoutBtnText}>Cerrar Sesión</Text>
       </TouchableOpacity>
+
+      {/* Confirm Modals */}
+      <ConfirmModal
+        isOpen={showResetModal}
+        title="Restablecer Vocabulario"
+        message="¿Seguro que deseas reiniciar todo el vocabulario a los valores iniciales? Esta acción eliminará las palabras agregadas recientemente."
+        confirmText="Restablecer"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={() => {
+          setShowResetModal(false);
+          vocabService.resetToDefault();
+        }}
+        onCancel={() => setShowResetModal(false)}
+      />
+
+      <ConfirmModal
+        isOpen={showLogoutModal}
+        title="Cerrar Sesión"
+        message="¿Estás seguro de que deseas salir de tu cuenta de PronounceIt?"
+        confirmText="Cerrar Sesión"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={() => {
+          setShowLogoutModal(false);
+          onLogout();
+        }}
+        onCancel={() => setShowLogoutModal(false)}
+      />
     </ScrollView>
   );
 };

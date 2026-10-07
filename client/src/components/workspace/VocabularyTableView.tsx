@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert,
   useWindowDimensions,
   Platform,
 } from 'react-native';
@@ -29,6 +28,7 @@ import { WordItem, WordStatus } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
 import { SelectedFilter } from './SidebarCategories';
 import { THEME } from '../../theme';
+import { ConfirmModal } from '../common/ConfirmModal';
 
 interface VocabularyTableViewProps {
   words: WordItem[];
@@ -63,6 +63,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [rowsPerPage, setRowsPerPage] = useState<number>(6);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [wordToDelete, setWordToDelete] = useState<WordItem | null>(null);
 
   // Filter words
   const filteredWords = useMemo(() => {
@@ -130,20 +131,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   };
 
   const confirmDelete = (word: WordItem) => {
-    if (Platform.OS === 'web') {
-      if (window.confirm(`¿Seguro que deseas eliminar "${word.word}"?`)) {
-        onDeleteWord(word.id);
-      }
-    } else {
-      Alert.alert(
-        'Eliminar palabra',
-        `¿Seguro que deseas eliminar "${word.word}"?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Eliminar', style: 'destructive', onPress: () => onDeleteWord(word.id) },
-        ]
-      );
-    }
+    setWordToDelete(word);
   };
 
   return (
@@ -434,6 +422,23 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
           </View>
         </View>
       </View>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!wordToDelete}
+        title="Eliminar Palabra"
+        message={`¿Estás seguro de que deseas eliminar permanentemente "${wordToDelete?.word}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={() => {
+          if (wordToDelete) {
+            onDeleteWord(wordToDelete.id);
+            setWordToDelete(null);
+          }
+        }}
+        onCancel={() => setWordToDelete(null)}
+      />
     </View>
   );
 };

@@ -4,7 +4,7 @@ import { firebaseService } from './firebaseClient';
 import { backendApi } from './apiClient';
 import { appStorage } from './storage';
 
-const STORAGE_KEY_WORDS = 'pronounceit_vocab_words_v2';
+const STORAGE_KEY_WORDS = 'pronounceit_vocab_words_v3';
 const STORAGE_KEY_AUDIO_SETTINGS = 'pronounceit_audio_settings';
 
 export interface AudioSettings {
@@ -65,17 +65,11 @@ class VocabularyService {
       const isBackendLive = await backendApi.checkHealth();
       if (isBackendLive) {
         const serverWords = await backendApi.getWords();
-        if (serverWords && serverWords.length > 0) {
-          if (this.words.length === 0 || serverWords.length >= this.words.length) {
-            this.words = serverWords;
-            this.saveWords();
-            this.notify();
-            return;
-          } else {
-            await backendApi.bulkSaveWords(this.words);
-          }
-        } else if (this.words.length > 0) {
-          await backendApi.bulkSaveWords(this.words);
+        if (serverWords !== null) {
+          this.words = serverWords;
+          this.saveWords();
+          this.notify();
+          return;
         }
       }
     } catch (e) {
@@ -100,11 +94,12 @@ class VocabularyService {
   private loadInitialData() {
     try {
       appStorage.removeItem('pronounceit_vocab_words_v1');
+      appStorage.removeItem('pronounceit_vocab_words_v2');
       const stored = appStorage.getItem(STORAGE_KEY_WORDS);
       if (stored) {
         this.words = JSON.parse(stored);
       } else {
-        this.words = [...INITIAL_WORDS];
+        this.words = [];
         this.saveWords();
       }
 
@@ -113,7 +108,7 @@ class VocabularyService {
         this.audioSettings = JSON.parse(audioStored);
       }
     } catch {
-      this.words = [...INITIAL_WORDS];
+      this.words = [];
     }
     this.notify();
   }
@@ -292,13 +287,18 @@ class VocabularyService {
     }
   }
 
-  public resetToDefault() {
-    this.words = [...INITIAL_WORDS];
+  public async clearAllWords() {
+    this.words = [];
     this.saveWords();
-
+    await backendApi.clearAllWords().catch((e) => console.warn('Backend clear error', e));
     if (firebaseService.isFirebaseConnected()) {
-      firebaseService.syncAllWords(this.words).catch((e) => console.warn('Firebase reset sync error', e));
+      await firebaseService.syncAllWords([]).catch((e) => console.warn('Firebase reset sync error', e));
     }
+    this.notify();
+  }
+
+  public resetToDefault() {
+    this.clearAllWords();
   }
 
   public async pushAllWordsToFirebase(): Promise<{ success: boolean; count: number; message: string }> {

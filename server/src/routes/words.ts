@@ -203,4 +203,26 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /api/words (Delete all words)
+router.delete('/', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.query;
+    const db = await getDb();
+    if (userId && typeof userId === 'string') {
+      db.words = db.words.filter((w) => w.userId && w.userId !== userId);
+    } else {
+      db.words = [];
+    }
+    await saveDb();
+    return res.json({
+      success: true,
+      message: 'Todas las palabras han sido eliminadas.',
+      totalWords: db.words.length,
+    });
+  } catch (error) {
+    console.error('Error en DELETE /api/words:', error);
+    return res.status(500).json({ error: 'Error al eliminar todas las palabras.' });
+  }
+});
+
 export default router;

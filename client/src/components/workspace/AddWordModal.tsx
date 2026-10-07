@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   Platform,
   useWindowDimensions,
 } from 'react-native';
@@ -28,6 +27,7 @@ import { WordItem, CategoryItem } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
 import { autoEnrichWord, AutoEnrichResult } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
+import { ConfirmModal } from '../common/ConfirmModal';
 
 interface AddWordModalProps {
   isOpen: boolean;
@@ -56,6 +56,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [categorySub, setCategorySub] = useState('');
   const [saving, setSaving] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Live Auto-Enrich Preview
   const [previewData, setPreviewData] = useState<AutoEnrichResult | null>(null);
@@ -210,11 +211,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
   const handleSave = async () => {
     if (!word.trim()) {
-      if (Platform.OS === 'web') {
-        window.alert('Por favor ingresa la palabra en inglés.');
-      } else {
-        Alert.alert('Campo requerido', 'Por favor ingresa la palabra en inglés.');
-      }
+      setValidationError('Por favor ingresa la palabra en inglés.');
       return;
     }
 
@@ -667,6 +664,17 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           </View>
         </View>
       </View>
+
+      {/* Validation Alert Modal */}
+      <ConfirmModal
+        isOpen={!!validationError}
+        title="Campo Requerido"
+        message={validationError || ''}
+        confirmText="Entendido"
+        cancelText={null}
+        variant="warning"
+        onConfirm={() => setValidationError(null)}
+      />
     </Modal>
   );
 };

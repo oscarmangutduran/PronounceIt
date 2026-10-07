@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import { X, Download, Upload, Copy, Check } from 'lucide-react-native';
 import { WordItem } from '../../types';
 import { THEME } from '../../theme';
+import { ConfirmModal } from '../common/ConfirmModal';
 
 interface ExportImportModalProps {
   isOpen: boolean;
@@ -29,11 +29,19 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
   const [activeTab, setActiveTab] = useState<'export' | 'import'>('export');
   const [importJson, setImportJson] = useState('');
   const [isCopied, setIsCopied] = useState(false);
+  const [statusModal, setStatusModal] = useState<{
+    title: string;
+    message: string;
+    variant: 'danger' | 'warning' | 'info' | 'success';
+    onCloseAction?: () => void;
+  } | null>(null);
 
   const exportString = JSON.stringify(words, null, 2);
 
   const handleCopy = () => {
-    // In React Native without clipboard library installed, we alert or preview
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(exportString).catch(() => {});
+    }
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
@@ -42,19 +50,35 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
     try {
       const parsed = JSON.parse(importJson);
       if (!Array.isArray(parsed)) {
-        Alert.alert('Error', 'El JSON debe ser un array de palabras.');
+        setStatusModal({
+          title: 'Formato Incorrecto',
+          message: 'El JSON debe ser un array o lista de palabras.',
+          variant: 'warning',
+        });
         return;
       }
       onImportWords(parsed);
-      Alert.alert('Éxito', `Se importaron ${parsed.length} palabras correctamente.`);
-      onClose();
+      setStatusModal({
+        title: '¡Importación Exitosa!',
+        message: `Se importaron ${parsed.length} palabras correctamente a tu vocabulario.`,
+        variant: 'success',
+        onCloseAction: () => {
+          setStatusModal(null);
+          onClose();
+        },
+      });
     } catch {
-      Alert.alert('Error de formato', 'El texto ingresado no es un JSON válido.');
+      setStatusModal({
+        title: 'Error de Formato',
+        message: 'El texto ingresado no es un JSON válido. Revisa que la sintaxis sea correcta.',
+        variant: 'danger',
+      });
     }
   };
 
   return (
-    <Modal visible={isOpen} animationType="slide" transparent onRequestClose={onClose}>
+    <>
+      <Modal visible={isOpen} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.card}>
           <View style={styles.header}>
@@ -124,6 +148,27 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
         </View>
       </View>
     </Modal>
+
+    {/* Custom Status Modal */}
+    {statusModal && (
+      <ConfirmModal
+        isOpen={!!statusModal}
+        title={statusModal.title}
+        message={statusModal.message}
+        confirmText="Entendido"
+        cancelText={null}
+        variant={statusModal.variant}
+        onConfirm={() => {
+          if (statusModal.onCloseAction) {
+            statusModal.onCloseAction();
+          } else {
+            setStatusModal(null);
+          }
+        }}
+        onCancel={() => setStatusModal(null)}
+      />
+    )}
+    </>
   );
 };
 

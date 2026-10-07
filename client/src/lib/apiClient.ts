@@ -164,6 +164,16 @@ class BackendApiClient {
     }
   }
 
+  public async clearAllWords(userId?: string): Promise<boolean> {
+    try {
+      const url = userId ? `${BASE_URL}/words?userId=${encodeURIComponent(userId)}` : `${BASE_URL}/words`;
+      const res = await fetch(url, { method: 'DELETE' });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   // --- Tests Endpoints ---
   public async getTests(userId?: string): Promise<StoredTestItem[] | null> {
     try {

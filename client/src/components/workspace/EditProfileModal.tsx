@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import { X, User, Check } from 'lucide-react-native';
 import { UserProfile } from '../../types';

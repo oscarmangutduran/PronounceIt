@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import {
   Volume2,
@@ -22,6 +21,7 @@ import { vocabService } from '../../lib/vocabularyStore';
 import { testHistoryService } from '../../lib/testHistoryStore';
 import { IrregularVerbsTestView } from './IrregularVerbsTestView';
 import { THEME } from '../../theme';
+import { ConfirmModal } from '../common/ConfirmModal';
 
 interface TestViewProps {
   words: WordItem[];
@@ -39,6 +39,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
   const [selectedLevel, setSelectedLevel] = useState<string>('TODOS');
   const [isTestActive, setIsTestActive] = useState(false);
   const [isTestFinished, setIsTestFinished] = useState(false);
+  const [insufficientWordsModal, setInsufficientWordsModal] = useState(false);
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -52,10 +53,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
 
   const startVocabTest = () => {
     if (availableWords.length < 4) {
-      Alert.alert(
-        'Insuficientes palabras',
-        'Necesitas al menos 4 palabras registradas para generar un test con opciones múltiples.'
-      );
+      setInsufficientWordsModal(true);
       return;
     }
 
@@ -376,6 +374,17 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
           <ArrowRight size={18} color="#ffffff" style={{ marginLeft: 6 }} />
         </TouchableOpacity>
       </View>
+
+      <ConfirmModal
+        isOpen={insufficientWordsModal}
+        title="Insuficientes Palabras"
+        message={`Necesitas al menos 4 palabras registradas en el nivel seleccionado (${selectedLevel}) para generar un test con opciones múltiples.`}
+        confirmText="Entendido"
+        cancelText={null}
+        variant="warning"
+        onConfirm={() => setInsufficientWordsModal(false)}
+        onCancel={() => setInsufficientWordsModal(false)}
+      />
     </ScrollView>
   );
 };

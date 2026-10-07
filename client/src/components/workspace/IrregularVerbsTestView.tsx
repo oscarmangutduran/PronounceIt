@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import {
   ArrowLeft,
@@ -23,6 +22,7 @@ import { IRREGULAR_VERBS, IrregularVerb } from '../../data/irregularVerbs';
 import { vocabService } from '../../lib/vocabularyStore';
 import { testHistoryService } from '../../lib/testHistoryStore';
 import { THEME } from '../../theme';
+import { ConfirmModal } from '../common/ConfirmModal';
 
 export interface VerbQuestionEvaluation {
   verb: IrregularVerb;
@@ -68,6 +68,7 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
   const [evaluations, setEvaluations] = useState<VerbQuestionEvaluation[]>([]);
   const [showAnswer, setShowAnswer] = useState(false);
   const [testCompleted, setTestCompleted] = useState(false);
+  const [noVerbsModal, setNoVerbsModal] = useState(false);
 
   const availableVerbs = useMemo(() => {
     if (selectedLevel === 'TODOS') return IRREGULAR_VERBS;
@@ -78,7 +79,7 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
     const pool = [...availableVerbs].sort(() => Math.random() - 0.5);
     const selected = pool.slice(0, Math.min(questionCount, pool.length));
     if (selected.length === 0) {
-      Alert.alert('Aviso', 'No hay suficientes verbos para este nivel.');
+      setNoVerbsModal(true);
       return;
     }
     setActiveVerbs(selected);
@@ -225,6 +226,17 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
             <ArrowRight size={18} color="#ffffff" style={{ marginLeft: 6 }} />
           </TouchableOpacity>
         </View>
+
+        <ConfirmModal
+          isOpen={noVerbsModal}
+          title="Sin Verbos Disponibles"
+          message={`No hay suficientes verbos irregulares registrados para el nivel seleccionado (${selectedLevel}).`}
+          confirmText="Entendido"
+          cancelText={null}
+          variant="warning"
+          onConfirm={() => setNoVerbsModal(false)}
+          onCancel={() => setNoVerbsModal(false)}
+        />
       </ScrollView>
     );
   }
