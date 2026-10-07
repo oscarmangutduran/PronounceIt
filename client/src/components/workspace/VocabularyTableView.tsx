@@ -56,7 +56,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   onUpdateStatus,
   onDeleteWord,
 }) => {
-  const { isTableView, isPhone } = useResponsive();
+  const { isTableView, isPhone, isDesktop } = useResponsive();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [levelFilter, setLevelFilter] = useState<string>('all');

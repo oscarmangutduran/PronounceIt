@@ -20,6 +20,7 @@ import {
   Bookmark,
   Sparkles,
   PanelLeftClose,
+  PanelLeftOpen,
   Edit2,
   Trash2,
 } from 'lucide-react-native';
@@ -62,6 +63,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
   onAddNewCategory,
 }) => {
   const { showSidebarSplit } = useResponsive();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
@@ -274,6 +276,66 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
   }
 
   // DESKTOP: Full Luxury Vertical Sidebar with Cards
+
+  // ── COLLAPSED STATE ──────────────────────────────────────────
+  if (isCollapsed) {
+    return (
+      <View style={styles.collapsedContainer}>
+        {/* Expand button */}
+        <TouchableOpacity
+          style={styles.collapsedToggleBtn}
+          onPress={() => setIsCollapsed(false)}
+          activeOpacity={0.8}
+          accessibilityLabel="Expandir menú lateral"
+        >
+          <PanelLeftOpen size={16} color={THEME.colors.crimsonLight} />
+        </TouchableOpacity>
+
+        {/* Quick filter icons */}
+        <TouchableOpacity
+          style={[styles.collapsedIconBtn, isSelected('all') && styles.collapsedIconBtnActive]}
+          onPress={() => onSelectFilter({ type: 'all' })}
+          activeOpacity={0.8}
+        >
+          <BookOpen size={15} color={isSelected('all') ? '#ffffff' : THEME.colors.textMuted} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.collapsedIconBtn, isSelected('favorites') && styles.collapsedIconBtnActive]}
+          onPress={() => onSelectFilter({ type: 'favorites' })}
+          activeOpacity={0.8}
+        >
+          <Star size={15} color={isSelected('favorites') ? '#ffffff' : '#f59e0b'} fill={isSelected('favorites') ? '#ffffff' : 'transparent'} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.collapsedIconBtn, isSelected('review') && styles.collapsedIconBtnActive]}
+          onPress={() => onSelectFilter({ type: 'review' })}
+          activeOpacity={0.8}
+        >
+          <Clock size={15} color={isSelected('review') ? '#ffffff' : '#fb7185'} />
+        </TouchableOpacity>
+
+        <View style={styles.collapsedDivider} />
+
+        {categories.slice(0, 5).map((cat) => (
+          <TouchableOpacity
+            key={cat.id}
+            style={[
+              styles.collapsedIconBtn,
+              isSelected('category', cat.name) && styles.collapsedIconBtnActive,
+            ]}
+            onPress={() => onSelectFilter({ type: 'category', group: cat.name })}
+            activeOpacity={0.8}
+          >
+            <Folder size={15} color={isSelected('category', cat.name) ? '#ffffff' : '#38bdf8'} />
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  }
+
+  // ── EXPANDED STATE ────────────────────────────────────────────
   return (
     <View style={styles.desktopContainer}>
       {/* CARD 1: Categorías */}
@@ -288,7 +350,12 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
             <View style={styles.totalBadge}>
               <Text style={styles.totalBadgeText}>{totalWords} total</Text>
             </View>
-            <TouchableOpacity style={styles.collapseBtn}>
+            <TouchableOpacity
+              style={styles.collapseBtn}
+              onPress={() => setIsCollapsed(true)}
+              activeOpacity={0.8}
+              accessibilityLabel="Ocultar menú lateral"
+            >
               <PanelLeftClose size={14} color={THEME.colors.textSubtle} />
             </TouchableOpacity>
           </View>
@@ -704,6 +771,45 @@ const styles = StyleSheet.create({
   desktopContainer: {
     width: 280,
     gap: 16,
+  },
+
+  // Collapsed sidebar
+  collapsedContainer: {
+    width: 52,
+    gap: 6,
+    alignItems: 'center',
+    paddingTop: 4,
+  },
+  collapsedToggleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: THEME.radius.md,
+    backgroundColor: 'rgba(230, 46, 76, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  collapsedIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: THEME.radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  collapsedIconBtnActive: {
+    backgroundColor: THEME.colors.crimson,
+    borderColor: THEME.colors.crimson,
+  },
+  collapsedDivider: {
+    width: 28,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginVertical: 2,
   },
   sidebarCard: {
     backgroundColor: '#140f22',
