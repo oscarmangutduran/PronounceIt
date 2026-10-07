@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -19,8 +19,12 @@ import {
   Folder,
   BookOpen,
   Pin,
+  ChevronDown,
+  ChevronUp,
+  Plus,
 } from 'lucide-react-native';
 import { WordItem, CategoryItem } from '../../types';
+import { vocabService } from '../../lib/vocabularyStore';
 import { autoEnrichWord } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 
@@ -47,28 +51,118 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const isDesktop = width >= 768;
 
   const [word, setWord] = useState('');
-  const [categoryGroup, setCategoryGroup] = useState('General');
+  const [categoryGroup, setCategoryGroup] = useState('Grammar');
   const [categorySub, setCategorySub] = useState('');
   const [saving, setSaving] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
+  // Dropdown states
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [isSubcategoryOpen, setIsSubcategoryOpen] = useState(false);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [isCustomSubcategory, setIsCustomSubcategory] = useState(false);
+
+  // Get all unique categories (from prop + vocabStore)
+  const allCategories = useMemo(() => {
+    const list: { name: string; count?: number; subcategories?: string[] }[] = [];
+    const seen = new Set<string>();
+
+    // 1. From categories prop
+    categories.forEach((cat) => {
+      if (!seen.has(cat.name.toLowerCase())) {
+        seen.add(cat.name.toLowerCase());
+        list.push({
+          name: cat.name,
+          count: cat.count,
+          subcategories: cat.subcategories?.map((s) => s.name) || [],
+        });
+      }
+    });
+
+    // 2. From words in storage
+    const storedWords = vocabService.getWords();
+    storedWords.forEach((w) => {
+      if (w.categoryGroup && !seen.has(w.categoryGroup.toLowerCase())) {
+        seen.add(w.categoryGroup.toLowerCase());
+        list.push({
+          name: w.categoryGroup,
+          count: 0,
+          subcategories: [],
+        });
+      }
+    });
+
+    // Defaults if empty
+    if (list.length === 0) {
+      list.push({ name: 'Grammar', count: 0, subcategories: [] });
+      list.push({ name: 'Readings', count: 0, subcategories: ['The little Prince'] });
+    }
+
+    return list;
+  }, [categories]);
+
+  // Get subcategories for selected category
+  const availableSubcategories = useMemo(() => {
+    const set = new Set<string>();
+    const currentCat = allCategories.find(
+      (c) => c.name.toLowerCase() === categoryGroup.toLowerCase()
+    );
+    if (currentCat?.subcategories) {
+      currentCat.subcategories.forEach((s) => set.add(s));
+    }
+
+    // Check words in storage
+    const storedWords = vocabService.getWords();
+    storedWords.forEach((w) => {
+      if (
+        w.categoryGroup?.toLowerCase() === categoryGroup.toLowerCase() &&
+        w.categorySub
+      ) {
+        set.add(w.categorySub);
+      }
+    });
+
+    return Array.from(set);
+  }, [allCategories, categoryGroup]);
+
   useEffect(() => {
     if (initialWord) {
       setWord(initialWord.word);
-      setCategoryGroup(initialWord.categoryGroup || 'General');
+      setCategoryGroup(initialWord.categoryGroup || 'Grammar');
       setCategorySub(initialWord.categorySub || '');
+      setIsCustomCategory(false);
+      setIsCustomSubcategory(false);
     } else {
       setWord('');
-      setCategoryGroup(defaultCategoryGroup || 'General');
+      const defaultGroup = defaultCategoryGroup || (allCategories[0]?.name || 'Grammar');
+      setCategoryGroup(defaultGroup);
       setCategorySub(defaultCategorySub || '');
+      setIsCustomCategory(false);
+      setIsCustomSubcategory(false);
     }
-  }, [initialWord, defaultCategoryGroup, defaultCategorySub, isOpen]);
+    setIsCategoryOpen(false);
+    setIsSubcategoryOpen(false);
+  }, [initialWord, defaultCategoryGroup, defaultCategorySub, isOpen, allCategories]);
 
-  // Find subcategories for the current category group
-  const activeCategoryObj = categories.find(
-    (c) => c.name.toLowerCase() === categoryGroup.toLowerCase()
-  );
-  const availableSubcategories = activeCategoryObj?.subcategories || [];
+  const handleSelectCategory = (name: string) => {
+    setCategoryGroup(name);
+    setIsCategoryOpen(false);
+    setIsCustomCategory(false);
+
+    // Auto-update subcategory to first available or reset
+    const cat = allCategories.find((c) => c.name.toLowerCase() === name.toLowerCase());
+    if (cat && cat.subcategories && cat.subcategories.length > 0) {
+      setCategorySub(cat.subcategories[0]);
+    } else {
+      setCategorySub('');
+    }
+  };
+
+  const handleSelectSubcategory = (name: string) => {
+    setCategorySub(name);
+    setIsSubcategoryOpen(false);
+    setIsCustomSubcategory(false);
+  };
 
   const handleSave = async () => {
     if (!word.trim()) {
@@ -88,7 +182,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       console.warn('Auto enrich error on save:', e);
     }
 
-    const finalGroup = categoryGroup.trim() || enrichedData?.categoryGroup || 'General';
+    const finalGroup = categoryGroup.trim() || enrichedData?.categoryGroup || 'Grammar';
     const finalSub = categorySub.trim() || enrichedData?.categorySub || '';
 
     onSave({
@@ -144,11 +238,11 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.scrollBody}
           >
-            {/* Info notice */}
+            {/* Notice info banner */}
             <View style={styles.noticeBox}>
               <Sparkles size={14} color="#ff4d6d" style={{ marginTop: 2 }} />
               <Text style={styles.noticeText}>
-                Ingresa únicamente la palabra y su ubicación. La traducción, fonética IPA, pronunciación y ejemplos se enriquecerán automáticamente.
+                Selecciona la palabra, categoría y subcategoría. Los detalles fonéticos, traducción y ejemplos se generan automáticamente.
               </Text>
             </View>
 
@@ -164,103 +258,282 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 placeholderTextColor={THEME.colors.textSubtle}
                 value={word}
                 onChangeText={setWord}
-                onFocus={() => setFocusedField('word')}
+                onFocus={() => {
+                  setFocusedField('word');
+                  setIsCategoryOpen(false);
+                  setIsSubcategoryOpen(false);
+                }}
                 onBlur={() => setFocusedField(null)}
                 autoCapitalize="none"
                 autoFocus
               />
             </View>
 
-            {/* 2. Categoría */}
-            <View style={styles.inputGroup}>
+            {/* 2. Categoría (Lista Desplegable) */}
+            <View style={[styles.inputGroup, { zIndex: 50 }]}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Categoría *</Text>
-                <Text style={styles.sublabel}>Temario o grupo</Text>
+                {!isCustomCategory && (
+                  <TouchableOpacity onPress={() => setIsCustomCategory(true)}>
+                    <Text style={styles.linkText}>+ Nueva categoría</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
-              {/* Quick chips for existing categories */}
-              {categories.length > 0 && (
-                <View style={styles.chipsRow}>
-                  {categories.map((cat) => {
-                    const isSelected = categoryGroup.toLowerCase() === cat.name.toLowerCase();
-                    return (
-                      <TouchableOpacity
-                        key={cat.id}
-                        style={[styles.chip, isSelected && styles.chipActive]}
-                        onPress={() => setCategoryGroup(cat.name)}
-                        activeOpacity={0.7}
+              {isCustomCategory ? (
+                <View style={styles.customInputRow}>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="Escribe el nombre de la categoría..."
+                    placeholderTextColor={THEME.colors.textSubtle}
+                    value={categoryGroup}
+                    onChangeText={setCategoryGroup}
+                    autoFocus
+                  />
+                  <TouchableOpacity
+                    style={styles.cancelCustomBtn}
+                    onPress={() => {
+                      setIsCustomCategory(false);
+                      setCategoryGroup(allCategories[0]?.name || 'Grammar');
+                    }}
+                  >
+                    <Text style={styles.cancelCustomBtnText}>Elegir existente</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.dropdownContainer}>
+                  {/* Dropdown Trigger */}
+                  <TouchableOpacity
+                    style={[
+                      styles.dropdownTrigger,
+                      isCategoryOpen && styles.dropdownTriggerActive,
+                    ]}
+                    onPress={() => {
+                      setIsCategoryOpen(!isCategoryOpen);
+                      setIsSubcategoryOpen(false);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.dropdownTriggerLeft}>
+                      <Folder size={15} color={THEME.colors.crimsonLight} />
+                      <Text style={styles.dropdownTriggerText}>
+                        {categoryGroup || 'Selecciona una categoría...'}
+                      </Text>
+                    </View>
+                    {isCategoryOpen ? (
+                      <ChevronUp size={16} color={THEME.colors.textMuted} />
+                    ) : (
+                      <ChevronDown size={16} color={THEME.colors.textMuted} />
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Dropdown Menu List */}
+                  {isCategoryOpen && (
+                    <View style={styles.dropdownMenu}>
+                      <ScrollView
+                        nestedScrollEnabled
+                        style={styles.dropdownScrollView}
+                        showsVerticalScrollIndicator={false}
                       >
-                        <Folder
-                          size={12}
-                          color={isSelected ? '#ffffff' : THEME.colors.crimsonLight}
-                        />
-                        <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                          {cat.name}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                        {allCategories.map((cat) => {
+                          const isSelected =
+                            categoryGroup.toLowerCase() === cat.name.toLowerCase();
+                          return (
+                            <TouchableOpacity
+                              key={cat.name}
+                              style={[
+                                styles.dropdownItem,
+                                isSelected && styles.dropdownItemActive,
+                              ]}
+                              onPress={() => handleSelectCategory(cat.name)}
+                              activeOpacity={0.8}
+                            >
+                              <View style={styles.dropdownItemLeft}>
+                                <Folder
+                                  size={14}
+                                  color={isSelected ? '#ffffff' : THEME.colors.crimsonLight}
+                                />
+                                <Text
+                                  style={[
+                                    styles.dropdownItemText,
+                                    isSelected && styles.dropdownItemTextActive,
+                                  ]}
+                                >
+                                  {cat.name}
+                                </Text>
+                              </View>
+                              {isSelected && <Check size={14} color="#ffffff" />}
+                            </TouchableOpacity>
+                          );
+                        })}
+
+                        <TouchableOpacity
+                          style={styles.dropdownItemNew}
+                          onPress={() => {
+                            setIsCustomCategory(true);
+                            setIsCategoryOpen(false);
+                            setCategoryGroup('');
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Plus size={14} color={THEME.colors.crimsonLight} />
+                          <Text style={styles.dropdownItemNewText}>
+                            + Escribir otra categoría...
+                          </Text>
+                        </TouchableOpacity>
+                      </ScrollView>
+                    </View>
+                  )}
                 </View>
               )}
-
-              <TextInput
-                style={[
-                  styles.input,
-                  focusedField === 'categoryGroup' && styles.inputFocused,
-                ]}
-                placeholder="Ej: Grammar, Readings, Negocios..."
-                placeholderTextColor={THEME.colors.textSubtle}
-                value={categoryGroup}
-                onChangeText={setCategoryGroup}
-                onFocus={() => setFocusedField('categoryGroup')}
-                onBlur={() => setFocusedField(null)}
-              />
             </View>
 
-            {/* 3. Subcategoría */}
-            <View style={styles.inputGroup}>
+            {/* 3. Subcategoría (Lista Desplegable) */}
+            <View style={[styles.inputGroup, { zIndex: 40 }]}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Subcategoría</Text>
-                <Text style={styles.sublabel}>Opcional (capítulo o tema)</Text>
+                {!isCustomSubcategory && (
+                  <TouchableOpacity onPress={() => setIsCustomSubcategory(true)}>
+                    <Text style={styles.linkText}>+ Nueva subcategoría</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
-              {/* Quick chips for subcategories */}
-              {availableSubcategories.length > 0 && (
-                <View style={styles.chipsRow}>
-                  {availableSubcategories.map((sub) => {
-                    const isSelected = categorySub.toLowerCase() === sub.name.toLowerCase();
-                    return (
-                      <TouchableOpacity
-                        key={sub.id}
-                        style={[styles.chip, isSelected && styles.chipActive]}
-                        onPress={() => setCategorySub(sub.name)}
-                        activeOpacity={0.7}
+              {isCustomSubcategory ? (
+                <View style={styles.customInputRow}>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="Escribe la subcategoría..."
+                    placeholderTextColor={THEME.colors.textSubtle}
+                    value={categorySub}
+                    onChangeText={setCategorySub}
+                    autoFocus
+                  />
+                  <TouchableOpacity
+                    style={styles.cancelCustomBtn}
+                    onPress={() => {
+                      setIsCustomSubcategory(false);
+                      setCategorySub(availableSubcategories[0] || '');
+                    }}
+                  >
+                    <Text style={styles.cancelCustomBtnText}>Elegir existente</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.dropdownContainer}>
+                  {/* Dropdown Trigger */}
+                  <TouchableOpacity
+                    style={[
+                      styles.dropdownTrigger,
+                      isSubcategoryOpen && styles.dropdownTriggerActive,
+                    ]}
+                    onPress={() => {
+                      setIsSubcategoryOpen(!isSubcategoryOpen);
+                      setIsCategoryOpen(false);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.dropdownTriggerLeft}>
+                      <Pin size={14} color={categorySub ? '#ff758c' : THEME.colors.textSubtle} />
+                      <Text
+                        style={[
+                          styles.dropdownTriggerText,
+                          !categorySub && { color: THEME.colors.textSubtle },
+                        ]}
                       >
-                        <Pin
-                          size={11}
-                          color={isSelected ? '#ffffff' : THEME.colors.textSubtle}
-                        />
-                        <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                          {sub.name}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                        {categorySub || 'Sin subcategoría (General)'}
+                      </Text>
+                    </View>
+                    {isSubcategoryOpen ? (
+                      <ChevronUp size={16} color={THEME.colors.textMuted} />
+                    ) : (
+                      <ChevronDown size={16} color={THEME.colors.textMuted} />
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Dropdown Menu List */}
+                  {isSubcategoryOpen && (
+                    <View style={styles.dropdownMenu}>
+                      <ScrollView
+                        nestedScrollEnabled
+                        style={styles.dropdownScrollView}
+                        showsVerticalScrollIndicator={false}
+                      >
+                        {/* Option: Sin subcategoría */}
+                        <TouchableOpacity
+                          style={[
+                            styles.dropdownItem,
+                            categorySub === '' && styles.dropdownItemActive,
+                          ]}
+                          onPress={() => handleSelectSubcategory('')}
+                          activeOpacity={0.8}
+                        >
+                          <View style={styles.dropdownItemLeft}>
+                            <Pin size={13} color={categorySub === '' ? '#ffffff' : THEME.colors.textSubtle} />
+                            <Text
+                              style={[
+                                styles.dropdownItemText,
+                                categorySub === '' && styles.dropdownItemTextActive,
+                              ]}
+                            >
+                              Sin subcategoría (General)
+                            </Text>
+                          </View>
+                          {categorySub === '' && <Check size={14} color="#ffffff" />}
+                        </TouchableOpacity>
+
+                        {/* List available subcategories for current category */}
+                        {availableSubcategories.map((subName) => {
+                          const isSelected =
+                            categorySub.toLowerCase() === subName.toLowerCase();
+                          return (
+                            <TouchableOpacity
+                              key={subName}
+                              style={[
+                                styles.dropdownItem,
+                                isSelected && styles.dropdownItemActive,
+                              ]}
+                              onPress={() => handleSelectSubcategory(subName)}
+                              activeOpacity={0.8}
+                            >
+                              <View style={styles.dropdownItemLeft}>
+                                <Pin
+                                  size={13}
+                                  color={isSelected ? '#ffffff' : '#ff758c'}
+                                />
+                                <Text
+                                  style={[
+                                    styles.dropdownItemText,
+                                    isSelected && styles.dropdownItemTextActive,
+                                  ]}
+                                >
+                                  {subName}
+                                </Text>
+                              </View>
+                              {isSelected && <Check size={14} color="#ffffff" />}
+                            </TouchableOpacity>
+                          );
+                        })}
+
+                        <TouchableOpacity
+                          style={styles.dropdownItemNew}
+                          onPress={() => {
+                            setIsCustomSubcategory(true);
+                            setIsSubcategoryOpen(false);
+                            setCategorySub('');
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Plus size={14} color={THEME.colors.crimsonLight} />
+                          <Text style={styles.dropdownItemNewText}>
+                            + Escribir otra subcategoría...
+                          </Text>
+                        </TouchableOpacity>
+                      </ScrollView>
+                    </View>
+                  )}
                 </View>
               )}
-
-              <TextInput
-                style={[
-                  styles.input,
-                  focusedField === 'categorySub' && styles.inputFocused,
-                ]}
-                placeholder="Ej: The little Prince, Phrasal Verbs..."
-                placeholderTextColor={THEME.colors.textSubtle}
-                value={categorySub}
-                onChangeText={setCategorySub}
-                onFocus={() => setFocusedField('categorySub')}
-                onBlur={() => setFocusedField(null)}
-              />
             </View>
           </ScrollView>
 
@@ -374,6 +647,7 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     gap: 6,
+    position: 'relative',
   },
   label: {
     fontSize: 12,
@@ -385,45 +659,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  sublabel: {
+  linkText: {
     fontSize: 11,
-    color: THEME.colors.textSubtle,
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 4,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  chipActive: {
-    backgroundColor: THEME.colors.crimson,
-    borderColor: THEME.colors.crimson,
-  },
-  chipText: {
-    fontSize: 11,
+    color: THEME.colors.crimsonLight,
     fontWeight: '600',
-    color: THEME.colors.textMuted,
-  },
-  chipTextActive: {
-    color: '#ffffff',
   },
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: THEME.radius.md,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     height: 44,
     color: '#ffffff',
     fontSize: 13,
@@ -433,6 +679,114 @@ const styles = StyleSheet.create({
     borderColor: THEME.colors.crimson,
     backgroundColor: 'rgba(230, 46, 76, 0.05)',
   },
+  customInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cancelCustomBtn: {
+    paddingHorizontal: 12,
+    height: 44,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: THEME.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  cancelCustomBtnText: {
+    color: THEME.colors.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  // Dropdown Styles
+  dropdownContainer: {
+    position: 'relative',
+  },
+  dropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: THEME.radius.md,
+    paddingHorizontal: 14,
+    height: 44,
+  },
+  dropdownTriggerActive: {
+    borderColor: THEME.colors.crimson,
+    backgroundColor: 'rgba(230, 46, 76, 0.05)',
+  },
+  dropdownTriggerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  dropdownTriggerText: {
+    fontSize: 13,
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  dropdownMenu: {
+    marginTop: 6,
+    backgroundColor: '#1c1530',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.3)',
+    borderRadius: THEME.radius.lg,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  dropdownScrollView: {
+    maxHeight: 180,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  dropdownItemActive: {
+    backgroundColor: THEME.colors.crimson,
+  },
+  dropdownItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dropdownItemText: {
+    fontSize: 13,
+    color: '#cbd5e1',
+    fontWeight: '500',
+  },
+  dropdownItemTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  dropdownItemNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
+  },
+  dropdownItemNewText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: THEME.colors.crimsonLight,
+  },
+
+  // Modal Footer
   modalFooter: {
     flexDirection: 'row',
     padding: 16,
