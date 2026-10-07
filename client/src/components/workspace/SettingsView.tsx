@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Image,
 } from 'react-native';
 import {
   Settings,
@@ -16,6 +17,7 @@ import {
   RotateCcw,
   Sparkles,
   Check,
+  Edit2,
 } from 'lucide-react-native';
 import { UserProfile } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
@@ -26,9 +28,14 @@ import { ConfirmModal } from '../common/ConfirmModal';
 interface SettingsViewProps {
   currentUser: UserProfile | null;
   onLogout: () => void;
+  onOpenEditProfile?: () => void;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser, onLogout }) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({
+  currentUser,
+  onLogout,
+  onOpenEditProfile,
+}) => {
   const [audioSettings, setAudioSettings] = useState(() => vocabService.getAudioSettings());
   const [apiKey, setApiKey] = useState(() => getGeminiApiKey());
   const [isSavedKey, setIsSavedKey] = useState(false);
@@ -70,12 +77,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser, onLogou
 
       {/* User profile card */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Cuenta de Usuario</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <Text style={styles.sectionTitle}>Cuenta de Usuario</Text>
+          {onOpenEditProfile && (
+            <TouchableOpacity
+              style={styles.editProfileBtn}
+              onPress={onOpenEditProfile}
+              activeOpacity={0.8}
+            >
+              <Edit2 size={13} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={styles.editProfileBtnText}>Editar Perfil</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         <View style={styles.profileRow}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {(currentUser?.full_name || currentUser?.username || 'U')[0].toUpperCase()}
-            </Text>
+            {currentUser?.avatar_url ? (
+              <Image source={{ uri: currentUser.avatar_url }} style={styles.avatarImg} />
+            ) : (
+              <Text style={styles.avatarText}>
+                {(currentUser?.full_name || currentUser?.username || 'U')[0].toUpperCase()}
+              </Text>
+            )}
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.profileName}>
@@ -84,6 +108,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser, onLogou
             <Text style={styles.profileEmail}>
               {currentUser?.email || 'Sin correo asociado'}
             </Text>
+            {currentUser?.username && (
+              <Text style={styles.profileUsername}>@{currentUser.username}</Text>
+            )}
           </View>
         </View>
       </View>
@@ -286,6 +313,32 @@ const styles = StyleSheet.create({
   profileEmail: {
     fontSize: 12,
     color: THEME.colors.textSubtle,
+    marginTop: 2,
+  },
+  avatarImg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  editProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(230, 46, 76, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.4)',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  editProfileBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  profileUsername: {
+    fontSize: 11,
+    color: '#ff4d6d',
+    fontWeight: '600',
     marginTop: 2,
   },
   rateOptions: {

@@ -69,7 +69,10 @@ class BackendApiClient {
     return res.json();
   }
 
-  public async updateProfile(userId: string, data: { username?: string; avatar_url?: string }) {
+  public async updateProfile(
+    userId: string,
+    data: { username?: string; avatar_url?: string; password?: string; email?: string }
+  ) {
     const res = await fetch(`${BASE_URL}/auth/profile`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

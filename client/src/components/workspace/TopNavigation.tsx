@@ -218,7 +218,11 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
             <View style={styles.dropdownMenu}>
               <View style={styles.dropdownHeader}>
                 <View style={styles.dropdownAvatar}>
-                  <Text style={styles.avatarLetter}>{initial}</Text>
+                  {currentUser?.avatar_url ? (
+                    <Image source={{ uri: currentUser.avatar_url }} style={styles.avatarImg} />
+                  ) : (
+                    <Text style={styles.avatarLetter}>{initial}</Text>
+                  )}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.dropdownName} numberOfLines={1}>

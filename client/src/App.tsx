@@ -234,7 +234,11 @@ export default function App() {
           {activeTab === 'stats' && <StatsDashboardView words={words} />}
 
           {activeTab === 'settings' && (
-            <SettingsView currentUser={currentUser} onLogout={handleLogout} />
+            <SettingsView
+              currentUser={currentUser}
+              onLogout={handleLogout}
+              onOpenEditProfile={() => setIsEditProfileOpen(true)}
+            />
           )}
         </View>
 

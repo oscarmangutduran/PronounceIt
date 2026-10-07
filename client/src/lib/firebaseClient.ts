@@ -819,6 +819,16 @@ class FirebaseService {
       }
     }
 
+    // Synchronize with Express backend database
+    backendApi
+      .updateProfile(current.id, {
+        username: current.username,
+        avatar_url: resolvedAvatar,
+        password: updates.newPassword,
+        email: current.email,
+      })
+      .catch((e) => console.warn('Backend updateProfile error:', e));
+
     return { success: true, message: 'Perfil actualizado correctamente.', user: this.currentUser };
   }
 

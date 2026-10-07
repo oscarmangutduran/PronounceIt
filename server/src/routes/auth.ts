@@ -142,22 +142,33 @@ router.post('/change-password', async (req: Request, res: Response) => {
 // PUT /api/auth/profile
 router.put('/profile', async (req: Request, res: Response) => {
   try {
-    const { userId, username, avatar_url } = req.body;
-    if (!userId) {
-      return res.status(400).json({ error: 'userId es requerido.' });
+    const { userId, username, avatar_url, password, email } = req.body;
+    if (!userId && !email && !username) {
+      return res.status(400).json({ error: 'userId, email o username es requerido.' });
     }
 
     const db = await getDb();
-    const user = db.users.find((u) => u.id === userId);
+    const user = db.users.find(
+      (u) =>
+        (userId && u.id === userId) ||
+        (email && u.email.toLowerCase() === email.trim().toLowerCase()) ||
+        (username && u.username.toLowerCase() === username.trim().toLowerCase())
+    );
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado.' });
     }
 
-    if (username) user.username = username.trim();
+    if (username && username.trim()) user.username = username.trim();
     if (avatar_url !== undefined) user.avatar_url = avatar_url;
+    if (password && password.trim()) {
+      user.password = password.trim();
+      user.must_change_password = false;
+    }
     user.updated_at = new Date().toISOString();
 
     await saveDb();
+
+    console.log(`👤 [AUTH] Perfil y credenciales actualizados para el usuario ${user.username} (${user.email})`);
 
     return res.json({
       success: true,
