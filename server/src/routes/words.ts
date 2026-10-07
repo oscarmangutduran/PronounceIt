@@ -1,11 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { getDb, saveDb, WordRecord } from '../db.js';
 import crypto from 'crypto';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
 // GET /api/words
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const db = await getDb();
     const { userId, category, level, search } = req.query;
@@ -43,7 +44,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // POST /api/words
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const db = await getDb();
     const {
@@ -98,7 +99,7 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // POST /api/words/bulk (For CSV imports or multi-word restore)
-router.post('/bulk', async (req: Request, res: Response) => {
+router.post('/bulk', requireAuth, async (req: Request, res: Response) => {
   try {
     const { words, replaceAll, userId } = req.body;
     if (!Array.isArray(words)) {
@@ -150,7 +151,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
 });
 
 // PUT /api/words/:id
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const db = await getDb();
@@ -180,7 +181,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE /api/words/:id
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const db = await getDb();
@@ -204,7 +205,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE /api/words (Delete all words)
-router.delete('/', async (req: Request, res: Response) => {
+router.delete('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const { userId } = req.query;
     const db = await getDb();

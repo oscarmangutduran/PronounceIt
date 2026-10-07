@@ -703,6 +703,7 @@ class FirebaseService {
     }
     this.currentUser = null;
     appStorage.removeItem(STORAGE_KEY_FIREBASE_USER);
+    backendApi.setToken(null);
     this.notify();
   }
 

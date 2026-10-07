@@ -139,6 +139,7 @@ class TestHistoryService {
     this.saveHistory();
     this.notify();
 
+    backendApi.clearTests().catch(() => {});
     if (firebaseService.isFirebaseConnected()) {
       firebaseService.clearTestHistory().catch((e) => console.warn('Firebase clearTestHistory error', e));
     }

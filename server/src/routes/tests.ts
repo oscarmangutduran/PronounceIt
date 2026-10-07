@@ -1,11 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { getDb, saveDb, TestRecord } from '../db.js';
 import crypto from 'crypto';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
 // GET /api/tests
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const db = await getDb();
     const { userId, type, level } = req.query;
@@ -37,7 +38,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // POST /api/tests
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const db = await getDb();
     const {
@@ -87,7 +88,7 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // DELETE /api/tests/:id
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const db = await getDb();
@@ -111,7 +112,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE /api/tests (Clear all)
-router.delete('/', async (req: Request, res: Response) => {
+router.delete('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const db = await getDb();
     db.tests = [];
