@@ -23,6 +23,7 @@ import { vocabService } from '../../lib/vocabularyStore';
 import { getGeminiApiKey, setGeminiApiKey } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { useResponsive } from '../../lib/useResponsive';
 
 interface SettingsViewProps {
   currentUser: UserProfile | null;
@@ -35,6 +36,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onLogout,
   onOpenEditProfile,
 }) => {
+  const { isPhone } = useResponsive();
   const [audioSettings, setAudioSettings] = useState(() => vocabService.getAudioSettings());
   const [apiKey, setApiKey] = useState(() => getGeminiApiKey());
   const [isSavedKey, setIsSavedKey] = useState(false);
@@ -62,7 +64,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       contentContainerStyle={styles.scrollContainer}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.contentWrapper}>
+      <View style={[styles.contentWrapper, isPhone && styles.contentWrapperMobile]}>
         {/* Header */}
       <View style={styles.header}>
         <View style={styles.iconCircle}>
@@ -223,7 +225,11 @@ const styles = StyleSheet.create({
   },
   contentWrapper: {
     width: '80%',
+    maxWidth: 900,
     alignSelf: 'center',
+  },
+  contentWrapperMobile: {
+    width: '100%',
   },
   header: {
     flexDirection: 'row',

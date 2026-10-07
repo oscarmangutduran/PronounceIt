@@ -458,7 +458,9 @@ Respond strictly with a single JSON object with these exact keys:
         translation: (parsed.translation || clean).trim(),
         definition: (parsed.definition || `Término utilizado como ${pos} en inglés`).trim(),
         exampleEn: (parsed.exampleEn || `${capWord} is used in English.`).trim(),
-        exampleEs: (parsed.exampleEs || `Se utiliza en inglés.`).trim(), categorySub: '',
+        exampleEs: (parsed.exampleEs || `Se utiliza en inglés.`).trim(),
+        categoryGroup: '',
+        categorySub: '',
       };
     } catch (err) {
       console.warn(`[Gemini API] Error querying ${model}:`, err);
@@ -862,6 +864,8 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
     translation: foundTranslation,
     definition: foundDef || `Término utilizado como ${foundPos} en inglés`,
     exampleEn: finalExEn,
-    exampleEs: finalExEs, categorySub: '',
+    exampleEs: finalExEs,
+    categoryGroup: '',
+    categorySub: '',
   };
 }

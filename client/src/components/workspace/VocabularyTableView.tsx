@@ -29,6 +29,7 @@ import { vocabService } from '../../lib/vocabularyStore';
 import { SelectedFilter } from './SidebarCategories';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { useResponsive } from '../../lib/useResponsive';
 
 interface VocabularyTableViewProps {
   words: WordItem[];
@@ -55,8 +56,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   onUpdateStatus,
   onDeleteWord,
 }) => {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 1024;
+  const { isTableView, isPhone } = useResponsive();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [levelFilter, setLevelFilter] = useState<string>('all');
@@ -216,10 +216,10 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
         </View>
       </View>
 
-      {/* 3. Table Card */}
+      {/* 3. Table / Card View */}
       <View style={styles.tableCard}>
-        {/* Table Column Headers */}
-        {isDesktop && (
+        {/* Table Column Headers (Only for wide table view) */}
+        {isTableView && (
           <View style={styles.tableHeaderRow}>
             <Text style={[styles.colHeader, { flex: 1.5 }]}>PALABRA (INGLÉS)</Text>
             <Text style={[styles.colHeader, { flex: 1.5 }]}>FONÉTICA & PRONUNCIACIÓN</Text>
@@ -231,7 +231,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
           </View>
         )}
 
-        {/* Table Content or Empty State */}
+        {/* Content or Empty State */}
         {pageWords.length === 0 ? (
           <View style={styles.emptyStateContainer}>
             <View style={styles.emptyIconBox}>
@@ -251,7 +251,102 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
               <Text style={styles.emptyActionBtnText}>Añadir primera palabra</Text>
             </TouchableOpacity>
           </View>
+        ) : !isTableView ? (
+          /* RESPONSIVE WORD CARDS (Mobile Portrait & Landscape, Tablet Portrait) */
+          <ScrollView style={styles.tableBody} contentContainerStyle={styles.cardList}>
+            {pageWords.map((word, index) => (
+              <View key={`${word.id || index}_${index}`} style={styles.wordCard}>
+                {/* 1. Top Bar: Word, speaker, level tag + status pill, star, edit, delete */}
+                <View style={styles.wordCardTop}>
+                  <View style={styles.wordCardTitleArea}>
+                    <TouchableOpacity
+                      style={styles.speakerBtn}
+                      onPress={() => vocabService.speak(word.word)}
+                    >
+                      <Volume2 size={16} color={THEME.colors.crimsonLight} />
+                    </TouchableOpacity>
+                    <View>
+                      <Text style={styles.cardWordTitle}>{word.word}</Text>
+                      {word.level && <Text style={styles.rowLevelTag}>{word.level}</Text>}
+                    </View>
+                  </View>
+
+                  <View style={styles.cardActionsArea}>
+                    <View
+                      style={[
+                        styles.statusPill,
+                        word.status === 'dominada' && styles.statusMastered,
+                        word.status === 'en_repaso' && styles.statusReview,
+                      ]}
+                    >
+                      <Text style={styles.statusPillText}>
+                        {word.status === 'dominada'
+                          ? 'dominada'
+                          : word.status === 'en_repaso'
+                          ? 'en repaso'
+                          : 'nueva'}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.iconBtn}
+                      onPress={() => onToggleFavorite(word.id)}
+                    >
+                      <Star
+                        size={16}
+                        color={word.isFavorite ? '#f59e0b' : THEME.colors.textSubtle}
+                        fill={word.isFavorite ? '#f59e0b' : 'transparent'}
+                      />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => onEditWord(word)}>
+                      <Edit2 size={15} color={THEME.colors.textMuted} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => confirmDelete(word)}>
+                      <Trash2 size={15} color="#f87171" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* 2. Meta: Phonetics & Translation */}
+                <View style={styles.wordCardMetaRow}>
+                  <View style={styles.cardMetaBlock}>
+                    <Text style={styles.cardMetaLabel}>FONÉTICA</Text>
+                    <Text style={styles.rowIpa}>
+                      {word.ipa || (word as any).phonetic || '—'}
+                    </Text>
+                    {(word.phoneticGuide || (word as any).phoneticNote) ? (
+                      <Text style={styles.rowGuide}>
+                        {word.phoneticGuide || (word as any).phoneticNote}
+                      </Text>
+                    ) : null}
+                  </View>
+
+                  <View style={styles.cardMetaBlock}>
+                    <Text style={styles.cardMetaLabel}>TRADUCCIÓN</Text>
+                    <Text style={styles.cardTranslationText}>{word.translation || '—'}</Text>
+                  </View>
+                </View>
+
+                {/* 3. Example sentence (if present) */}
+                {(word.exampleEn || (word as any).exampleSentence || (word as any).example) && (
+                  <View style={styles.cardExampleBlock}>
+                    <Text style={styles.cardExampleEn}>
+                      "{word.exampleEn || (word as any).exampleSentence || (word as any).example}"
+                    </Text>
+                    {(word.exampleEs || (word as any).exampleTranslation) ? (
+                      <Text style={styles.cardExampleEs}>
+                        {word.exampleEs || (word as any).exampleTranslation}
+                      </Text>
+                    ) : null}
+                  </View>
+                )}
+              </View>
+            ))}
+          </ScrollView>
         ) : (
+          /* FULL TABLE VIEW (Desktop and Tablet Landscape) */
           <ScrollView style={styles.tableBody}>
             {pageWords.map((word, index) => (
               <View key={`${word.id || index}_${index}`} style={styles.tableRow}>
@@ -708,6 +803,84 @@ const styles = StyleSheet.create({
   },
   iconBtn: {
     padding: 6,
+  },
+
+  // Responsive Word Cards (Mobile & Tablet Portrait)
+  cardList: {
+    padding: 12,
+    gap: 12,
+  },
+  wordCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: THEME.radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    padding: 14,
+    gap: 12,
+  },
+  wordCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  wordCardTitleArea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  cardWordTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: -0.2,
+  },
+  cardActionsArea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  wordCardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    borderRadius: THEME.radius.md,
+    padding: 10,
+    gap: 16,
+  },
+  cardMetaBlock: {
+    flex: 1,
+  },
+  cardMetaLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: THEME.colors.textSubtle,
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  cardTranslationText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#34d399',
+  },
+  cardExampleBlock: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderLeftWidth: 3,
+    borderLeftColor: THEME.colors.crimson,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 4,
+    gap: 3,
+  },
+  cardExampleEn: {
+    fontSize: 12,
+    color: '#e2e8f0',
+    fontStyle: 'italic',
+  },
+  cardExampleEs: {
+    fontSize: 11,
+    color: THEME.colors.textSubtle,
   },
 
   // Empty state

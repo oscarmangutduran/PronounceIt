@@ -43,10 +43,18 @@ import { SettingsView } from './components/workspace/SettingsView';
 import { AddWordModal } from './components/workspace/AddWordModal';
 import { ExportImportModal } from './components/workspace/ExportImportModal';
 import { EditProfileModal } from './components/workspace/EditProfileModal';
+import { useResponsive } from './lib/useResponsive';
 
 export default function App() {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 1024;
+  const {
+    showSidebarSplit,
+    showTopNavTabs,
+    showBottomBar,
+    isDesktop,
+    isTablet,
+    isPhone,
+    isPortrait,
+  } = useResponsive();
 
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     return firebaseService.getCurrentUser();
@@ -179,12 +187,12 @@ export default function App() {
         style={styles.mainContent}
         contentContainerStyle={[
           styles.mainScrollContent,
-          isDesktop && styles.mainScrollContentDesktop,
+          !showBottomBar && styles.mainScrollContentDesktop,
         ]}
       >
-        <View style={isDesktop ? styles.workspaceDesktop : styles.workspaceMobile}>
+        <View style={showSidebarSplit ? styles.workspaceDesktop : styles.workspaceMobile}>
           {activeTab === 'vocabulary' && (
-            <View style={isDesktop ? styles.vocabularyRowDesktop : styles.vocabularyColumnMobile}>
+            <View style={showSidebarSplit ? styles.vocabularyRowDesktop : styles.vocabularyColumnMobile}>
               <SidebarCategories
                 categories={categories}
                 selectedFilter={selectedFilter}
@@ -246,8 +254,8 @@ export default function App() {
           )}
         </View>
 
-        {/* Global Footer (shown on Desktop) */}
-        {isDesktop && (
+        {/* Global Footer (shown on Desktop and Tablet when bottom bar is hidden) */}
+        {!showBottomBar && (
           <View style={styles.footerContainer}>
             <Text style={styles.footerCopyright}>
               © PronounceIt | Desarrollado con ❤️ Oscar Mangut Dev
@@ -290,7 +298,7 @@ export default function App() {
       </ScrollView>
 
       {/* Bottom Tab Navigation Bar (Mobile only) */}
-      {!isDesktop && (
+      {showBottomBar && (
         <View style={styles.tabBar}>
           {/* Tab 1: Vocabulario */}
           <TouchableOpacity
@@ -498,6 +506,10 @@ const styles = StyleSheet.create({
   },
   workspaceMobile: {
     flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
+    width: '100%',
   },
   vocabularyRowDesktop: {
     flexDirection: 'row',
@@ -507,18 +519,22 @@ const styles = StyleSheet.create({
   },
   vocabularyColumnMobile: {
     flex: 1,
+    gap: 16,
+    width: '100%',
   },
   testSectionContainer: {
     flex: 1,
     width: '100%',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
+    paddingVertical: 16,
   },
   settingsSectionContainer: {
     flex: 1,
     width: '100%',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
+    paddingVertical: 16,
   },
 
   // Footer styles

@@ -23,6 +23,7 @@ import {
 import { UserProfile, MainNavTab } from '../../types';
 import { THEME } from '../../theme';
 import { PronounceItLogo } from '../common/PronounceItLogo';
+import { useResponsive } from '../../lib/useResponsive';
 
 interface TopNavigationProps {
   activeTab: MainNavTab;
@@ -43,8 +44,8 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   onSearchChange,
   onOpenEditProfile,
 }) => {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 860;
+  const { width, showTopNavTabs, isPhone } = useResponsive();
+  const showSearch = !isPhone && width >= 800;
   const [showDropdown, setShowDropdown] = useState(false);
 
   const initial = (currentUser?.full_name || currentUser?.username || 'U')[0].toUpperCase();
@@ -56,12 +57,12 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
         <PronounceItLogo size={36} />
         <View>
           <Text style={styles.brandTitle}>PronounceIt</Text>
-          <Text style={styles.brandSubtitle}>Inglés & Fonética</Text>
+          {!isPhone && <Text style={styles.brandSubtitle}>Inglés & Fonética</Text>}
         </View>
       </View>
 
-      {/* CENTER: Desktop Navigation Tabs (when wide enough) */}
-      {isDesktop && (
+      {/* CENTER: Navigation Tabs (Tablet & Desktop) */}
+      {showTopNavTabs && (
         <View style={styles.navTabs}>
           {/* Vocabulario / Biblioteca */}
           <TouchableOpacity
@@ -183,7 +184,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
       {/* RIGHT: Search + User Avatar */}
       <View style={styles.rightActions}>
         {/* Quick Search */}
-        {isDesktop && (
+        {showSearch && (
           <View style={styles.searchBox}>
             <Search size={14} color={THEME.colors.textSubtle} style={styles.searchIcon} />
             <TextInput

@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
   Dimensions,
 } from 'react-native';
 import {
@@ -100,9 +101,14 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
   }
 
   return (
-    <View style={styles.container}>
-      {/* Top Header */}
-      <View style={styles.header}>
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.container}>
+        {/* Top Header */}
+        <View style={styles.header}>
         <TouchableOpacity style={styles.backIconBtn} onPress={onBackToVocabulary}>
           <ArrowLeft size={18} color={THEME.colors.textMuted} />
           <Text style={styles.headerBackText}>Salir</Text>
@@ -234,16 +240,30 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
           <Text style={[styles.srsBtnText, { color: THEME.colors.emerald }]}>Fácil</Text>
         </TouchableOpacity>
       </View>
-    </View>
+      </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+    backgroundColor: THEME.colors.bgDark,
+    width: '100%',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
   container: {
     flex: 1,
     backgroundColor: THEME.colors.bgDark,
     paddingHorizontal: 16,
     paddingTop: 10,
+    width: '100%',
+    maxWidth: 640,
+    alignSelf: 'center',
   },
   header: {
     flexDirection: 'row',

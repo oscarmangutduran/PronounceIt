@@ -28,6 +28,7 @@ import { THEME } from '../../theme';
 import { vocabService } from '../../lib/vocabularyStore';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { CategoryFormModal, CategoryFormMode } from './CategoryFormModal';
+import { useResponsive } from '../../lib/useResponsive';
 
 export type SelectedFilter =
   | { type: 'all' }
@@ -60,8 +61,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
   masteredCount,
   onAddNewCategory,
 }) => {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 1024;
+  const { showSidebarSplit } = useResponsive();
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
@@ -164,8 +164,8 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
 
   const retentionPercent = totalWords > 0 ? Math.round((masteredCount / totalWords) * 100) : 0;
 
-  // MOBILE: Compact Horizontal Scroll
-  if (!isDesktop) {
+  // MOBILE / TABLET PORTRAIT: Compact Horizontal Scroll
+  if (!showSidebarSplit) {
     return (
       <View style={styles.mobileContainer}>
         <ScrollView
