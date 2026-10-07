@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { X, Download, Upload, Copy, Check } from 'lucide-react-native';
 import { WordItem } from '../../types';
@@ -121,6 +122,23 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
                   editable={false}
                   multiline
                 />
+                <TouchableOpacity
+                  style={[styles.importActionBtn, isCopied && styles.copiedBtn]}
+                  onPress={handleCopy}
+                  activeOpacity={0.85}
+                >
+                  {isCopied ? (
+                    <>
+                      <Check size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                      <Text style={styles.importActionText}>¡Copiado al Portapapeles!</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                      <Text style={styles.importActionText}>Copiar al Portapapeles</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </>
             ) : (
               <>
@@ -175,17 +193,25 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(5, 3, 10, 0.82)',
     justifyContent: 'center',
-    padding: 20,
+    alignItems: 'center',
+    padding: 16,
   },
   card: {
-    backgroundColor: THEME.colors.bgCard,
+    backgroundColor: '#161026',
     borderRadius: THEME.radius.xl,
     borderWidth: 1,
-    borderColor: THEME.colors.border,
-    padding: 20,
-    maxHeight: '85%',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    padding: 22,
+    width: '100%',
+    maxWidth: 600,
+    maxHeight: '88%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.6,
+    shadowRadius: 30,
+    elevation: 20,
   },
   header: {
     flexDirection: 'row',
@@ -231,16 +257,21 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   jsonBox: {
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: THEME.radius.md,
     padding: 12,
     height: 220,
-    color: THEME.colors.textMuted,
+    color: '#e2e8f0',
     fontFamily: 'monospace',
     fontSize: 11,
     textAlignVertical: 'top',
+    ...Platform.select({
+      web: {
+        outlineStyle: 'none',
+      } as any,
+    }),
   },
   inputBox: {
     color: '#ffffff',
@@ -253,6 +284,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: THEME.radius.md,
     marginTop: 6,
+  },
+  copiedBtn: {
+    backgroundColor: '#10b981',
   },
   importActionText: {
     color: '#ffffff',
