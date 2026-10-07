@@ -547,10 +547,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 12, 24, 0.92)',
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 40,
+    flexGrow: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 36,
   },
   brandContainer: {
     alignItems: 'center',
