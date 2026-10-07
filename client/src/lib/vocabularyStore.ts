@@ -1,5 +1,6 @@
 import { WordItem, CategoryItem, WordStatus } from '../types';
 import { firebaseService } from './firebaseClient';
+import { backendApi } from './apiClient';
 
 const STORAGE_KEY_WORDS = 'pronounceit_vocab_words_v2';
 const STORAGE_KEY_AUDIO_SETTINGS = 'pronounceit_audio_settings';
@@ -53,11 +54,36 @@ class VocabularyService {
   }
 
   public async syncWithCloud(): Promise<void> {
+    // 1. Try Express backend first
+    try {
+      const isBackendLive = await backendApi.checkHealth();
+      if (isBackendLive) {
+        const serverWords = await backendApi.getWords();
+        if (serverWords && serverWords.length > 0) {
+          // If server has words and local has fewer, sync server words
+          if (this.words.length === 0 || serverWords.length >= this.words.length) {
+            this.words = serverWords;
+            this.saveWords();
+            this.notify();
+            return;
+          } else {
+            // Local has more words, push local to backend
+            await backendApi.bulkSaveWords(this.words);
+          }
+        } else if (this.words.length > 0) {
+          // Server has 0 words, upload local words
+          await backendApi.bulkSaveWords(this.words);
+        }
+      }
+    } catch (e) {
+      console.warn('Backend sync warning:', e);
+    }
+
+    // 2. Fallback or parallel sync with Firebase
     if (firebaseService.isFirebaseConnected()) {
       try {
         const remoteWords = await firebaseService.fetchWords();
         if (remoteWords !== null) {
-          // Utilizar estrictamente lo que hay almacenado en Firebase
           this.words = remoteWords;
           this.saveWords();
           this.notify();
@@ -189,6 +215,7 @@ class VocabularyService {
     this.words.unshift(newWord);
     this.saveWords();
 
+    backendApi.saveWord(newWord).catch(() => {});
     if (firebaseService.isFirebaseConnected()) {
       firebaseService.upsertWord(newWord).catch((e) => console.warn('Firebase upsertWord error', e));
     }
@@ -202,6 +229,7 @@ class VocabularyService {
     this.saveWords();
 
     const updated = this.words[index];
+    backendApi.updateWord(updated).catch(() => {});
     if (firebaseService.isFirebaseConnected()) {
       firebaseService.upsertWord(updated).catch((e) => console.warn('Firebase updateWord error', e));
     }
@@ -212,6 +240,7 @@ class VocabularyService {
     this.words = this.words.filter((w) => w.id !== id);
     this.saveWords();
 
+    backendApi.deleteWord(id).catch(() => {});
     if (firebaseService.isFirebaseConnected()) {
       firebaseService.deleteWord(id).catch((e) => console.warn('Firebase deleteWord error', e));
     }
@@ -223,6 +252,7 @@ class VocabularyService {
       word.isFavorite = !word.isFavorite;
       this.saveWords();
 
+      backendApi.updateWord(word).catch(() => {});
       if (firebaseService.isFirebaseConnected()) {
         firebaseService.upsertWord(word).catch((e) => console.warn('Firebase toggleFavorite error', e));
       }
@@ -236,6 +266,7 @@ class VocabularyService {
       word.lastReviewedAt = new Date().toISOString();
       this.saveWords();
 
+      backendApi.updateWord(word).catch(() => {});
       if (firebaseService.isFirebaseConnected()) {
         firebaseService.upsertWord(word).catch((e) => console.warn('Firebase updateStatus error', e));
       }

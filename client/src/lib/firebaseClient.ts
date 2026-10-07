@@ -24,6 +24,7 @@ import {
 } from 'firebase/firestore';
 import { FirebaseConfig, UserProfile, WordItem } from '../types';
 import { StoredTestItem } from './testHistoryStore';
+import { backendApi } from './apiClient';
 
 const STORAGE_KEY_FIREBASE_CONFIG = 'pronounceit_firebase_config_v1';
 const STORAGE_KEY_FIREBASE_USER = 'pronounceit_firebase_user_v1';
@@ -412,9 +413,35 @@ class FirebaseService {
         this.notify();
         return { success: true, user: profile };
       } catch (err: any) {
-        // Fallback to local accounts if Firebase Auth threw user-not-found or similar
+        // Fallback to local accounts or Express backend if Firebase Auth threw user-not-found
       }
     }
+
+    // Check with Express backend if available
+    try {
+      const serverAuth = await backendApi.login(input, password);
+      if (serverAuth && serverAuth.success && serverAuth.user) {
+        const sUser = serverAuth.user;
+        const profile: UserProfile = {
+          id: sUser.id,
+          email: sUser.email,
+          full_name: sUser.username,
+          username: sUser.username,
+          must_change_password: Boolean(serverAuth.mustChangePassword || sUser.must_change_password),
+          avatar_url: sUser.avatar_url || this.getSavedAvatar(sUser.id, sUser.username, sUser.email),
+          role: 'user',
+          created_at: sUser.created_at,
+        };
+        this.currentUser = profile;
+        localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
+        this.notify();
+        return {
+          success: true,
+          mustChangePassword: Boolean(serverAuth.mustChangePassword || sUser.must_change_password),
+          user: profile,
+        };
+      }
+    } catch {}
 
     // Check stored accounts
     const accounts = this.getStoredAccounts();
@@ -562,6 +589,9 @@ class FirebaseService {
     accounts.push(newAccount);
     this.saveStoredAccounts(accounts);
 
+    // Synchronize with Express backend database
+    backendApi.register(cleanEmail, cleanUsername).catch(() => {});
+
     // Also register in Firebase Auth if available
     if (this.auth) {
       try {
@@ -623,6 +653,7 @@ class FirebaseService {
     if (this.currentUser) {
       this.currentUser.must_change_password = false;
       localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(this.currentUser));
+      backendApi.changePassword({ email: this.currentUser.email, newPassword }).catch(() => {});
       this.notify();
     }
 

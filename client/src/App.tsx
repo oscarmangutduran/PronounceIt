@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Copyright, Heart } from 'lucide-react';
 import { MainNavTab, WordItem, WordStatus, UserProfile } from './types';
 import { firebaseService } from './lib/firebaseClient';
@@ -7,17 +7,43 @@ import { vocabService } from './lib/vocabularyStore';
 // Auth Gatekeeper
 import { LoginView } from './components/auth/LoginView';
 
-// Workspace Components styled matching Login aesthetic
+// Core Primary Workspace Components (Eagerly loaded for instant first paint)
 import { TopNavigation } from './components/workspace/TopNavigation';
 import { SidebarCategories, SelectedFilter } from './components/workspace/SidebarCategories';
 import { VocabularyTableView } from './components/workspace/VocabularyTableView';
-import { FlashcardPracticeView } from './components/workspace/FlashcardPracticeView';
-import { TestView } from './components/workspace/TestView';
-import { StatsDashboardView } from './components/workspace/StatsDashboardView';
-import { SettingsView } from './components/workspace/SettingsView';
-import { AddWordModal } from './components/workspace/AddWordModal';
-import { ExportImportModal } from './components/workspace/ExportImportModal';
-import { EditProfileModal } from './components/workspace/EditProfileModal';
+
+// Code-split dynamic views (Loaded on-demand to reduce main bundle size)
+const FlashcardPracticeView = lazy(() =>
+  import('./components/workspace/FlashcardPracticeView').then((m) => ({ default: m.FlashcardPracticeView }))
+);
+const TestView = lazy(() =>
+  import('./components/workspace/TestView').then((m) => ({ default: m.TestView }))
+);
+const StatsDashboardView = lazy(() =>
+  import('./components/workspace/StatsDashboardView').then((m) => ({ default: m.StatsDashboardView }))
+);
+const SettingsView = lazy(() =>
+  import('./components/workspace/SettingsView').then((m) => ({ default: m.SettingsView }))
+);
+const AddWordModal = lazy(() =>
+  import('./components/workspace/AddWordModal').then((m) => ({ default: m.AddWordModal }))
+);
+const ExportImportModal = lazy(() =>
+  import('./components/workspace/ExportImportModal').then((m) => ({ default: m.ExportImportModal }))
+);
+const EditProfileModal = lazy(() =>
+  import('./components/workspace/EditProfileModal').then((m) => ({ default: m.EditProfileModal }))
+);
+
+const ViewLoadingFallback = () => (
+  <div className="flex-1 flex flex-col items-center justify-center min-h-[400px] text-center p-8 animate-fadeIn">
+    <div className="w-12 h-12 rounded-2xl bg-[#e62e4c]/10 border border-[#e62e4c]/30 flex items-center justify-center mb-4 shadow-[0_0_25px_rgba(230,46,76,0.25)] animate-pulse">
+      <div className="w-5 h-5 border-2 border-[#e62e4c] border-t-transparent rounded-full animate-spin" />
+    </div>
+    <p className="text-sm font-medium text-slate-300">Cargando módulo...</p>
+    <p className="text-xs text-slate-400 mt-1">Optimizando rendimiento</p>
+  </div>
+);
 
 export default function App() {
   // Restore user session and profile picture across reloads and visits
@@ -244,30 +270,40 @@ export default function App() {
 
           {/* Tab 2: Práctica con Flashcards */}
           {activeTab === 'flashcards' && (
-            <FlashcardPracticeView
-              words={words}
-              onBackToVocabulary={() => setActiveTab('vocabulary')}
-              onUpdateStatus={handleUpdateStatus}
-            />
+            <Suspense fallback={<ViewLoadingFallback />}>
+              <FlashcardPracticeView
+                words={words}
+                onBackToVocabulary={() => setActiveTab('vocabulary')}
+                onUpdateStatus={handleUpdateStatus}
+              />
+            </Suspense>
           )}
 
           {/* Tab 3: Evaluación y Tests por Nivel */}
           {activeTab === 'test' && (
-            <TestView
-              words={words}
-              onBackToVocabulary={() => setActiveTab('vocabulary')}
-            />
+            <Suspense fallback={<ViewLoadingFallback />}>
+              <TestView
+                words={words}
+                onBackToVocabulary={() => setActiveTab('vocabulary')}
+              />
+            </Suspense>
           )}
 
           {/* Tab 4: Estadísticas */}
-          {activeTab === 'stats' && <StatsDashboardView words={words} />}
+          {activeTab === 'stats' && (
+            <Suspense fallback={<ViewLoadingFallback />}>
+              <StatsDashboardView words={words} />
+            </Suspense>
+          )}
 
           {/* Tab 5: Configuración */}
           {activeTab === 'settings' && (
-            <SettingsView
-              currentUser={currentUser}
-              onLogout={handleLogout}
-            />
+            <Suspense fallback={<ViewLoadingFallback />}>
+              <SettingsView
+                currentUser={currentUser}
+                onLogout={handleLogout}
+              />
+            </Suspense>
           )}
         </main>
 
@@ -342,34 +378,46 @@ export default function App() {
       </div>
 
       {/* Add / Edit Word Modal */}
-      <AddWordModal
-        isOpen={isAddModalOpen}
-        onClose={() => {
-          setIsAddModalOpen(false);
-          setEditingWord(null);
-        }}
-        onSave={handleSaveWord}
-        initialWord={editingWord}
-        categories={categories}
-        defaultCategoryGroup={selectedFilter.type === 'category' ? selectedFilter.group : undefined}
-        defaultCategorySub={selectedFilter.type === 'category' ? selectedFilter.sub : undefined}
-      />
+      {isAddModalOpen && (
+        <Suspense fallback={null}>
+          <AddWordModal
+            isOpen={isAddModalOpen}
+            onClose={() => {
+              setIsAddModalOpen(false);
+              setEditingWord(null);
+            }}
+            onSave={handleSaveWord}
+            initialWord={editingWord}
+            categories={categories}
+            defaultCategoryGroup={selectedFilter.type === 'category' ? selectedFilter.group : undefined}
+            defaultCategorySub={selectedFilter.type === 'category' ? selectedFilter.sub : undefined}
+          />
+        </Suspense>
+      )}
 
       {/* Export / Import Modal */}
-      <ExportImportModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        words={words}
-        onImportWords={handleImportWords}
-      />
+      {isExportModalOpen && (
+        <Suspense fallback={null}>
+          <ExportImportModal
+            isOpen={isExportModalOpen}
+            onClose={() => setIsExportModalOpen(false)}
+            words={words}
+            onImportWords={handleImportWords}
+          />
+        </Suspense>
+      )}
 
       {/* Edit Profile Modal */}
-      <EditProfileModal
-        isOpen={isEditProfileOpen}
-        onClose={() => setIsEditProfileOpen(false)}
-        currentUser={currentUser}
-        onProfileUpdated={(updated) => setCurrentUser(updated)}
-      />
+      {isEditProfileOpen && (
+        <Suspense fallback={null}>
+          <EditProfileModal
+            isOpen={isEditProfileOpen}
+            onClose={() => setIsEditProfileOpen(false)}
+            currentUser={currentUser}
+            onProfileUpdated={(updated) => setCurrentUser(updated)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

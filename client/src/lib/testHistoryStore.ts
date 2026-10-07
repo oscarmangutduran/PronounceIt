@@ -1,6 +1,7 @@
 import { TestQuestion } from '../types';
 import { VerbQuestionEvaluation } from '../components/workspace/IrregularVerbsTestView';
 import { firebaseService } from './firebaseClient';
+import { backendApi } from './apiClient';
 
 export interface StoredTestItem {
   id: string;
@@ -39,6 +40,25 @@ class TestHistoryService {
   }
 
   public async syncWithCloud(): Promise<void> {
+    // 1. Try Express backend
+    try {
+      const isBackendLive = await backendApi.checkHealth();
+      if (isBackendLive) {
+        const serverTests = await backendApi.getTests();
+        if (serverTests && serverTests.length > 0) {
+          if (this.history.length === 0 || serverTests.length >= this.history.length) {
+            this.history = serverTests;
+            this.saveHistory();
+            this.notify();
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Backend test sync warning:', e);
+    }
+
+    // 2. Try Firebase fallback
     if (firebaseService.isFirebaseConnected()) {
       try {
         const remote = await firebaseService.fetchTestHistory();
@@ -92,6 +112,7 @@ class TestHistoryService {
     this.saveHistory();
     this.notify();
 
+    backendApi.saveTest(newTest).catch(() => {});
     if (firebaseService.isFirebaseConnected()) {
       firebaseService.saveTestResult(newTest).catch((e) => console.warn('Firebase saveTestResult error', e));
     }
@@ -103,6 +124,7 @@ class TestHistoryService {
     this.saveHistory();
     this.notify();
 
+    backendApi.deleteTest(id).catch(() => {});
     if (firebaseService.isFirebaseConnected()) {
       firebaseService.deleteTestResult(id).catch((e) => console.warn('Firebase deleteTestResult error', e));
     }
