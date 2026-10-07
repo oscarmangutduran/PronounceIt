@@ -1,15 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+} from 'react-native';
 import {
   Volume2,
-  RotateCw,
-  CheckCircle2,
-  Clock,
+  RotateCcw,
   ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+  CheckCircle,
+  ThumbsUp,
+  AlertTriangle,
+  Sparkles,
+  Layers,
+} from 'lucide-react-native';
 import { WordItem, WordStatus } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
+import { THEME } from '../../theme';
 
 interface FlashcardPracticeViewProps {
   words: WordItem[];
@@ -22,245 +31,501 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
   onBackToVocabulary,
   onUpdateStatus,
 }) => {
+  const [deck, setDeck] = useState<WordItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [reviewedCount, setReviewedCount] = useState(0);
 
-  const practiceList = words.length > 0 ? words : vocabService.getWords();
-  const currentWord = practiceList[currentIndex % practiceList.length];
-
-  const handleSpeak = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (currentWord) {
-      vocabService.speak(currentWord.word);
-    }
-  };
-
-  const handleNext = () => {
+  useEffect(() => {
+    // Shuffle words for practice session
+    const shuffled = [...words].sort(() => Math.random() - 0.5);
+    setDeck(shuffled);
+    setCurrentIndex(0);
     setIsFlipped(false);
-    setCurrentIndex((prev) => (prev + 1) % practiceList.length);
-  };
+  }, [words]);
 
-  const handlePrev = () => {
-    setIsFlipped(false);
-    setCurrentIndex((prev) => (prev - 1 + practiceList.length) % practiceList.length);
-  };
+  const currentWord = deck[currentIndex];
 
-  const handleRate = (status: WordStatus) => {
-    if (currentWord) {
-      onUpdateStatus(currentWord.id, status);
-      setReviewedCount((c) => c + 1);
-      handleNext();
+  const handleNext = (statusUpdate?: WordStatus) => {
+    if (currentWord && statusUpdate) {
+      onUpdateStatus(currentWord.id, statusUpdate);
     }
+    setIsFlipped(false);
+    setCurrentIndex((prev) => prev + 1);
   };
 
-  if (!currentWord) {
+  const handleRestart = () => {
+    const reshuffled = [...words].sort(() => Math.random() - 0.5);
+    setDeck(reshuffled);
+    setCurrentIndex(0);
+    setIsFlipped(false);
+  };
+
+  if (!deck.length) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-[#181226]/85 rounded-2xl border border-white/10 shadow-xl text-white">
-        <p className="text-slate-300 font-semibold mb-4">No hay palabras disponibles para practicar.</p>
-        <button
-          type="button"
-          onClick={onBackToVocabulary}
-          className="px-4 py-2 bg-[#e62e4c] hover:bg-[#ff3b59] text-white rounded-xl text-xs font-bold shadow-md shadow-[#e62e4c]/30"
-        >
-          Volver a Biblioteca
-        </button>
-      </div>
+      <View style={styles.centerContainer}>
+        <Layers size={40} color={THEME.colors.crimsonLight} />
+        <Text style={styles.emptyTitle}>Sin palabras para practicar</Text>
+        <Text style={styles.emptySubtitle}>Agrega palabras en tu lista de vocabulario para iniciar.</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={onBackToVocabulary}>
+          <Text style={styles.backBtnText}>Volver al Vocabulario</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
-  const progressPercent = Math.round(((currentIndex + 1) / practiceList.length) * 100);
+  // Session completed
+  if (currentIndex >= deck.length) {
+    return (
+      <View style={styles.centerContainer}>
+        <View style={styles.completeBadge}>
+          <CheckCircle size={44} color={THEME.colors.emerald} />
+        </View>
+        <Text style={styles.completeTitle}>¡Sesión Completada!</Text>
+        <Text style={styles.completeSubtitle}>
+          Has repasado {deck.length} flashcards con éxito. Sigue así para consolidar tu memoria a largo plazo.
+        </Text>
+
+        <View style={styles.buttonStack}>
+          <TouchableOpacity style={styles.restartBtn} onPress={handleRestart}>
+            <RotateCcw size={16} color="#ffffff" style={{ marginRight: 6 }} />
+            <Text style={styles.restartBtnText}>Repasar de nuevo</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.backBtn} onPress={onBackToVocabulary}>
+            <Text style={styles.backBtnText}>Volver al Vocabulario</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col gap-6 select-none animate-fadeIn text-white">
+    <View style={styles.container}>
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onBackToVocabulary}
-          className="px-3.5 py-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all self-start sm:self-auto"
-        >
-          <ArrowLeft size={14} />
-          <span>Volver a la Biblioteca</span>
-        </button>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backIconBtn} onPress={onBackToVocabulary}>
+          <ArrowLeft size={18} color={THEME.colors.textMuted} />
+          <Text style={styles.headerBackText}>Salir</Text>
+        </TouchableOpacity>
 
-        <div className="flex items-center justify-between sm:justify-end gap-3">
-          <span className="text-xs font-bold text-slate-300">
-            Tarjeta {currentIndex + 1} de {practiceList.length}
-          </span>
-          <div className="w-28 sm:w-32 h-2 rounded-full bg-white/10 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-[#e62e4c] to-amber-400 transition-all duration-300"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-        </div>
-      </div>
+        <Text style={styles.progressText}>
+          {currentIndex + 1} / {deck.length}
+        </Text>
 
-      {/* Main Flip Flashcard Card matching dark login style */}
-      <div
-        onClick={() => setIsFlipped(!isFlipped)}
-        className="w-full min-h-[360px] sm:min-h-[400px] bg-gradient-to-b from-[#1b152b] to-[#141021] rounded-3xl border border-white/15 shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-5 sm:p-12 flex flex-col justify-between cursor-pointer hover:border-[#e62e4c]/50 transition-all relative overflow-hidden group"
+        <TouchableOpacity style={styles.shuffleBtn} onPress={handleRestart}>
+          <RotateCcw size={16} color={THEME.colors.textMuted} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Progress Bar */}
+      <View style={styles.progressBarTrack}>
+        <View
+          style={[
+            styles.progressBarFill,
+            { width: `${((currentIndex + 1) / deck.length) * 100}%` },
+          ]}
+        />
+      </View>
+
+      {/* Interactive Flashcard */}
+      <TouchableOpacity
+        style={styles.cardContainer}
+        onPress={() => setIsFlipped(!isFlipped)}
+        activeOpacity={0.9}
       >
-        <div className="flex items-center justify-between text-xs text-slate-400">
-          <span className="px-2.5 py-0.5 rounded-full font-bold bg-[#e62e4c]/20 text-pink-300 border border-[#e62e4c]/30">
-            {currentWord.categorySub || currentWord.categoryGroup} · {currentWord.level}
-          </span>
-          <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1 group-hover:text-pink-300 transition-colors">
-            <RotateCw size={12} />
-            Haz clic para voltear tarjeta
-          </span>
-        </div>
+        <View style={styles.card}>
+          {/* Card Top Pill */}
+          <View style={styles.cardTopBar}>
+            <View style={styles.sideBadge}>
+              <Text style={styles.sideBadgeText}>
+                {isFlipped ? 'REVERSO (TRADUCCIÓN)' : 'FRENTE (PRONUNCIACIÓN)'}
+              </Text>
+            </View>
 
-        {/* Card Content: Front vs Back */}
-        {!isFlipped ? (
-          /* FRONT: English Word, Phonetics, Audio */
-          <div className="my-auto text-center space-y-4">
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={handleSpeak}
-                className="w-16 h-16 rounded-2xl bg-[#e62e4c]/20 hover:bg-[#e62e4c]/30 text-[#ff4d6d] border border-[#e62e4c]/40 flex items-center justify-center shadow-lg shadow-[#e62e4c]/20 cursor-pointer transition-all active:scale-95"
-                title="Escuchar audio"
+            {currentWord.level ? (
+              <View style={styles.levelBadge}>
+                <Text style={styles.levelBadgeText}>{currentWord.level}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Front content */}
+          {!isFlipped ? (
+            <View style={styles.cardBody}>
+              <Text style={styles.mainWord}>{currentWord.word}</Text>
+
+              <TouchableOpacity
+                style={styles.audioAction}
+                onPress={(e) => {
+                  vocabService.speak(currentWord.word);
+                }}
               >
-                <Volume2 size={30} />
-              </button>
-            </div>
+                <Volume2 size={22} color="#ffffff" />
+                <Text style={styles.audioActionText}>Escuchar Audio</Text>
+              </TouchableOpacity>
 
-            <div>
-              <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
-                {currentWord.word}
-              </h2>
-              <span className="text-xs italic text-slate-400 font-medium block mt-1.5">
-                {currentWord.partOfSpeech}
-              </span>
-            </div>
+              {currentWord.phoneticGuide ? (
+                <View style={styles.guideBox}>
+                  <Text style={styles.guideLabel}>Cómo suena en español:</Text>
+                  <Text style={styles.guideText}>
+                    {currentWord.phoneticGuide.startsWith('"')
+                      ? currentWord.phoneticGuide
+                      : `"${currentWord.phoneticGuide}"`}
+                  </Text>
+                </View>
+              ) : null}
 
-            <div className="space-y-1">
-              <p className="font-mono text-lg font-bold text-[#ff758c] tracking-wider">
-                {currentWord.ipa}
-              </p>
-              <p className="text-xs text-slate-300 font-medium">
-                Guía fonética: <strong className="text-white">{currentWord.phoneticGuide}</strong>
-              </p>
-              {currentWord.phoneticNote && (
-                <p className="text-[11px] text-slate-400 max-w-md mx-auto">{currentWord.phoneticNote}</p>
-              )}
-            </div>
+              {currentWord.ipa ? (
+                <Text style={styles.ipaSub}>{currentWord.ipa}</Text>
+              ) : null}
 
-            <div className="pt-2">
-              <span className="text-[11px] font-semibold text-pink-300 bg-[#e62e4c]/10 border border-[#e62e4c]/25 px-3 py-1 rounded-full">
-                Toca la tarjeta para ver traducción y frase
-              </span>
-            </div>
-          </div>
-        ) : (
-          /* BACK: Spanish Translation, Definition, Bilingual Example */
-          <div className="my-auto text-center space-y-5 animate-fadeIn">
-            <div>
-              <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold block mb-1">
-                Traducción al español
-              </span>
-              <h2 className="text-2xl sm:text-4xl font-black text-white">
-                {currentWord.translation}
-              </h2>
-              {currentWord.definition && (
-                <p className="text-xs text-slate-300 mt-1 max-w-md mx-auto font-medium">
-                  {currentWord.definition}
-                </p>
-              )}
-            </div>
+              <Text style={styles.tapTip}>Toca la tarjeta para ver la traducción</Text>
+            </View>
+          ) : (
+            // Back content
+            <View style={styles.cardBody}>
+              <Text style={styles.translationWord}>{currentWord.translation}</Text>
 
-            {/* Bilingual Example */}
-            <div className="p-5 rounded-2xl bg-black/40 border border-white/10 text-left max-w-lg mx-auto space-y-2">
-              <p className="text-xs font-semibold text-white leading-relaxed">
-                "{currentWord.exampleEn}"
-              </p>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                "{currentWord.exampleEs}"
-              </p>
-            </div>
-          </div>
-        )}
+              {currentWord.definition ? (
+                <Text style={styles.definitionText}>{currentWord.definition}</Text>
+              ) : null}
 
-        {/* Card Footer: Navigation buttons */}
-        <div className="flex items-center justify-between pt-4 border-t border-white/10">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handlePrev();
-            }}
-            className="px-3 py-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-200 flex items-center gap-1 cursor-pointer"
-          >
-            <ChevronLeft size={14} />
-            <span>Anterior</span>
-          </button>
+              {currentWord.exampleEn ? (
+                <View style={styles.exampleCard}>
+                  <Text style={styles.exampleEn}>{currentWord.exampleEn}</Text>
+                  {currentWord.exampleEs ? (
+                    <Text style={styles.exampleEs}>{currentWord.exampleEs}</Text>
+                  ) : null}
+                </View>
+              ) : null}
 
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleSpeak();
-            }}
-            className="text-xs font-semibold text-[#ff758c] hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
-          >
-            <Volume2 size={15} />
-            <span>Repetir audio</span>
-          </button>
+              <Text style={styles.tapTip}>Toca para volver al frente</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
 
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleNext();
-            }}
-            className="px-3 py-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-200 flex items-center gap-1 cursor-pointer"
-          >
-            <span>Siguiente</span>
-            <ChevronRight size={14} />
-          </button>
-        </div>
-      </div>
+      {/* SRS Rating Actions */}
+      <View style={styles.srsActions}>
+        <TouchableOpacity
+          style={[styles.srsBtn, styles.srsBtnHard]}
+          onPress={() => handleNext('en_repaso')}
+          activeOpacity={0.8}
+        >
+          <AlertTriangle size={16} color="#f87171" />
+          <Text style={[styles.srsBtnText, { color: '#f87171' }]}>Difícil</Text>
+        </TouchableOpacity>
 
-      {/* SRS Rating Evaluation Bar */}
-      <div className="bg-[#181226]/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <span className="text-xs font-bold text-slate-200 text-center sm:text-left">
-          ¿Cómo recuerdas la pronunciación de esta palabra?
-        </span>
+        <TouchableOpacity
+          style={[styles.srsBtn, styles.srsBtnGood]}
+          onPress={() => handleNext()}
+          activeOpacity={0.8}
+        >
+          <ThumbsUp size={16} color={THEME.colors.amber} />
+          <Text style={[styles.srsBtnText, { color: THEME.colors.amber }]}>Bien</Text>
+        </TouchableOpacity>
 
-        <div className="grid grid-cols-3 gap-2 w-full sm:w-auto">
-          {/* Difícil */}
-          <button
-            type="button"
-            onClick={() => handleRate('en_repaso')}
-            className="px-2.5 sm:px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs border border-rose-500/40 transition-all cursor-pointer shadow-sm text-center"
-          >
-            <span className="hidden sm:inline">🔴 Difícil (Repasar)</span>
-            <span className="sm:hidden">🔴 Difícil</span>
-          </button>
-
-          {/* Bien */}
-          <button
-            type="button"
-            onClick={() => handleRate('en_repaso')}
-            className="px-2.5 sm:px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs border border-amber-500/40 transition-all cursor-pointer shadow-sm text-center"
-          >
-            <span className="hidden sm:inline">🟠 Bien (Consolidar)</span>
-            <span className="sm:hidden">🟠 Bien</span>
-          </button>
-
-          {/* Fácil / Dominada */}
-          <button
-            type="button"
-            onClick={() => handleRate('dominada')}
-            className="px-2.5 sm:px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs border border-emerald-500/40 transition-all cursor-pointer shadow-sm text-center"
-          >
-            <span className="hidden sm:inline">🟢 Fácil (Dominada)</span>
-            <span className="sm:hidden">🟢 Fácil</span>
-          </button>
-        </div>
-      </div>
-    </div>
+        <TouchableOpacity
+          style={[styles.srsBtn, styles.srsBtnEasy]}
+          onPress={() => handleNext('dominada')}
+          activeOpacity={0.8}
+        >
+          <CheckCircle size={16} color={THEME.colors.emerald} />
+          <Text style={[styles.srsBtnText, { color: THEME.colors.emerald }]}>Fácil</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: THEME.colors.bgDark,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  backIconBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    padding: 6,
+  },
+  headerBackText: {
+    color: THEME.colors.textMuted,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  progressText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  shuffleBtn: {
+    padding: 6,
+  },
+  progressBarTrack: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 2,
+    marginBottom: 20,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: THEME.colors.crimson,
+    borderRadius: 2,
+  },
+  cardContainer: {
+    flex: 1,
+    maxHeight: 460,
+    marginBottom: 20,
+  },
+  card: {
+    flex: 1,
+    backgroundColor: THEME.colors.bgCard,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.radius.xl,
+    padding: 24,
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  cardTopBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sideBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: THEME.radius.full,
+  },
+  sideBadgeText: {
+    color: THEME.colors.textSubtle,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  levelBadge: {
+    backgroundColor: 'rgba(230, 46, 76, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  levelBadgeText: {
+    color: THEME.colors.crimsonLight,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  cardBody: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 14,
+  },
+  mainWord: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: -0.5,
+    textAlign: 'center',
+  },
+  audioAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.crimson,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: THEME.radius.full,
+    gap: 8,
+    shadowColor: THEME.colors.crimson,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  audioActionText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  guideBox: {
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.25)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: THEME.radius.md,
+    alignItems: 'center',
+  },
+  guideLabel: {
+    color: THEME.colors.textSubtle,
+    fontSize: 10,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  guideText: {
+    color: '#ff8a9e',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  ipaSub: {
+    color: THEME.colors.textMuted,
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  translationWord: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: THEME.colors.emerald,
+    textAlign: 'center',
+  },
+  definitionText: {
+    fontSize: 13,
+    color: THEME.colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 10,
+  },
+  exampleCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 10,
+    padding: 12,
+    width: '100%',
+    borderLeftWidth: 3,
+    borderLeftColor: THEME.colors.emerald,
+    gap: 4,
+  },
+  exampleEn: {
+    color: '#ffffff',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  exampleEs: {
+    color: THEME.colors.textSubtle,
+    fontSize: 12,
+  },
+  tapTip: {
+    fontSize: 11,
+    color: THEME.colors.textSubtle,
+    marginTop: 10,
+  },
+  srsActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 24,
+  },
+  srsBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    paddingVertical: 12,
+    borderRadius: THEME.radius.md,
+    gap: 6,
+  },
+  srsBtnHard: {
+    borderColor: 'rgba(248, 113, 113, 0.3)',
+    backgroundColor: 'rgba(248, 113, 113, 0.08)',
+  },
+  srsBtnGood: {
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+  },
+  srsBtnEasy: {
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+  },
+  srsBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+  },
+  completeBadge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  completeTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  completeSubtitle: {
+    fontSize: 13,
+    color: THEME.colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 24,
+  },
+  buttonStack: {
+    width: '100%',
+    gap: 10,
+  },
+  restartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: THEME.colors.crimson,
+    paddingVertical: 14,
+    borderRadius: THEME.radius.md,
+  },
+  restartBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  backBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    paddingVertical: 14,
+    borderRadius: THEME.radius.md,
+  },
+  backBtnText: {
+    color: THEME.colors.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: THEME.colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+});

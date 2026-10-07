@@ -1,3 +1,4 @@
+import { appStorage } from './storage';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import {
   getAuth,
@@ -25,6 +26,30 @@ import {
 import { FirebaseConfig, UserProfile, WordItem } from '../types';
 import { StoredTestItem } from './testHistoryStore';
 import { backendApi } from './apiClient';
+
+export interface WelcomeEmailNotice {
+  to: string;
+  subject: string;
+  tempPassword?: string;
+  html?: string;
+  sentAt?: string;
+  username?: string;
+  [key: string]: any;
+}
+
+export interface StoredAccount {
+  id: string;
+  email: string;
+  username: string;
+  password?: string;
+  createdAt?: string;
+  fullName?: string;
+  full_name?: string;
+  avatarUrl?: string;
+  mustChangePassword?: boolean;
+  must_change_password?: boolean;
+  [key: string]: any;
+}
 
 const STORAGE_KEY_FIREBASE_CONFIG = 'pronounceit_firebase_config_v1';
 const STORAGE_KEY_FIREBASE_USER = 'pronounceit_firebase_user_v1';
@@ -95,16 +120,16 @@ class FirebaseService {
 
   private persistCurrentUser() {
     if (!this.currentUser) {
-      localStorage.removeItem(STORAGE_KEY_FIREBASE_USER);
+      appStorage.removeItem(STORAGE_KEY_FIREBASE_USER);
       return;
     }
     try {
-      localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(this.currentUser));
+      appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(this.currentUser));
     } catch (e) {
       console.warn('[FirebaseClient] localStorage quota exceeded, saving light user:', e);
       try {
         const lightUser = { ...this.currentUser, avatar_url: undefined };
-        localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(lightUser));
+        appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(lightUser));
       } catch {}
     }
     if (this.currentUser.avatar_url) {
@@ -114,7 +139,7 @@ class FirebaseService {
 
   private getStoredConfig(): FirebaseConfig | null {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY_FIREBASE_CONFIG);
+      const stored = appStorage.getItem(STORAGE_KEY_FIREBASE_CONFIG);
       if (stored) {
         return JSON.parse(stored);
       }
@@ -127,12 +152,36 @@ class FirebaseService {
   public getConfig(): FirebaseConfig {
     const stored = this.getStoredConfig();
     return {
-      apiKey: stored?.apiKey || import.meta.env.VITE_FIREBASE_API_KEY || '',
-      authDomain: stored?.authDomain || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-      projectId: stored?.projectId || import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-      storageBucket: stored?.storageBucket || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-      messagingSenderId: stored?.messagingSenderId || import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-      appId: stored?.appId || import.meta.env.VITE_FIREBASE_APP_ID || '',
+      apiKey:
+        stored?.apiKey ||
+        process.env.EXPO_PUBLIC_FIREBASE_API_KEY ||
+        process.env.VITE_FIREBASE_API_KEY ||
+        '',
+      authDomain:
+        stored?.authDomain ||
+        process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ||
+        process.env.VITE_FIREBASE_AUTH_DOMAIN ||
+        '',
+      projectId:
+        stored?.projectId ||
+        process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ||
+        process.env.VITE_FIREBASE_PROJECT_ID ||
+        '',
+      storageBucket:
+        stored?.storageBucket ||
+        process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+        process.env.VITE_FIREBASE_STORAGE_BUCKET ||
+        '',
+      messagingSenderId:
+        stored?.messagingSenderId ||
+        process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ||
+        process.env.VITE_FIREBASE_MESSAGING_SENDER_ID ||
+        '',
+      appId:
+        stored?.appId ||
+        process.env.EXPO_PUBLIC_FIREBASE_APP_ID ||
+        process.env.VITE_FIREBASE_APP_ID ||
+        '',
       isConnected: this.isConnected,
     };
   }
@@ -149,7 +198,7 @@ class FirebaseService {
   private init() {
     // 1. Synchronously restore cached user (purge demo users)
     try {
-      const cached = localStorage.getItem(STORAGE_KEY_FIREBASE_USER);
+      const cached = appStorage.getItem(STORAGE_KEY_FIREBASE_USER);
       if (cached) {
         const u = JSON.parse(cached);
         if (
@@ -158,9 +207,9 @@ class FirebaseService {
           u.email?.toLowerCase() === 'alexgorbatow@yandex.ru' ||
           u.id === 'demo-user-1'
         ) {
-          localStorage.removeItem(STORAGE_KEY_FIREBASE_USER);
-          localStorage.removeItem('pronounceit_saved_email');
-          localStorage.removeItem('pronounceit_saved_username');
+          appStorage.removeItem(STORAGE_KEY_FIREBASE_USER);
+          appStorage.removeItem('pronounceit_saved_email');
+          appStorage.removeItem('pronounceit_saved_username');
           this.currentUser = null;
         } else {
           this.currentUser = u;
@@ -282,7 +331,7 @@ class FirebaseService {
         return { success: false, message: 'apiKey, projectId y appId son campos requeridos.' };
       }
 
-      localStorage.setItem(STORAGE_KEY_FIREBASE_CONFIG, JSON.stringify(fullConfig));
+      appStorage.setItem(STORAGE_KEY_FIREBASE_CONFIG, JSON.stringify(fullConfig));
 
       // Re-initialize
       try {
@@ -338,7 +387,7 @@ class FirebaseService {
 
   private getStoredAccounts(): StoredAccount[] {
     try {
-      const raw = localStorage.getItem('pronounceit_registered_accounts_v1');
+      const raw = appStorage.getItem('pronounceit_registered_accounts_v1');
       return raw ? JSON.parse(raw) : [];
     } catch {
       return [];
@@ -346,7 +395,7 @@ class FirebaseService {
   }
 
   private saveStoredAccounts(accounts: StoredAccount[]) {
-    localStorage.setItem('pronounceit_registered_accounts_v1', JSON.stringify(accounts));
+    appStorage.setItem('pronounceit_registered_accounts_v1', JSON.stringify(accounts));
   }
 
   public getSavedAvatar(userId?: string, username?: string, email?: string): string | undefined {
@@ -359,7 +408,7 @@ class FirebaseService {
       ].filter(Boolean) as string[];
 
       for (const k of keys) {
-        const val = localStorage.getItem(k);
+        const val = appStorage.getItem(k);
         if (val && (val.startsWith('data:image') || val.startsWith('http'))) {
           return val;
         }
@@ -383,10 +432,10 @@ class FirebaseService {
   public saveAvatar(userId?: string, avatarUrl?: string, username?: string, email?: string) {
     if (!avatarUrl) return;
     try {
-      if (userId) localStorage.setItem(`pronounceit_avatar_${userId}`, avatarUrl);
-      if (username) localStorage.setItem(`pronounceit_avatar_${username.toLowerCase()}`, avatarUrl);
-      if (email) localStorage.setItem(`pronounceit_avatar_${email.toLowerCase()}`, avatarUrl);
-      localStorage.setItem('pronounceit_last_avatar', avatarUrl);
+      if (userId) appStorage.setItem(`pronounceit_avatar_${userId}`, avatarUrl);
+      if (username) appStorage.setItem(`pronounceit_avatar_${username.toLowerCase()}`, avatarUrl);
+      if (email) appStorage.setItem(`pronounceit_avatar_${email.toLowerCase()}`, avatarUrl);
+      appStorage.setItem('pronounceit_last_avatar', avatarUrl);
     } catch (e) {
       console.warn('[FirebaseClient] localStorage setItem in saveAvatar failed (quota?):', e);
     }
@@ -437,7 +486,7 @@ class FirebaseService {
           role: 'user',
         };
         this.currentUser = profile;
-        localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
+        appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
         this.notify();
         return { success: true, user: profile };
       } catch (err: any) {
@@ -461,7 +510,7 @@ class FirebaseService {
           created_at: sUser.created_at,
         };
         this.currentUser = profile;
-        localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
+        appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
         this.notify();
         return {
           success: true,
@@ -504,7 +553,7 @@ class FirebaseService {
         created_at: existing.createdAt,
       };
       this.currentUser = profile;
-      localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
+      appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
       this.notify();
       return {
         success: true,
@@ -616,7 +665,7 @@ class FirebaseService {
 
     if (this.currentUser) {
       this.currentUser.must_change_password = false;
-      localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(this.currentUser));
+      appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(this.currentUser));
       backendApi.changePassword({ email: this.currentUser.email, newPassword }).catch(() => {});
       this.notify();
     }
@@ -653,7 +702,7 @@ class FirebaseService {
       }
     }
     this.currentUser = null;
-    localStorage.removeItem(STORAGE_KEY_FIREBASE_USER);
+    appStorage.removeItem(STORAGE_KEY_FIREBASE_USER);
     this.notify();
   }
 
@@ -676,13 +725,18 @@ class FirebaseService {
       return { success: false, message: 'La nueva contraseña debe tener al menos 6 caracteres.' };
     }
 
-    const resolvedAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl : this.currentUser.avatar_url;
+    if (!this.currentUser) {
+      return { success: false, message: 'No hay usuario autenticado.' };
+    }
+
+    const current = this.currentUser;
+    const resolvedAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl : current.avatar_url;
 
     this.currentUser = {
-      ...this.currentUser,
-      full_name: cleanFullName || this.currentUser.full_name,
-      username: cleanUsername || this.currentUser.username,
-      email: cleanEmail || this.currentUser.email,
+      ...current,
+      full_name: cleanFullName || current.full_name,
+      username: cleanUsername || current.username,
+      email: cleanEmail || current.email,
       avatar_url: resolvedAvatar,
     };
     this.persistCurrentUser();
@@ -697,9 +751,9 @@ class FirebaseService {
       const accounts = this.getStoredAccounts();
       const existingIdx = accounts.findIndex(
         (a) =>
-          a.id === this.currentUser!.id ||
-          a.username.toLowerCase() === this.currentUser!.username.toLowerCase() ||
-          a.email.toLowerCase() === this.currentUser!.email.toLowerCase()
+          a.id === current.id ||
+          (a.username && current.username && a.username.toLowerCase() === current.username.toLowerCase()) ||
+          (a.email && current.email && a.email.toLowerCase() === current.email.toLowerCase())
       );
       if (existingIdx !== -1) {
         accounts[existingIdx] = {
@@ -712,10 +766,10 @@ class FirebaseService {
         };
       } else {
         accounts.push({
-          id: this.currentUser.id,
-          email: this.currentUser.email,
-          username: this.currentUser.username,
-          fullName: this.currentUser.full_name,
+          id: current.id,
+          email: current.email,
+          username: current.username || '',
+          fullName: current.full_name,
           password: updates.newPassword || '12345',
           avatarUrl: resolvedAvatar,
           mustChangePassword: false,
@@ -729,7 +783,7 @@ class FirebaseService {
     if (this.auth?.currentUser) {
       try {
         const authUpdates: { displayName?: string; photoURL?: string } = {
-          displayName: cleanFullName || this.currentUser.full_name,
+          displayName: cleanFullName || current.full_name,
         };
         if (resolvedAvatar && resolvedAvatar.startsWith('http')) {
           authUpdates.photoURL = resolvedAvatar;
@@ -747,16 +801,19 @@ class FirebaseService {
     if (this.db) {
       try {
         const userData = {
-          full_name: this.currentUser.full_name,
-          username: this.currentUser.username,
+          full_name: current.full_name,
+          username: current.username,
           avatar_url: resolvedAvatar || null,
-          email: this.currentUser.email,
+          email: current.email,
           updated_at: new Date().toISOString(),
         };
-        await Promise.all([
-          setDoc(doc(this.db, 'users', this.currentUser.id), userData, { merge: true }),
-          setDoc(doc(this.db, 'users', this.currentUser.username.toLowerCase()), userData, { merge: true }),
-        ]);
+        const promises = [
+          setDoc(doc(this.db, 'users', current.id), userData, { merge: true }),
+        ];
+        if (current.username) {
+          promises.push(setDoc(doc(this.db, 'users', current.username.toLowerCase()), userData, { merge: true }));
+        }
+        await Promise.all(promises);
       } catch (err) {
         console.warn('[Firebase] Error actualizando usuario en Firestore:', err);
       }
@@ -769,12 +826,12 @@ class FirebaseService {
     if (userId) return userId;
     if (this.currentUser?.id) return this.currentUser.id;
     try {
-      const stored = localStorage.getItem(STORAGE_KEY_FIREBASE_USER);
+      const stored = appStorage.getItem(STORAGE_KEY_FIREBASE_USER);
       if (stored) {
         const u = JSON.parse(stored);
         if (u.id) return u.id;
       }
-      const legacyUser = localStorage.getItem('pronounceit_user_v1');
+      const legacyUser = appStorage.getItem('pronounceit_user_v1');
       if (legacyUser) {
         const lu = JSON.parse(legacyUser);
         if (lu.id) return lu.id;

@@ -1,25 +1,32 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Volume2,
-  Download,
-  Plus,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  Alert,
+} from 'react-native';
+import {
   Search,
-  ChevronDown,
+  Plus,
+  Volume2,
   Star,
-  Edit2,
-  MoreVertical,
-  CheckCircle2,
-  Clock,
-  Layers,
-  ChevronLeft,
-  ChevronRight,
   Trash2,
-  PanelLeftOpen,
+  Edit3,
+  Layers,
+  Download,
+  Filter,
+  CheckCircle,
+  Clock,
+  Sparkles,
   BookOpen,
-} from 'lucide-react';
-import { WordItem, WordLevel, WordStatus } from '../../types';
-import { SelectedFilter } from './SidebarCategories';
+} from 'lucide-react-native';
+import { WordItem, WordStatus } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
+import { SelectedFilter } from './SidebarCategories';
+import { THEME } from '../../theme';
 
 interface VocabularyTableViewProps {
   words: WordItem[];
@@ -28,38 +35,16 @@ interface VocabularyTableViewProps {
   onToggleSidebar?: () => void;
   onOpenAddModal: () => void;
   onOpenExportModal: () => void;
-  onStartPractice: (categoryWords?: WordItem[]) => void;
+  onStartPractice: () => void;
   onEditWord: (word: WordItem) => void;
   onToggleFavorite: (id: string) => void;
   onUpdateStatus: (id: string, status: WordStatus) => void;
   onDeleteWord: (id: string) => void;
 }
 
-function highlightWordInSentence(sentence?: string, targetWord?: string) {
-  if (!sentence) return null;
-  if (!targetWord) return sentence;
-  try {
-    const escaped = targetWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(${escaped})`, 'gi');
-    return sentence.split(regex).map((part, i) =>
-      part.toLowerCase() === targetWord.toLowerCase() ? (
-        <strong key={i} className="text-[#ff758c] font-black not-italic underline decoration-1 underline-offset-2">
-          {part}
-        </strong>
-      ) : (
-        part
-      )
-    );
-  } catch {
-    return sentence;
-  }
-}
-
 export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   words,
   selectedFilter,
-  isSidebarCollapsed = false,
-  onToggleSidebar,
   onOpenAddModal,
   onOpenExportModal,
   onStartPractice,
@@ -69,776 +54,547 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   onDeleteWord,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [levelFilter, setLevelFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [speakingWordId, setSpeakingWordId] = useState<string | null>(null);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(6);
-
-  // Filter words based on selected sidebar filter, search, and table dropdowns
+  // Filter words
   const filteredWords = useMemo(() => {
     return words.filter((w) => {
-      if (selectedFilter.type === 'favorites' && !w.isFavorite) return false;
-      if (selectedFilter.type === 'review' && w.status !== 'en_repaso') return false;
+      // 1. Text Search
+      if (searchTerm.trim()) {
+        const query = searchTerm.toLowerCase();
+        const matchWord = w.word.toLowerCase().includes(query);
+        const matchTrans = w.translation.toLowerCase().includes(query);
+        const matchIpa = w.ipa.toLowerCase().includes(query);
+        const matchGuide = (w.phoneticGuide || '').toLowerCase().includes(query);
+        if (!matchWord && !matchTrans && !matchIpa && !matchGuide) return false;
+      }
+
+      // 2. Filter Category / Status
+      if (selectedFilter.type === 'favorites') return w.isFavorite;
+      if (selectedFilter.type === 'review') return w.status === 'en_repaso';
+      if (selectedFilter.type === 'mastered') return w.status === 'dominada';
+      if (selectedFilter.type === 'level') return w.level === selectedFilter.level;
       if (selectedFilter.type === 'category') {
         if (w.categoryGroup !== selectedFilter.group) return false;
         if (selectedFilter.sub && w.categorySub !== selectedFilter.sub) return false;
       }
 
-      if (levelFilter !== 'all' && w.level !== levelFilter) return false;
-      if (statusFilter !== 'all' && w.status !== statusFilter) return false;
-
-      if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase();
-        const wordText = (w.word || '').toLowerCase();
-        const translationText = (w.translation || '').toLowerCase();
-        const ipaText = (w.ipa || (w as any).phonetic || '').toLowerCase();
-        const guideText = (w.phoneticGuide || '').toLowerCase();
-        if (!wordText.includes(q) && !translationText.includes(q) && !ipaText.includes(q) && !guideText.includes(q)) {
-          return false;
-        }
-      }
-
       return true;
     });
-  }, [words, selectedFilter, levelFilter, statusFilter, searchTerm]);
+  }, [words, searchTerm, selectedFilter]);
 
-  // Compute pagination
-  const totalPages = Math.max(1, Math.ceil(filteredWords.length / rowsPerPage));
-  const validPage = Math.min(currentPage, totalPages);
-  const startIndex = (validPage - 1) * rowsPerPage;
-  const pageWords = filteredWords.slice(startIndex, startIndex + rowsPerPage);
-
-  const { breadcrumb, title, levelBadge, pendingReviewCount } = useMemo(() => {
-    let bread = 'Grammar';
-    let t = 'Grammar';
-    let badge = 'A1 - C2';
-
-    if (selectedFilter.type === 'all') {
-      bread = 'Biblioteca / Todas las palabras';
-      t = 'Todas las palabras';
-      badge = 'A1 - C2';
-    } else if (selectedFilter.type === 'favorites') {
-      bread = 'Colecciones / Favoritas';
-      t = 'Palabras Favoritas';
-      badge = 'Personalizado';
-    } else if (selectedFilter.type === 'review') {
-      bread = 'Repaso SRS / Pendientes de hoy';
-      t = 'Por repasar hoy';
-      badge = 'Prioritario';
-    } else if (selectedFilter.type === 'category') {
-      bread = `${selectedFilter.group} ${selectedFilter.sub ? `/ ${selectedFilter.sub}` : ''}`;
-      t = selectedFilter.sub || selectedFilter.group;
-      badge = 'A1 - C2';
-    }
-
-    const pending = filteredWords.filter((w) => w.status === 'en_repaso').length;
-    return {
-      breadcrumb: bread,
-      title: t,
-      levelBadge: badge,
-      pendingReviewCount: pending,
-    };
-  }, [selectedFilter, filteredWords]);
-
-  const handleSpeak = (word: WordItem) => {
-    setSpeakingWordId(word.id);
-    vocabService.speak(word.word);
-    setTimeout(() => {
-      setSpeakingWordId((prev) => (prev === word.id ? null : prev));
-    }, 1200);
-  };
-
-  const getStatusBadge = (status: WordStatus) => {
-    if (status === 'dominada') {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          Dominada
-        </span>
-      );
-    }
-    if (status === 'en_repaso') {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-          En repaso
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30">
-        <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-        Nueva
-      </span>
+  const confirmDelete = (word: WordItem) => {
+    Alert.alert(
+      'Eliminar palabra',
+      `¿Seguro que deseas eliminar "${word.word}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => onDeleteWord(word.id) },
+      ]
     );
   };
 
-  const getLevelBadgeClass = (lvl: WordLevel) => {
-    switch (lvl) {
-      case 'A1':
-      case 'A2':
-        return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
-      case 'B1':
-        return 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
-      case 'B2':
-        return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
-      case 'C1':
-      case 'C2':
-        return 'bg-purple-500/20 text-purple-300 border border-purple-500/30';
-      default:
-        return 'bg-white/10 text-slate-300';
-    }
+  const cycleStatus = (word: WordItem) => {
+    const nextStatus: Record<WordStatus, WordStatus> = {
+      nueva: 'en_repaso',
+      en_repaso: 'dominada',
+      dominada: 'nueva',
+    };
+    onUpdateStatus(word.id, nextStatus[word.status] || 'nueva');
+  };
+
+  const renderWordItem = ({ item }: { item: WordItem }) => {
+    const isMastered = item.status === 'dominada';
+    const isReview = item.status === 'en_repaso';
+
+    return (
+      <View style={styles.card}>
+        {/* Top Card Row */}
+        <View style={styles.cardHeader}>
+          <View style={styles.wordTitleRow}>
+            <Text style={styles.wordText}>{item.word}</Text>
+
+            <TouchableOpacity
+              style={styles.speakerBtn}
+              onPress={() => vocabService.speak(item.word)}
+              activeOpacity={0.7}
+            >
+              <Volume2 size={16} color={THEME.colors.crimsonLight} />
+            </TouchableOpacity>
+
+            {item.partOfSpeech ? (
+              <View style={styles.posBadge}>
+                <Text style={styles.posBadgeText}>{item.partOfSpeech}</Text>
+              </View>
+            ) : null}
+
+            {item.level ? (
+              <View style={styles.levelBadge}>
+                <Text style={styles.levelBadgeText}>{item.level}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Favorite & Options */}
+          <View style={styles.cardHeaderActions}>
+            <TouchableOpacity
+              onPress={() => onToggleFavorite(item.id)}
+              style={styles.actionIconBtn}
+            >
+              <Star
+                size={18}
+                color={item.isFavorite ? '#eab308' : THEME.colors.textSubtle}
+                fill={item.isFavorite ? '#eab308' : 'transparent'}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => onEditWord(item)}
+              style={styles.actionIconBtn}
+            >
+              <Edit3 size={16} color={THEME.colors.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => confirmDelete(item)}
+              style={styles.actionIconBtn}
+            >
+              <Trash2 size={16} color="#f87171" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Phonetics */}
+        <View style={styles.phoneticsRow}>
+          {item.phoneticGuide ? (
+            <View style={styles.phoneticGuideBadge}>
+              <Text style={styles.phoneticGuideText}>
+                {item.phoneticGuide.startsWith('"') ? item.phoneticGuide : `"${item.phoneticGuide}"`}
+              </Text>
+            </View>
+          ) : null}
+
+          {item.ipa ? (
+            <Text style={styles.ipaText}>{item.ipa}</Text>
+          ) : null}
+        </View>
+
+        {/* Translation */}
+        <View style={styles.translationRow}>
+          <Text style={styles.translationText}>{item.translation}</Text>
+        </View>
+
+        {/* Example Sentences */}
+        {item.exampleEn ? (
+          <View style={styles.exampleBox}>
+            <Text style={styles.exampleEn}>{item.exampleEn}</Text>
+            {item.exampleEs ? (
+              <Text style={styles.exampleEs}>{item.exampleEs}</Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Footer: Category & Status */}
+        <View style={styles.cardFooter}>
+          <Text style={styles.categorySubText}>
+            {item.categoryGroup || 'General'}
+            {item.categorySub ? ` • ${item.categorySub}` : ''}
+          </Text>
+
+          <TouchableOpacity
+            style={[
+              styles.statusPill,
+              isMastered && styles.statusPillMastered,
+              isReview && styles.statusPillReview,
+            ]}
+            onPress={() => cycleStatus(item)}
+            activeOpacity={0.8}
+          >
+            {isMastered ? (
+              <CheckCircle size={12} color={THEME.colors.emerald} />
+            ) : isReview ? (
+              <Clock size={12} color={THEME.colors.amber} />
+            ) : (
+              <Sparkles size={12} color={THEME.colors.cyan} />
+            )}
+            <Text
+              style={[
+                styles.statusPillText,
+                isMastered && styles.statusTextMastered,
+                isReview && styles.statusTextReview,
+              ]}
+            >
+              {isMastered ? 'Dominada' : isReview ? 'En repaso' : 'Nueva'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
 
   return (
-    <div className="flex-1 flex flex-col gap-5 select-none" onClick={() => setActiveMenuId(null)}>
-      {/* Upper Area: Breadcrumb, Title & Top Action Buttons */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Left: Breadcrumb & Title */}
-        <div>
-          <div className="flex items-center gap-2.5">
-            {isSidebarCollapsed && onToggleSidebar && (
-              <button
-                type="button"
-                onClick={onToggleSidebar}
-                title="Mostrar menú lateral"
-                className="px-2.5 py-1 rounded-lg bg-[#e62e4c]/20 hover:bg-[#e62e4c]/30 border border-[#e62e4c]/40 text-pink-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-sm"
-              >
-                <PanelLeftOpen size={14} className="text-[#ff4d6d]" />
-                <span>Mostrar menú</span>
-              </button>
-            )}
-            <p className="text-xs font-medium text-slate-400 tracking-tight">{breadcrumb}</p>
-          </div>
-          <div className="flex items-center gap-3 mt-1">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">{title}</h1>
-            <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-[#e62e4c]/20 text-pink-300 border border-[#e62e4c]/30 whitespace-nowrap shrink-0">
-              {levelBadge}
-            </span>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">
-            <span className="font-semibold text-slate-200">{filteredWords.length} palabras registradas</span>
-            {pendingReviewCount > 0 && (
-              <>
-                {' · '}
-                <span className="text-amber-400 font-semibold">{pendingReviewCount} pendientes de repaso prioritario</span>
-              </>
-            )}
-          </p>
-        </div>
-
-        {/* Right Action Buttons */}
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
-          {/* Exportar / Importar */}
-          <button
-            type="button"
-            onClick={onOpenExportModal}
-            className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
-          >
-            <Download size={14} className="text-slate-300" />
-            <span className="truncate">Exportar / Importar</span>
-          </button>
-
-          {/* Practicar esta categoría */}
-          <button
-            type="button"
-            onClick={() => onStartPractice(filteredWords)}
-            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold text-xs tracking-tight transition-all shadow-md shadow-purple-900/30 border border-white/10 flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
-          >
-            <Layers size={14} />
-            <span className="truncate">Practicar</span>
-          </button>
-
-          {/* + Añadir Palabra */}
-          <button
-            type="button"
-            onClick={onOpenAddModal}
-            className="col-span-2 sm:col-span-1 px-4 py-2 rounded-xl bg-[#e62e4c] hover:bg-[#ff3b59] text-white font-semibold text-xs tracking-tight transition-all shadow-md shadow-[#e62e4c]/30 flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
-          >
-            <Plus size={15} />
-            <span>Añadir Palabra</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Filter and Search Bar matching login dark style */}
-      <div className="bg-[#181226]/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] p-3 sm:p-4 flex flex-col md:flex-row items-center gap-3">
-        {/* Search Input with ⌘F */}
-        <div className="relative flex-1 w-full">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          <input
-            type="text"
+    <View style={styles.container}>
+      {/* Top Controls Row */}
+      <View style={styles.controlsBar}>
+        {/* Search input */}
+        <View style={styles.searchContainer}>
+          <Search size={16} color={THEME.colors.textSubtle} style={{ marginRight: 8 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar palabras, traducción o pronunciación..."
+            placeholderTextColor={THEME.colors.textSubtle}
             value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            placeholder="Buscar por palabra en inglés, español o fonética..."
-            className="w-full pl-10 pr-12 py-2 rounded-xl bg-black/40 hover:bg-black/60 focus:bg-black/80 border border-white/10 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#e62e4c] focus:border-[#e62e4c] transition-all"
+            onChangeText={setSearchTerm}
           />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/10 text-slate-400 select-none">
-            ⌘F
-          </span>
-        </div>
+        </View>
 
-        {/* Dropdowns */}
-        <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0">
-          {/* Nivel Dropdown */}
-          <div className="relative flex-1 md:flex-none">
-            <select
-              value={levelFilter}
-              onChange={(e) => {
-                setLevelFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full md:w-auto appearance-none pl-3 pr-8 py-2 rounded-xl bg-black/40 hover:bg-black/60 border border-white/10 text-xs font-medium text-white focus:outline-none focus:border-[#e62e4c] cursor-pointer"
+        {/* Actions Button Row */}
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={styles.primaryAddBtn}
+            onPress={onOpenAddModal}
+            activeOpacity={0.85}
+          >
+            <Plus size={16} color="#ffffff" style={{ marginRight: 6 }} />
+            <Text style={styles.primaryAddBtnText}>Añadir Palabra</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            onPress={onStartPractice}
+            activeOpacity={0.8}
+          >
+            <Layers size={16} color={THEME.colors.crimsonLight} style={{ marginRight: 6 }} />
+            <Text style={styles.secondaryBtnText}>Flashcards</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.iconOnlyBtn}
+            onPress={onOpenExportModal}
+            activeOpacity={0.8}
+          >
+            <Download size={16} color={THEME.colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Words Feed */}
+      <FlatList
+        data={filteredWords}
+        keyExtractor={(item) => item.id}
+        renderItem={renderWordItem}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconCircle}>
+              <BookOpen size={32} color={THEME.colors.crimsonLight} />
+            </View>
+            <Text style={styles.emptyTitle}>No hay palabras registradas</Text>
+            <Text style={styles.emptySubtitle}>
+              {searchTerm
+                ? 'No se encontraron coincidencias para tu búsqueda.'
+                : 'Empieza agregando tu primera palabra o importa un archivo de vocabulario.'}
+            </Text>
+            <TouchableOpacity
+              style={styles.emptyAddBtn}
+              onPress={onOpenAddModal}
             >
-              <option value="all" className="bg-[#1c162e] text-white">Nivel: Todos (A1-C2)</option>
-              <option value="A1" className="bg-[#1c162e] text-white">Nivel: A1</option>
-              <option value="A2" className="bg-[#1c162e] text-white">Nivel: A2</option>
-              <option value="B1" className="bg-[#1c162e] text-white">Nivel: B1</option>
-              <option value="B2" className="bg-[#1c162e] text-white">Nivel: B2</option>
-              <option value="C1" className="bg-[#1c162e] text-white">Nivel: C1</option>
-              <option value="C2" className="bg-[#1c162e] text-white">Nivel: C2</option>
-            </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          </div>
-
-          {/* Estado Dropdown */}
-          <div className="relative flex-1 md:flex-none">
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full md:w-auto appearance-none pl-3 pr-8 py-2 rounded-xl bg-black/40 hover:bg-black/60 border border-white/10 text-xs font-medium text-white focus:outline-none focus:border-[#e62e4c] cursor-pointer"
-            >
-              <option value="all" className="bg-[#1c162e] text-white">Estado: Todos</option>
-              <option value="dominada" className="bg-[#1c162e] text-white">Dominada</option>
-              <option value="en_repaso" className="bg-[#1c162e] text-white">En repaso</option>
-              <option value="nueva" className="bg-[#1c162e] text-white">Nueva</option>
-            </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          </div>
-        </div>
-      </div>
-
-      {/* Main Vocabulary Table Container */}
-      <div className="bg-[#181226]/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-[0_15px_40px_rgba(0,0,0,0.6)] overflow-hidden">
-        {/* Mobile View: High-Performance Card Feed (< 768px) */}
-        <div className="md:hidden divide-y divide-white/5">
-          {pageWords.length === 0 ? (
-            <div className="py-12 px-4 text-center text-slate-400">
-              <div className="w-12 h-12 mx-auto rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[#ff4d6d] mb-3">
-                <BookOpen size={22} />
-              </div>
-              <p className="text-sm font-bold text-white">No hay palabras en esta sección</p>
-              <button
-                type="button"
-                onClick={onOpenAddModal}
-                className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#e62e4c] text-white text-xs font-bold shadow-lg cursor-pointer"
-              >
-                <Plus size={14} />
-                <span>Añadir primera palabra</span>
-              </button>
-            </div>
-          ) : (
-            pageWords.map((item) => (
-              <div key={item.id} className="p-4 space-y-3 bg-[#181226]/40 hover:bg-[#181226]/70 transition-colors">
-                {/* Header: Word + Level + Part of speech + Audio & Favorite */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-base font-extrabold text-white tracking-tight">
-                        {item.word}
-                      </h3>
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#e62e4c]/20 text-pink-300 border border-[#e62e4c]/30 whitespace-nowrap">
-                        {item.level || 'B1'}
-                      </span>
-                      {item.partOfSpeech && (
-                        <span className="text-[10px] italic text-slate-400">
-                          {item.partOfSpeech}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Phonetics */}
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="font-mono text-xs font-bold text-[#ff758c]">
-                        {item.ipa || (item as any).phonetic || `/${item.word.toLowerCase()}/`}
-                      </span>
-                      {item.phoneticGuide && (
-                        <span className="text-[11px] text-slate-300">
-                          {item.phoneticGuide}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Actions: Audio & Star */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleSpeak(item)}
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-all cursor-pointer ${
-                        speakingWordId === item.id
-                          ? 'bg-[#e62e4c] text-white border-transparent shadow-[0_0_15px_rgba(230,46,76,0.6)] animate-pulse'
-                          : 'bg-[#e62e4c]/15 hover:bg-[#e62e4c]/25 text-[#ff4d6d] border-[#e62e4c]/30'
-                      }`}
-                      title="Pronunciar"
-                    >
-                      <Volume2 size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onToggleFavorite(item.id)}
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-all cursor-pointer ${
-                        item.isFavorite
-                          ? 'bg-amber-400/20 text-amber-400 border-amber-400/30'
-                          : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
-                      }`}
-                      title="Favorito"
-                    >
-                      <Star size={16} className={item.isFavorite ? 'fill-amber-400' : ''} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Translation & Definition */}
-                <div className="bg-black/30 rounded-xl p-2.5 border border-white/5 space-y-0.5">
-                  <p className="text-xs font-bold text-white">
-                    {item.translation}
-                  </p>
-                  {item.definition && (
-                    <p className="text-[11px] text-slate-400">
-                      {item.definition}
-                    </p>
-                  )}
-                </div>
-
-                {/* Example sentence */}
-                {(() => {
-                  const enSentence = item.exampleEn || (item as any).example || '';
-                  const esSentence = item.exampleEs || (item as any).exampleTranslation || '';
-                  if (!enSentence && !esSentence) return null;
-                  return (
-                    <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 space-y-1">
-                      {enSentence && (
-                        <p className="text-xs text-slate-200 leading-relaxed font-normal">
-                          "{highlightWordInSentence(enSentence, item.word)}"
-                        </p>
-                      )}
-                      {esSentence && (
-                        <p className="text-[11px] text-slate-400 leading-relaxed">
-                          "{esSentence}"
-                        </p>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Status & Edit/Delete */}
-                <div className="flex items-center justify-between pt-1">
-                  <span
-                    onClick={() => {
-                      const nextStatus: WordStatus =
-                        item.status === 'dominada' ? 'nueva' : item.status === 'nueva' ? 'en_repaso' : 'dominada';
-                      onUpdateStatus(item.id, nextStatus);
-                    }}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border cursor-pointer active:scale-95 transition-all flex items-center gap-1 ${
-                      item.status === 'dominada'
-                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                        : item.status === 'en_repaso'
-                        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                        : 'bg-blue-500/15 text-blue-300 border-blue-500/30'
-                    }`}
-                  >
-                    {item.status === 'dominada' ? (
-                      <>
-                        <CheckCircle2 size={11} />
-                        <span>Dominada</span>
-                      </>
-                    ) : item.status === 'en_repaso' ? (
-                      <>
-                        <Clock size={11} />
-                        <span>En repaso</span>
-                      </>
-                    ) : (
-                      <span>Nueva</span>
-                    )}
-                  </span>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onEditWord(item)}
-                      className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-medium flex items-center gap-1 cursor-pointer"
-                    >
-                      <Edit2 size={12} />
-                      <span>Editar</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDeleteWord(item.id)}
-                      className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 cursor-pointer"
-                      title="Eliminar"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Desktop & Tablet Table (>= 768px) */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
-            {/* Table Header matching login dark theme */}
-            <thead>
-              <tr className="bg-[#140f21] border-b border-white/10 text-[10px] font-bold tracking-wider uppercase text-slate-400">
-                <th className="py-3.5 pl-6 pr-4 w-[22%]">Palabra (Inglés)</th>
-                <th className="py-3.5 px-4 w-[20%]">Fonética & Pronunciación</th>
-                <th className="py-3.5 px-4 w-[20%]">Traducción (Español)</th>
-                <th className="py-3.5 px-4 w-[26%]">Frase de ejemplo (Bilingüe)</th>
-                <th className="py-3.5 pr-6 pl-4 w-[12%] text-right">Estado & Acciones</th>
-              </tr>
-            </thead>
-
-            {/* Table Body */}
-            <tbody className="divide-y divide-white/5 text-xs">
-              {pageWords.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-16 text-center text-slate-400">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[#ff4d6d]">
-                        <BookOpen size={24} />
-                      </div>
-                      <p className="text-base font-bold text-white">No hay palabras en esta sección</p>
-                      <p className="text-xs text-slate-400 max-w-md">
-                        Las categorías <strong>Grammar</strong> y <strong>Readings</strong> están listas para que comiences a agregar tus propias palabras y expresiones.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={onOpenAddModal}
-                        className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#e62e4c] to-[#ff4d6d] hover:brightness-110 text-white text-xs font-bold shadow-lg shadow-[#e62e4c]/25 cursor-pointer active:scale-95 transition-all"
-                      >
-                        <Plus size={15} />
-                        <span>Añadir primera palabra</span>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                pageWords.map((item) => {
-                  const isSpeaking = speakingWordId === item.id;
-
-                  return (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-white/[0.04] transition-colors group"
-                    >
-                      {/* Column 1: Audio Button + English Word + POS + Level */}
-                      <td className="py-4 pl-6 pr-4 align-top">
-                        <div className="flex items-start gap-3">
-                          {/* Audio Speaker Button */}
-                          <button
-                            type="button"
-                            onClick={() => handleSpeak(item)}
-                            className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all cursor-pointer border ${
-                              isSpeaking
-                                ? 'bg-[#e62e4c] text-white scale-105 shadow-lg shadow-[#e62e4c]/40 border-[#e62e4c]'
-                                : 'bg-white/5 hover:bg-[#e62e4c]/20 text-[#ff4d6d] border-white/10 hover:border-[#e62e4c]/40'
-                            }`}
-                            title="Escuchar pronunciación (Inglés)"
-                          >
-                            <Volume2 size={16} className={isSpeaking ? 'animate-bounce' : ''} />
-                          </button>
-
-                          {/* Word + badges */}
-                          <div>
-                            <span className="font-extrabold text-sm sm:text-base text-white tracking-tight block">
-                              {item.word}
-                            </span>
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <span className="text-[11px] italic text-slate-400 font-medium">
-                                {item.partOfSpeech}
-                              </span>
-                              <span
-                                className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${getLevelBadgeClass(
-                                  item.level
-                                )}`}
-                              >
-                                {item.level}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Column 2: Fonética & Pronunciación */}
-                      <td className="py-4 px-4 align-top">
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() => handleSpeak(item)}
-                            className="font-mono text-[#ff758c] font-bold hover:underline cursor-pointer block tracking-wide"
-                            title="Reproducir fonética"
-                          >
-                            {item.ipa}
-                          </button>
-                          <span className="text-[11px] text-slate-200 font-medium block mt-0.5">
-                            {item.phoneticGuide}
-                          </span>
-                          {item.phoneticNote && (
-                            <span className="text-[10px] text-slate-400 block mt-0.5 leading-snug">
-                              {item.phoneticNote}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Column 3: Traducción (Español) */}
-                      <td className="py-4 px-4 align-top">
-                        <div>
-                          <span className="font-bold text-white block leading-snug">
-                            {item.translation}
-                          </span>
-                          {item.definition && (
-                            <span className="text-[11px] text-slate-400 block mt-0.5 leading-snug">
-                              {item.definition}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Column 4: Frase de ejemplo (Bilingüe) */}
-                      <td className="py-4 px-4 align-top">
-                        <div className="space-y-1">
-                          {(() => {
-                            const enSentence = item.exampleEn || (item as any).example || '';
-                            const esSentence = item.exampleEs || (item as any).exampleTranslation || '';
-                            if (!enSentence && !esSentence) {
-                              return <span className="text-[11px] text-slate-500 italic block">Sin ejemplo registrado</span>;
-                            }
-                            return (
-                              <>
-                                {enSentence && (
-                                  <p className="text-[11px] sm:text-xs text-slate-200 leading-relaxed font-normal">
-                                    "{highlightWordInSentence(enSentence, item.word)}"
-                                  </p>
-                                )}
-                                {esSentence && (
-                                  <p className="text-[10px] sm:text-[11px] text-slate-400 leading-relaxed">
-                                    "{esSentence}"
-                                  </p>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </div>
-                      </td>
-
-                      {/* Column 5: Estado & Acciones */}
-                      <td className="py-4 pr-6 pl-4 align-top text-right">
-                        <div className="flex flex-col items-end gap-2">
-                          {/* Status Badge */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const nextStatus: WordStatus =
-                                item.status === 'nueva'
-                                  ? 'en_repaso'
-                                  : item.status === 'en_repaso'
-                                  ? 'dominada'
-                                  : 'en_repaso';
-                              onUpdateStatus(item.id, nextStatus);
-                            }}
-                            className="cursor-pointer"
-                            title="Clic para cambiar estado de aprendizaje"
-                          >
-                            {getStatusBadge(item.status)}
-                          </button>
-
-                          {/* Quick Action Icons: Star, Edit, More */}
-                          <div className="flex items-center gap-1 text-slate-400 relative">
-                            {/* Star / Favorite */}
-                            <button
-                              type="button"
-                              onClick={() => onToggleFavorite(item.id)}
-                              className={`p-1 rounded-md transition-colors cursor-pointer ${
-                                item.isFavorite
-                                  ? 'text-amber-400 hover:text-amber-300'
-                                  : 'hover:text-white'
-                              }`}
-                              title={item.isFavorite ? 'Quitar de favoritas' : 'Añadir a favoritas'}
-                            >
-                              <Star
-                                size={15}
-                                className={item.isFavorite ? 'fill-amber-400 text-amber-400' : ''}
-                              />
-                            </button>
-
-                            {/* Edit */}
-                            <button
-                              type="button"
-                              onClick={() => onEditWord(item)}
-                              className="p-1 rounded-md hover:text-[#ff4d6d] transition-colors cursor-pointer"
-                              title="Editar término"
-                            >
-                              <Edit2 size={14} />
-                            </button>
-
-                            {/* More Options / Three dots */}
-                            <div className="relative">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenuId(activeMenuId === item.id ? null : item.id);
-                                }}
-                                className="p-1 rounded-md hover:text-white transition-colors cursor-pointer"
-                                title="Más opciones"
-                              >
-                                <MoreVertical size={14} />
-                              </button>
-
-                              {/* Dropdown Menu */}
-                              {activeMenuId === item.id && (
-                                <div
-                                  className="absolute right-0 top-6 w-38 rounded-xl bg-[#1c162e] border border-white/15 shadow-2xl py-1.5 z-30 text-left"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      onUpdateStatus(item.id, 'dominada');
-                                      setActiveMenuId(null);
-                                    }}
-                                    className="w-full px-3 py-1.5 text-[11px] text-emerald-300 hover:bg-emerald-500/15 font-medium flex items-center gap-1.5 cursor-pointer"
-                                  >
-                                    <CheckCircle2 size={12} />
-                                    <span>Marcar Dominada</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      onUpdateStatus(item.id, 'en_repaso');
-                                      setActiveMenuId(null);
-                                    }}
-                                    className="w-full px-3 py-1.5 text-[11px] text-amber-300 hover:bg-amber-500/15 font-medium flex items-center gap-1.5 cursor-pointer"
-                                  >
-                                    <Clock size={12} />
-                                    <span>Marcar En repaso</span>
-                                  </button>
-                                  <div className="border-t border-white/10 my-1" />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      onDeleteWord(item.id);
-                                      setActiveMenuId(null);
-                                    }}
-                                    className="w-full px-3 py-1.5 text-[11px] text-rose-400 hover:bg-rose-500/15 font-medium flex items-center gap-1.5 cursor-pointer"
-                                  >
-                                    <Trash2 size={12} />
-                                    <span>Eliminar palabra</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer / Pagination matching login dark theme */}
-        <div className="px-6 py-3.5 bg-[#140f21] border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
-          {/* Mostrando X de Y */}
-          <div className="flex items-center gap-4">
-            <span>
-              Mostrando <strong className="text-white">{pageWords.length > 0 ? startIndex + 1 : 0}</strong> -{' '}
-              <strong className="text-white">{startIndex + pageWords.length}</strong> de{' '}
-              <strong className="text-white">{filteredWords.length}</strong> palabras
-            </span>
-
-            {/* Filas por página */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-400">Filas por página:</span>
-              <select
-                value={rowsPerPage}
-                onChange={(e) => {
-                  setRowsPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="bg-black/40 border border-white/10 rounded-md px-1.5 py-0.5 text-xs text-white font-semibold focus:outline-none cursor-pointer"
-              >
-                <option value={6} className="bg-[#1c162e]">6</option>
-                <option value={10} className="bg-[#1c162e]">10</option>
-                <option value={20} className="bg-[#1c162e]">20</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Keyboard Shortcuts Hint */}
-          <div className="hidden lg:flex items-center gap-4 text-[11px] text-slate-400">
-            <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/10 font-mono text-[10px] text-slate-200">
-                Espacio
-              </kbd>{' '}
-              Audio
-            </span>
-            <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/10 font-mono text-[10px] text-slate-200">
-                N
-              </kbd>{' '}
-              Nueva palabra
-            </span>
-            <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/10 font-mono text-[10px] text-slate-200">
-                P
-              </kbd>{' '}
-              Comenzar práctica
-            </span>
-          </div>
-
-          {/* Pagination Controls */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={validPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="p-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-slate-300 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-              title="Página anterior"
-            >
-              <ChevronLeft size={15} />
-            </button>
-            <span className="text-xs font-semibold text-pink-300 px-2">
-              Pág. {validPage} de {totalPages}
-            </span>
-            <button
-              type="button"
-              disabled={validPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="p-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-slate-300 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-              title="Página siguiente"
-            >
-              <ChevronRight size={15} />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+              <Plus size={16} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={styles.emptyAddBtnText}>Añadir mi primera palabra</Text>
+            </TouchableOpacity>
+          </View>
+        }
+      />
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: THEME.colors.bgDark,
+  },
+  controlsBar: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    gap: 10,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.radius.lg,
+    paddingHorizontal: 14,
+    height: 44,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#ffffff',
+    fontSize: 13,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  primaryAddBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: THEME.colors.crimson,
+    borderRadius: THEME.radius.md,
+    height: 42,
+    shadowColor: THEME.colors.crimson,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  primaryAddBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  secondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.radius.md,
+    height: 42,
+    paddingHorizontal: 14,
+  },
+  secondaryBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  iconOnlyBtn: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.radius.md,
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+    gap: 12,
+  },
+  card: {
+    backgroundColor: THEME.colors.bgCard,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.radius.lg,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  wordTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    flex: 1,
+  },
+  wordText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: -0.3,
+  },
+  speakerBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(230, 46, 76, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  posBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  posBadgeText: {
+    color: THEME.colors.textMuted,
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  levelBadge: {
+    backgroundColor: 'rgba(230, 46, 76, 0.15)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.3)',
+  },
+  levelBadgeText: {
+    color: THEME.colors.crimsonLight,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  cardHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionIconBtn: {
+    padding: 4,
+  },
+  phoneticsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 8,
+  },
+  phoneticGuideBadge: {
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  phoneticGuideText: {
+    color: '#ff8a9e',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  ipaText: {
+    color: THEME.colors.textMuted,
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  translationRow: {
+    marginTop: 8,
+  },
+  translationText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#e2e8f0',
+  },
+  exampleBox: {
+    marginTop: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 8,
+    padding: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: THEME.colors.crimsonLight,
+    gap: 4,
+  },
+  exampleEn: {
+    color: '#f1f5f9',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  exampleEs: {
+    color: THEME.colors.textSubtle,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  categorySubText: {
+    fontSize: 11,
+    color: THEME.colors.textSubtle,
+    fontWeight: '500',
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(6, 182, 212, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(6, 182, 212, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: THEME.radius.full,
+  },
+  statusPillReview: {
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+  },
+  statusPillMastered: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: THEME.colors.cyan,
+  },
+  statusTextReview: {
+    color: THEME.colors.amber,
+  },
+  statusTextMastered: {
+    color: THEME.colors.emerald,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+  },
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(230, 46, 76, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: THEME.colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
+    maxWidth: 300,
+  },
+  emptyAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.crimson,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: THEME.radius.md,
+  },
+  emptyAddBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+});

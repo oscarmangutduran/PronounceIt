@@ -1,141 +1,323 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
 import {
   BarChart3,
-  CheckCircle2,
+  CheckCircle,
   Clock,
+  Sparkles,
+  Trophy,
+  Flame,
+  Award,
   BookOpen,
-} from 'lucide-react';
+} from 'lucide-react-native';
 import { WordItem } from '../../types';
+import { testHistoryService, StoredTestItem } from '../../lib/testHistoryStore';
+import { THEME } from '../../theme';
 
 interface StatsDashboardViewProps {
   words: WordItem[];
 }
 
 export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words }) => {
-  const total = words.length;
-  const mastered = words.filter((w) => w.status === 'dominada').length;
-  const inReview = words.filter((w) => w.status === 'en_repaso').length;
-  const newWords = words.filter((w) => w.status === 'nueva').length;
+  const [history, setHistory] = useState<StoredTestItem[]>([]);
 
-  const retentionPercent = total > 0 ? Math.round((mastered / total) * 100) : 0;
+  useEffect(() => {
+    setHistory(testHistoryService.getHistory());
+    const unsub = testHistoryService.subscribe(() => {
+      setHistory(testHistoryService.getHistory());
+    });
+    return () => unsub();
+  }, []);
 
-  const levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
+  const totalWords = words.length;
+  const masteredCount = words.filter((w) => w.status === 'dominada').length;
+  const reviewCount = words.filter((w) => w.status === 'en_repaso').length;
+  const newCount = words.filter((w) => w.status === 'nueva').length;
+
+  const masteredRate = totalWords > 0 ? Math.round((masteredCount / totalWords) * 100) : 0;
+
+  // Level counts
+  const levels = ['A1', 'A2', 'B1', 'B2', 'C1'];
   const levelCounts = levels.map((lvl) => ({
     level: lvl,
     count: words.filter((w) => w.level === lvl).length,
   }));
 
+  const maxLevelCount = Math.max(...levelCounts.map((l) => l.count), 1);
+
   return (
-    <div className="max-w-5xl mx-auto flex flex-col gap-6 select-none animate-fadeIn text-white">
-      {/* Overview Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Total words */}
-        <div className="bg-[#181226]/85 backdrop-blur-md p-5 rounded-2xl border border-white/10 shadow-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold uppercase text-slate-400">Total Palabras</span>
-            <h3 className="text-3xl font-black text-white mt-1">{total}</h3>
-            <span className="text-[11px] text-slate-400 font-medium">En tu biblioteca</span>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-white/10 text-white flex items-center justify-center border border-white/10">
-            <BookOpen size={22} className="text-[#ff4d6d]" />
-          </div>
-        </div>
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.iconCircle}>
+          <BarChart3 size={24} color={THEME.colors.crimsonLight} />
+        </View>
+        <View>
+          <Text style={styles.title}>Progreso & Estadísticas</Text>
+          <Text style={styles.subtitle}>Métricas de retención y evaluaciones completadas</Text>
+        </View>
+      </View>
 
-        {/* Mastered */}
-        <div className="bg-[#181226]/85 backdrop-blur-md p-5 rounded-2xl border border-white/10 shadow-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold uppercase text-emerald-400">Dominadas</span>
-            <h3 className="text-3xl font-black text-white mt-1">{mastered}</h3>
-            <span className="text-[11px] text-emerald-400 font-semibold">{retentionPercent}% retención</span>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
-            <CheckCircle2 size={22} />
-          </div>
-        </div>
+      {/* Metric Cards Grid */}
+      <View style={styles.metricsGrid}>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Total Palabras</Text>
+          <Text style={styles.metricValue}>{totalWords}</Text>
+          <View style={styles.metricIconBox}>
+            <BookOpen size={16} color={THEME.colors.crimsonLight} />
+          </View>
+        </View>
 
-        {/* In Review */}
-        <div className="bg-[#181226]/85 backdrop-blur-md p-5 rounded-2xl border border-white/10 shadow-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold uppercase text-amber-400">En Repaso</span>
-            <h3 className="text-3xl font-black text-white mt-1">{inReview}</h3>
-            <span className="text-[11px] text-slate-400 font-medium">Próximos días</span>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
-            <Clock size={22} />
-          </div>
-        </div>
-      </div>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Dominadas</Text>
+          <Text style={[styles.metricValue, { color: THEME.colors.emerald }]}>
+            {masteredCount}
+          </Text>
+          <View style={[styles.metricIconBox, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+            <CheckCircle size={16} color={THEME.colors.emerald} />
+          </View>
+        </View>
 
-      {/* Retention & SRS SM-2 Chart card */}
-      <div className="bg-[#181226]/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl p-6 flex flex-col gap-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-base font-bold text-white">Curva del Olvido y Rendimiento</h3>
-            <p className="text-xs text-slate-400">
-              Distribución de términos según repetición espaciada
-            </p>
-          </div>
-        </div>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>En Repaso</Text>
+          <Text style={[styles.metricValue, { color: THEME.colors.amber }]}>
+            {reviewCount}
+          </Text>
+          <View style={[styles.metricIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+            <Clock size={16} color={THEME.colors.amber} />
+          </View>
+        </View>
 
-        {/* Multi-segment Bar */}
-        <div className="space-y-2.5">
-          <div className="w-full h-4 rounded-full bg-black/40 border border-white/10 flex overflow-hidden">
-            <div
-              style={{ width: `${(mastered / Math.max(1, total)) * 100}%` }}
-              className="bg-emerald-500 h-full transition-all shadow-[0_0_10px_rgba(16,185,129,0.5)]"
-              title={`Dominadas: ${mastered}`}
-            />
-            <div
-              style={{ width: `${(inReview / Math.max(1, total)) * 100}%` }}
-              className="bg-amber-400 h-full transition-all shadow-[0_0_10px_rgba(251,191,36,0.5)]"
-              title={`En repaso: ${inReview}`}
-            />
-            <div
-              style={{ width: `${(newWords / Math.max(1, total)) * 100}%` }}
-              className="bg-purple-500 h-full transition-all shadow-[0_0_10px_rgba(168,85,247,0.5)]"
-              title={`Nuevas: ${newWords}`}
-            />
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-slate-300 pt-2">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-emerald-400 shrink-0" />
-              <span>Dominadas ({mastered})</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-amber-400 shrink-0" />
-              <span>En repaso ({inReview})</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-purple-400 shrink-0" />
-              <span>Nuevas sin repasar ({newWords})</span>
-            </div>
-          </div>
-        </div>
-      </div>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>% Dominio</Text>
+          <Text style={[styles.metricValue, { color: THEME.colors.cyan }]}>
+            {masteredRate}%
+          </Text>
+          <View style={[styles.metricIconBox, { backgroundColor: 'rgba(6, 182, 212, 0.15)' }]}>
+            <Flame size={16} color={THEME.colors.cyan} />
+          </View>
+        </View>
+      </View>
 
       {/* Distribution by CEFR Level */}
-      <div className="bg-[#181226]/85 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl p-6">
-        <h3 className="text-base font-bold text-white mb-1">Distribución por Nivel de Dominio (CEFR)</h3>
-        <p className="text-xs text-slate-400 mb-6">
-          Cantidad de vocabulario clasificado desde principiante hasta avanzado
-        </p>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Distribución por Nivel MCER</Text>
+        <View style={styles.levelsList}>
           {levelCounts.map((item) => (
-            <div
-              key={item.level}
-              className="p-4 rounded-xl bg-black/40 border border-white/10 text-center space-y-1 hover:border-[#e62e4c]/40 transition-colors"
-            >
-              <span className="text-xs font-bold text-pink-300 bg-[#e62e4c]/20 border border-[#e62e4c]/30 px-2 py-0.5 rounded">
-                {item.level}
-              </span>
-              <p className="text-2xl font-black text-white mt-2">{item.count}</p>
-              <span className="text-[10px] text-slate-400 font-medium">palabras</span>
-            </div>
+            <View key={item.level} style={styles.levelRow}>
+              <View style={styles.levelNameBadge}>
+                <Text style={styles.levelNameText}>{item.level}</Text>
+              </View>
+
+              <View style={styles.levelBarTrack}>
+                <View
+                  style={[
+                    styles.levelBarFill,
+                    { width: `${(item.count / maxLevelCount) * 100}%` },
+                  ]}
+                />
+              </View>
+
+              <Text style={styles.levelCountText}>{item.count}</Text>
+            </View>
           ))}
-        </div>
-      </div>
-    </div>
+        </View>
+      </View>
+
+      {/* Recent Tests History */}
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Historial de Evaluaciones</Text>
+        {history.length === 0 ? (
+          <Text style={styles.emptyHistory}>Aún no has completado ningún test.</Text>
+        ) : (
+          <View style={styles.historyList}>
+            {history.slice(0, 10).map((test) => (
+              <View key={test.id} style={styles.historyItem}>
+                <View>
+                  <Text style={styles.historyTitle}>{test.title}</Text>
+                  <Text style={styles.historyDate}>
+                    {new Date(test.timestamp || Date.now()).toLocaleDateString('es-ES', {
+                      day: '2-digit',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
+
+                <View style={styles.historyScoreBox}>
+                  <Text style={styles.historyScoreText}>{test.scoreOutOfTen}/10</Text>
+                  <Text style={styles.historyGrade}>{test.gradeLabel}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 16,
+    paddingBottom: 40,
+    backgroundColor: THEME.colors.bgDark,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(230, 46, 76, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  subtitle: {
+    fontSize: 12,
+    color: THEME.colors.textMuted,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
+  },
+  metricCard: {
+    flex: 1,
+    minWidth: '47%',
+    backgroundColor: THEME.colors.bgCard,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.radius.lg,
+    padding: 16,
+    position: 'relative',
+  },
+  metricLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: THEME.colors.textMuted,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  metricValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#ffffff',
+  },
+  metricIconBox: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(230, 46, 76, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionCard: {
+    backgroundColor: THEME.colors.bgCard,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.radius.lg,
+    padding: 18,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 14,
+  },
+  levelsList: {
+    gap: 12,
+  },
+  levelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  levelNameBadge: {
+    width: 32,
+    alignItems: 'center',
+  },
+  levelNameText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: THEME.colors.crimsonLight,
+  },
+  levelBarTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  levelBarFill: {
+    height: '100%',
+    backgroundColor: THEME.colors.crimson,
+    borderRadius: 4,
+  },
+  levelCountText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: THEME.colors.textMuted,
+    width: 24,
+    textAlign: 'right',
+  },
+  emptyHistory: {
+    color: THEME.colors.textSubtle,
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  historyList: {
+    gap: 10,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: THEME.radius.md,
+    padding: 12,
+  },
+  historyTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  historyDate: {
+    fontSize: 11,
+    color: THEME.colors.textSubtle,
+    marginTop: 2,
+  },
+  historyScoreBox: {
+    alignItems: 'flex-end',
+  },
+  historyScoreText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: THEME.colors.emerald,
+  },
+  historyGrade: {
+    fontSize: 10,
+    color: THEME.colors.textMuted,
+  },
+});

@@ -1,4 +1,5 @@
 import { WordItem, WordLevel, WordStatus } from '../types';
+import { appStorage } from './storage';
 
 export interface AutoEnrichResult {
   word: string;
@@ -362,19 +363,23 @@ export const GEMINI_STORAGE_KEY = 'pronounceit_gemini_api_key';
 
 export function getGeminiApiKey(): string {
   try {
-    const local = localStorage.getItem(GEMINI_STORAGE_KEY);
+    const local = appStorage.getItem(GEMINI_STORAGE_KEY);
     if (local && local.trim()) return local.trim();
   } catch {}
-  return (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
+  return (
+    process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
+    process.env.VITE_GEMINI_API_KEY ||
+    ''
+  ).trim();
 }
 
 export function setGeminiApiKey(key: string): void {
   try {
     const trimmed = (key || '').trim();
     if (trimmed) {
-      localStorage.setItem(GEMINI_STORAGE_KEY, trimmed);
+      appStorage.setItem(GEMINI_STORAGE_KEY, trimmed);
     } else {
-      localStorage.removeItem(GEMINI_STORAGE_KEY);
+      appStorage.removeItem(GEMINI_STORAGE_KEY);
     }
   } catch {}
 }

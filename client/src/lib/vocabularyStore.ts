@@ -1,6 +1,8 @@
+import * as Speech from 'expo-speech';
 import { WordItem, CategoryItem, WordStatus } from '../types';
 import { firebaseService } from './firebaseClient';
 import { backendApi } from './apiClient';
+import { appStorage } from './storage';
 
 const STORAGE_KEY_WORDS = 'pronounceit_vocab_words_v2';
 const STORAGE_KEY_AUDIO_SETTINGS = 'pronounceit_audio_settings';
@@ -42,6 +44,11 @@ class VocabularyService {
   };
 
   constructor() {
+    this.init();
+  }
+
+  public async init() {
+    await appStorage.init();
     this.loadInitialData();
     this.initCloudSync();
   }
@@ -54,24 +61,20 @@ class VocabularyService {
   }
 
   public async syncWithCloud(): Promise<void> {
-    // 1. Try Express backend first
     try {
       const isBackendLive = await backendApi.checkHealth();
       if (isBackendLive) {
         const serverWords = await backendApi.getWords();
         if (serverWords && serverWords.length > 0) {
-          // If server has words and local has fewer, sync server words
           if (this.words.length === 0 || serverWords.length >= this.words.length) {
             this.words = serverWords;
             this.saveWords();
             this.notify();
             return;
           } else {
-            // Local has more words, push local to backend
             await backendApi.bulkSaveWords(this.words);
           }
         } else if (this.words.length > 0) {
-          // Server has 0 words, upload local words
           await backendApi.bulkSaveWords(this.words);
         }
       }
@@ -79,7 +82,6 @@ class VocabularyService {
       console.warn('Backend sync warning:', e);
     }
 
-    // 2. Fallback or parallel sync with Firebase
     if (firebaseService.isFirebaseConnected()) {
       try {
         const remoteWords = await firebaseService.fetchWords();
@@ -97,8 +99,8 @@ class VocabularyService {
 
   private loadInitialData() {
     try {
-      localStorage.removeItem('pronounceit_vocab_words_v1');
-      const stored = localStorage.getItem(STORAGE_KEY_WORDS);
+      appStorage.removeItem('pronounceit_vocab_words_v1');
+      const stored = appStorage.getItem(STORAGE_KEY_WORDS);
       if (stored) {
         this.words = JSON.parse(stored);
       } else {
@@ -106,13 +108,14 @@ class VocabularyService {
         this.saveWords();
       }
 
-      const audioStored = localStorage.getItem(STORAGE_KEY_AUDIO_SETTINGS);
+      const audioStored = appStorage.getItem(STORAGE_KEY_AUDIO_SETTINGS);
       if (audioStored) {
         this.audioSettings = JSON.parse(audioStored);
       }
     } catch {
       this.words = [...INITIAL_WORDS];
     }
+    this.notify();
   }
 
   public subscribe(cb: () => void) {
@@ -128,7 +131,7 @@ class VocabularyService {
 
   private saveWords() {
     try {
-      localStorage.setItem(STORAGE_KEY_WORDS, JSON.stringify(this.words));
+      appStorage.setItem(STORAGE_KEY_WORDS, JSON.stringify(this.words));
     } catch (e) {
       console.error('Error saving words to storage', e);
     }
@@ -140,7 +143,6 @@ class VocabularyService {
   }
 
   public getCategories(): CategoryItem[] {
-    // Dynamic categories incorporating INITIAL_CATEGORIES and any user-created categories in words
     const categoryMap = new Map<string, CategoryItem>();
 
     for (const cat of INITIAL_CATEGORIES) {
@@ -157,7 +159,6 @@ class VocabularyService {
         }
       }
 
-      // Also include any subcategories in words for this category that weren't in initial
       for (const w of groupWords) {
         if (w.categorySub && !subMap.has(w.categorySub)) {
           const subWords = groupWords.filter((gw) => gw.categorySub === w.categorySub);
@@ -176,7 +177,6 @@ class VocabularyService {
       });
     }
 
-    // Include any custom categories present in words
     for (const w of this.words) {
       if (w.categoryGroup && !categoryMap.has(w.categoryGroup)) {
         const groupWords = this.words.filter((gw) => gw.categoryGroup === w.categoryGroup);
@@ -206,44 +206,61 @@ class VocabularyService {
     return Array.from(categoryMap.values());
   }
 
-  public addWord(word: Omit<WordItem, 'id'>): WordItem {
+  public addWord(wordData: Omit<WordItem, 'id'>): WordItem {
     const newWord: WordItem = {
-      ...word,
-      id: `w-${Date.now().toString(36)}`,
+      ...wordData,
+      id: `word_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString(),
+      srsIntervalDays: wordData.srsIntervalDays ?? 1,
     };
-    this.words.unshift(newWord);
+
+    this.words = [newWord, ...this.words];
     this.saveWords();
 
-    backendApi.saveWord(newWord).catch(() => {});
+    backendApi.saveWord(newWord).catch((e) => console.warn('Backend saveWord error', e));
+
     if (firebaseService.isFirebaseConnected()) {
       firebaseService.upsertWord(newWord).catch((e) => console.warn('Firebase upsertWord error', e));
     }
+
     return newWord;
   }
 
-  public updateWord(id: string, updates: Partial<WordItem>): WordItem | null {
-    const index = this.words.findIndex((w) => w.id === id);
-    if (index === -1) return null;
-    this.words[index] = { ...this.words[index], ...updates };
+  public updateWord(id: string, updates: Partial<Omit<WordItem, 'id'>>): WordItem | null {
+    const idx = this.words.findIndex((w) => w.id === id);
+    if (idx === -1) return null;
+
+    const updatedWord: WordItem = {
+      ...this.words[idx],
+      ...updates,
+    };
+
+    this.words[idx] = updatedWord;
     this.saveWords();
 
-    const updated = this.words[index];
-    backendApi.updateWord(updated).catch(() => {});
+    backendApi.updateWord(id, updatedWord).catch((e) => console.warn('Backend updateWord error', e));
+
     if (firebaseService.isFirebaseConnected()) {
-      firebaseService.upsertWord(updated).catch((e) => console.warn('Firebase updateWord error', e));
+      firebaseService.upsertWord(updatedWord).catch((e) => console.warn('Firebase upsertWord error', e));
     }
-    return updated;
+
+    return updatedWord;
   }
 
-  public deleteWord(id: string) {
+  public deleteWord(id: string): boolean {
+    const idx = this.words.findIndex((w) => w.id === id);
+    if (idx === -1) return false;
+
     this.words = this.words.filter((w) => w.id !== id);
     this.saveWords();
 
-    backendApi.deleteWord(id).catch(() => {});
+    backendApi.deleteWord(id).catch((e) => console.warn('Backend deleteWord error', e));
+
     if (firebaseService.isFirebaseConnected()) {
       firebaseService.deleteWord(id).catch((e) => console.warn('Firebase deleteWord error', e));
     }
+
+    return true;
   }
 
   public toggleFavorite(id: string) {
@@ -252,7 +269,8 @@ class VocabularyService {
       word.isFavorite = !word.isFavorite;
       this.saveWords();
 
-      backendApi.updateWord(word).catch(() => {});
+      backendApi.updateWord(id, word).catch((e) => console.warn('Backend updateWord fav error', e));
+
       if (firebaseService.isFirebaseConnected()) {
         firebaseService.upsertWord(word).catch((e) => console.warn('Firebase toggleFavorite error', e));
       }
@@ -266,7 +284,8 @@ class VocabularyService {
       word.lastReviewedAt = new Date().toISOString();
       this.saveWords();
 
-      backendApi.updateWord(word).catch(() => {});
+      backendApi.updateWord(id, word).catch((e) => console.warn('Backend updateWord status error', e));
+
       if (firebaseService.isFirebaseConnected()) {
         firebaseService.upsertWord(word).catch((e) => console.warn('Firebase updateStatus error', e));
       }
@@ -301,26 +320,18 @@ class VocabularyService {
     }
   }
 
-  // Audio / Speech Synthesis
+  // Audio / Speech Synthesis via Expo Speech
   public speak(text: string) {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    utterance.rate = this.audioSettings.rate || 0.95;
-    utterance.pitch = this.audioSettings.pitch || 1.0;
-
-    const voices = window.speechSynthesis.getVoices();
-    if (this.audioSettings.voiceName) {
-      const selected = voices.find((v) => v.name === this.audioSettings.voiceName);
-      if (selected) utterance.voice = selected;
-    } else {
-      const preferred = voices.find((v) => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha')));
-      if (preferred) utterance.voice = preferred;
+    try {
+      Speech.stop();
+      Speech.speak(text, {
+        language: 'en-US',
+        rate: this.audioSettings.rate || 0.95,
+        pitch: this.audioSettings.pitch || 1.0,
+      });
+    } catch (e) {
+      console.warn('Speech.speak error:', e);
     }
-
-    window.speechSynthesis.speak(utterance);
   }
 
   public getAudioSettings(): AudioSettings {
@@ -330,7 +341,7 @@ class VocabularyService {
   public updateAudioSettings(settings: Partial<AudioSettings>) {
     this.audioSettings = { ...this.audioSettings, ...settings };
     try {
-      localStorage.setItem(STORAGE_KEY_AUDIO_SETTINGS, JSON.stringify(this.audioSettings));
+      appStorage.setItem(STORAGE_KEY_AUDIO_SETTINGS, JSON.stringify(this.audioSettings));
     } catch {}
     this.notify();
   }

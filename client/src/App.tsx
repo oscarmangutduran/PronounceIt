@@ -1,80 +1,61 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Copyright,
-  Heart,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  Platform,
+  StatusBar as RNStatusBar,
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import {
   BookOpen,
   Layers,
   ClipboardCheck,
   BarChart3,
   Settings,
-} from 'lucide-react';
+} from 'lucide-react-native';
+
 import { MainNavTab, WordItem, WordStatus, UserProfile } from './types';
 import { firebaseService } from './lib/firebaseClient';
 import { vocabService } from './lib/vocabularyStore';
+import { appStorage } from './lib/storage';
+import { THEME } from './theme';
 
-// Auth Gatekeeper
+// Auth View
 import { LoginView } from './components/auth/LoginView';
 
-// Core Primary Workspace Components (Eagerly loaded for instant first paint)
+// Workspace Views
 import { TopNavigation } from './components/workspace/TopNavigation';
 import { SidebarCategories, SelectedFilter } from './components/workspace/SidebarCategories';
 import { VocabularyTableView } from './components/workspace/VocabularyTableView';
+import { FlashcardPracticeView } from './components/workspace/FlashcardPracticeView';
+import { TestView } from './components/workspace/TestView';
+import { StatsDashboardView } from './components/workspace/StatsDashboardView';
+import { SettingsView } from './components/workspace/SettingsView';
 
-// Code-split dynamic views (Loaded on-demand to reduce main bundle size)
-const FlashcardPracticeView = lazy(() =>
-  import('./components/workspace/FlashcardPracticeView').then((m) => ({ default: m.FlashcardPracticeView }))
-);
-const TestView = lazy(() =>
-  import('./components/workspace/TestView').then((m) => ({ default: m.TestView }))
-);
-const StatsDashboardView = lazy(() =>
-  import('./components/workspace/StatsDashboardView').then((m) => ({ default: m.StatsDashboardView }))
-);
-const SettingsView = lazy(() =>
-  import('./components/workspace/SettingsView').then((m) => ({ default: m.SettingsView }))
-);
-const AddWordModal = lazy(() =>
-  import('./components/workspace/AddWordModal').then((m) => ({ default: m.AddWordModal }))
-);
-const ExportImportModal = lazy(() =>
-  import('./components/workspace/ExportImportModal').then((m) => ({ default: m.ExportImportModal }))
-);
-const EditProfileModal = lazy(() =>
-  import('./components/workspace/EditProfileModal').then((m) => ({ default: m.EditProfileModal }))
-);
-
-const ViewLoadingFallback = () => (
-  <div className="flex-1 flex flex-col items-center justify-center min-h-[400px] text-center p-8 animate-fadeIn">
-    <div className="w-12 h-12 rounded-2xl bg-[#e62e4c]/10 border border-[#e62e4c]/30 flex items-center justify-center mb-4 shadow-[0_0_25px_rgba(230,46,76,0.25)] animate-pulse">
-      <div className="w-5 h-5 border-2 border-[#e62e4c] border-t-transparent rounded-full animate-spin" />
-    </div>
-    <p className="text-sm font-medium text-slate-300">Cargando módulo...</p>
-    <p className="text-xs text-slate-400 mt-1">Optimizando rendimiento</p>
-  </div>
-);
+// Modals
+import { AddWordModal } from './components/workspace/AddWordModal';
+import { ExportImportModal } from './components/workspace/ExportImportModal';
+import { EditProfileModal } from './components/workspace/EditProfileModal';
 
 export default function App() {
-  // Restore user session and profile picture across reloads and visits
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     return firebaseService.getCurrentUser();
   });
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    const remembered = localStorage.getItem('pronounceit_remember_me') === 'true';
+    const remembered = appStorage.getItem('pronounceit_remember_me') === 'true';
     const user = firebaseService.getCurrentUser();
-    return Boolean(user && (remembered || localStorage.getItem('pronounceit_firebase_user_v1')));
+    return Boolean(user && (remembered || appStorage.getItem('pronounceit_firebase_user_v1')));
   });
 
-  // Active navigation tab
   const [activeTab, setActiveTab] = useState<MainNavTab>('vocabulary');
 
-  // Vocabulary & Categories state
+  // Words & Categories
   const [words, setWords] = useState<WordItem[]>([]);
   const [categories, setCategories] = useState(vocabService.getCategories());
-  const [selectedFilter, setSelectedFilter] = useState<SelectedFilter>({
-    type: 'all',
-  });
-
-  // Global search input
+  const [selectedFilter, setSelectedFilter] = useState<SelectedFilter>({ type: 'all' });
   const [globalSearch, setGlobalSearch] = useState('');
 
   // Modals state
@@ -83,32 +64,13 @@ export default function App() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
-  // Left sidebar collapsed state (always collapsed by default on mobile < 768px)
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
-    try {
-      if (typeof window !== 'undefined' && window.innerWidth < 768) {
-        return true;
-      }
-      const stored = localStorage.getItem('pronounceit_sidebar_collapsed');
-      if (stored !== null) return stored === 'true';
-      return false;
-    } catch {
-      return false;
-    }
-  });
-
   useEffect(() => {
-    try {
-      localStorage.setItem('pronounceit_sidebar_collapsed', String(isSidebarCollapsed));
-    } catch {
-      // ignore
-    }
-  }, [isSidebarCollapsed]);
-
-  // Load words and subscribe to changes
-  useEffect(() => {
-    setWords(vocabService.getWords());
-    setCategories(vocabService.getCategories());
+    // Initialize storage and load words
+    appStorage.init().then(() => {
+      setWords(vocabService.getWords());
+      setCategories(vocabService.getCategories());
+      setCurrentUser(firebaseService.getCurrentUser());
+    });
 
     const unsubVocab = vocabService.subscribe(() => {
       setWords(vocabService.getWords());
@@ -116,47 +78,17 @@ export default function App() {
     });
 
     const unsubAuth = firebaseService.subscribe(() => {
-      setCurrentUser(firebaseService.getCurrentUser());
+      const u = firebaseService.getCurrentUser();
+      setCurrentUser(u);
+      if (!u) setIsAuthenticated(false);
     });
-
-    const handleOpenEdit = () => setIsEditProfileOpen(true);
-    window.addEventListener('pronounceit:open-edit-profile', handleOpenEdit);
 
     return () => {
       unsubVocab();
       unsubAuth();
-      window.removeEventListener('pronounceit:open-edit-profile', handleOpenEdit);
     };
   }, []);
 
-  // Global keyboard shortcuts (Space: Audio, N: New word, P: Practice)
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
-        return;
-      }
-
-      if (e.key === ' ' || e.code === 'Space') {
-        e.preventDefault();
-        const activeWord = words[0];
-        if (activeWord) vocabService.speak(activeWord.word);
-      } else if (e.key === 'n' || e.key === 'N') {
-        e.preventDefault();
-        setEditingWord(null);
-        setIsAddModalOpen(true);
-      } else if (e.key === 'p' || e.key === 'P') {
-        e.preventDefault();
-        setActiveTab('flashcards');
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAuthenticated, words]);
-
-  // Auth logout handler
   const handleLogout = async () => {
     await firebaseService.signOut();
     setIsAuthenticated(false);
@@ -164,7 +96,6 @@ export default function App() {
     setActiveTab('vocabulary');
   };
 
-  // Word operations
   const handleSaveWord = (wordData: Omit<WordItem, 'id'>) => {
     if (editingWord) {
       vocabService.updateWord(editingWord.id, wordData);
@@ -199,354 +130,330 @@ export default function App() {
     });
   };
 
-  // Computed counts for sidebar
+  // Counts for filters
   const totalWords = words.length;
   const favoritesCount = words.filter((w) => w.isFavorite).length;
   const reviewCount = words.filter((w) => w.status === 'en_repaso').length;
   const masteredCount = words.filter((w) => w.status === 'dominada').length;
 
-  // Gatekeeper: El usuario SIEMPRE inicia en la pantalla de Login
+  // Gatekeeper: Login View
   if (!isAuthenticated || !currentUser) {
     return (
-      <LoginView
-        onSuccess={() => {
-          setIsAuthenticated(true);
-          setCurrentUser(firebaseService.getCurrentUser());
-          setActiveTab('vocabulary');
-        }}
-      />
+      <View style={styles.appContainer}>
+        <StatusBar style="light" />
+        <LoginView
+          onSuccess={() => {
+            setIsAuthenticated(true);
+            setCurrentUser(firebaseService.getCurrentUser());
+            setActiveTab('vocabulary');
+          }}
+        />
+      </View>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0f0c18] text-white flex flex-col font-sans selection:bg-[#e62e4c] selection:text-white relative overflow-x-hidden">
-      {/* Subtle atmospheric ambient glow matching login screen */}
-      <div
-        className="fixed inset-0 bg-cover bg-center opacity-10 filter blur-3xl scale-110 pointer-events-none"
-        style={{ backgroundImage: `url('/assets/login_hero.jpg?v=3')` }}
+    <View style={styles.appContainer}>
+      <StatusBar style="light" />
+
+      {/* Top Navigation */}
+      <TopNavigation
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        searchTerm={globalSearch}
+        onSearchChange={setGlobalSearch}
+        onOpenEditProfile={() => setIsEditProfileOpen(true)}
       />
-      <div className="fixed inset-0 bg-gradient-to-t from-[#0a0712] via-[#0f0c18]/90 to-[#120e20]/95 pointer-events-none" />
 
-      {/* Content wrapper with relative z-index */}
-      <div className="relative z-10 flex flex-col min-h-screen">
-        {/* 1. Header Top Navigation */}
-        <TopNavigation
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          currentUser={currentUser}
-          onLogout={handleLogout}
-          searchTerm={globalSearch}
-          onSearchChange={setGlobalSearch}
-          onOpenEditProfile={() => setIsEditProfileOpen(true)}
-        />
+      {/* Workspace Content */}
+      <View style={styles.mainContent}>
+        {activeTab === 'vocabulary' && (
+          <View style={{ flex: 1 }}>
+            <SidebarCategories
+              categories={categories}
+              selectedFilter={selectedFilter}
+              onSelectFilter={setSelectedFilter}
+              totalWords={totalWords}
+              favoritesCount={favoritesCount}
+              reviewCount={reviewCount}
+              masteredCount={masteredCount}
+              onAddNewCategory={() => {
+                setEditingWord(null);
+                setIsAddModalOpen(true);
+              }}
+            />
 
-        {/* 2. Main Workspace Body Container */}
-        <main className="flex-1 max-w-[1720px] w-full mx-auto px-3 sm:px-6 py-4 sm:py-8 flex flex-col pb-24 md:pb-8">
-          {activeTab === 'vocabulary' && (
-            <div className="flex flex-col md:flex-row gap-6 items-start">
-              {/* Left Sidebar: Categories & Retención Lexical Card */}
-              <SidebarCategories
-                categories={categories}
-                selectedFilter={selectedFilter}
-                onSelectFilter={setSelectedFilter}
-                totalWords={totalWords}
-                favoritesCount={favoritesCount}
-                reviewCount={reviewCount}
-                masteredCount={masteredCount}
-                isCollapsed={isSidebarCollapsed}
-                onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
-                onAddNewCategory={() => {
-                  setEditingWord(null);
-                  setIsAddModalOpen(true);
-                }}
-              />
+            <VocabularyTableView
+              words={words}
+              selectedFilter={selectedFilter}
+              onOpenAddModal={() => {
+                setEditingWord(null);
+                setIsAddModalOpen(true);
+              }}
+              onOpenExportModal={() => setIsExportModalOpen(true)}
+              onStartPractice={() => setActiveTab('flashcards')}
+              onEditWord={handleEditWord}
+              onToggleFavorite={handleToggleFavorite}
+              onUpdateStatus={handleUpdateStatus}
+              onDeleteWord={handleDeleteWord}
+            />
+          </View>
+        )}
 
-              {/* Right Main Table */}
-              <VocabularyTableView
-                words={words}
-                selectedFilter={selectedFilter}
-                isSidebarCollapsed={isSidebarCollapsed}
-                onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
-                onOpenAddModal={() => {
-                  setEditingWord(null);
-                  setIsAddModalOpen(true);
-                }}
-                onOpenExportModal={() => setIsExportModalOpen(true)}
-                onStartPractice={() => setActiveTab('flashcards')}
-                onEditWord={handleEditWord}
-                onToggleFavorite={handleToggleFavorite}
-                onUpdateStatus={handleUpdateStatus}
-                onDeleteWord={handleDeleteWord}
-              />
-            </div>
-          )}
+        {activeTab === 'flashcards' && (
+          <FlashcardPracticeView
+            words={words}
+            onBackToVocabulary={() => setActiveTab('vocabulary')}
+            onUpdateStatus={handleUpdateStatus}
+          />
+        )}
 
-          {/* Tab 2: Práctica con Flashcards */}
-          {activeTab === 'flashcards' && (
-            <Suspense fallback={<ViewLoadingFallback />}>
-              <FlashcardPracticeView
-                words={words}
-                onBackToVocabulary={() => setActiveTab('vocabulary')}
-                onUpdateStatus={handleUpdateStatus}
-              />
-            </Suspense>
-          )}
+        {activeTab === 'test' && (
+          <TestView
+            words={words}
+            onBackToVocabulary={() => setActiveTab('vocabulary')}
+          />
+        )}
 
-          {/* Tab 3: Evaluación y Tests por Nivel */}
-          {activeTab === 'test' && (
-            <Suspense fallback={<ViewLoadingFallback />}>
-              <TestView
-                words={words}
-                onBackToVocabulary={() => setActiveTab('vocabulary')}
-              />
-            </Suspense>
-          )}
+        {activeTab === 'stats' && <StatsDashboardView words={words} />}
 
-          {/* Tab 4: Estadísticas */}
-          {activeTab === 'stats' && (
-            <Suspense fallback={<ViewLoadingFallback />}>
-              <StatsDashboardView words={words} />
-            </Suspense>
-          )}
+        {activeTab === 'settings' && (
+          <SettingsView currentUser={currentUser} onLogout={handleLogout} />
+        )}
+      </View>
 
-          {/* Tab 5: Configuración */}
-          {activeTab === 'settings' && (
-            <Suspense fallback={<ViewLoadingFallback />}>
-              <SettingsView
-                currentUser={currentUser}
-                onLogout={handleLogout}
-              />
-            </Suspense>
-          )}
-        </main>
-
-        {/* 3. Bottom Footer */}
-        <footer className="w-full bg-[#130f1e]/90 border-t border-white/10 py-4 px-4 sm:px-6 pb-24 md:pb-4 text-xs text-slate-400 select-none">
-          <div className="max-w-[1720px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
-            <div className="flex items-center flex-wrap justify-center sm:justify-start gap-2 text-slate-300">
-              <span className="flex items-center gap-1.5 font-medium text-white">
-                <Copyright size={13} className="text-slate-400 shrink-0" />
-                <span>PronounceIt</span>
-              </span>
-              <span className="text-slate-600">|</span>
-              <span className="flex items-center gap-1.5 text-slate-300">
-                <span>Desarrollado con</span>
-                <Heart size={13} className="text-[#e62e4c] fill-[#e62e4c] shrink-0 animate-pulse" />
-                <span className="text-white font-medium">Oscar Mangut Dev</span>
-              </span>
-            </div>
-            <div className="flex items-center flex-wrap justify-center sm:justify-end gap-2.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 select-none">
-                Aplicaciones recomendadas:
-              </span>
-              <div className="flex items-center gap-2">
-                <a
-                  href="https://www.duolingo.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-500/40 text-slate-300 hover:text-white transition-all group"
-                  title="Duolingo - Aprende idiomas"
-                >
-                  <img
-                    src="/assets/duolingo.png"
-                    alt="Duolingo logo"
-                    className="w-4 h-4 rounded object-contain group-hover:scale-110 transition-transform"
-                  />
-                  <span className="text-xs font-medium">Duolingo</span>
-                </a>
-
-                <a
-                  href="https://beespeaker.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-amber-500/40 text-slate-300 hover:text-white transition-all group"
-                  title="BeeSpeaker - Práctica de conversación con IA"
-                >
-                  <img
-                    src="/assets/beespeaker.png"
-                    alt="BeeSpeaker logo"
-                    className="w-4 h-4 rounded object-contain group-hover:scale-110 transition-transform"
-                  />
-                  <span className="text-xs font-medium">BeeSpeaker</span>
-                </a>
-
-                <a
-                  href="https://wlingua.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-500/40 text-slate-300 hover:text-white transition-all group"
-                  title="Wlingua - Cursos de inglés"
-                >
-                  <img
-                    src="/assets/wlingua.png"
-                    alt="Wlingua logo"
-                    className="w-4 h-4 rounded object-contain group-hover:scale-110 transition-transform"
-                  />
-                  <span className="text-xs font-medium">Wlingua</span>
-                </a>
-              </div>
-            </div>
-          </div>
-        </footer>
-
-        {/* 4. Mobile / Tablet Bottom Navigation Bar (md:hidden) */}
-        <nav
-          aria-label="Navegación principal móvil"
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#140f21]/95 backdrop-blur-xl border-t border-white/10 px-2 py-1.5 flex items-center justify-around shadow-[0_-8px_30px_rgba(0,0,0,0.7)]"
+      {/* Bottom Tab Navigation Bar */}
+      <View style={styles.tabBar}>
+        {/* Tab 1: Vocabulario */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => setActiveTab('vocabulary')}
+          activeOpacity={0.8}
         >
-          {/* Tab 1: Vocabulario */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('vocabulary')}
-            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all cursor-pointer ${
-              activeTab === 'vocabulary'
-                ? 'text-[#ff4d6d]'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+          <View
+            style={[
+              styles.tabIconBox,
+              activeTab === 'vocabulary' && styles.tabIconBoxActive,
+            ]}
           >
-            <div
-              className={`p-1 rounded-lg transition-transform ${
-                activeTab === 'vocabulary'
-                  ? 'bg-[#e62e4c]/20 shadow-[0_0_12px_rgba(230,46,76,0.35)] scale-110'
-                  : ''
-              }`}
-            >
-              <BookOpen size={18} />
-            </div>
-            <span className="text-[10px] font-bold mt-0.5 tracking-tight">Vocabulario</span>
-          </button>
+            <BookOpen
+              size={18}
+              color={activeTab === 'vocabulary' ? '#ffffff' : THEME.colors.textMuted}
+            />
+          </View>
+          <Text
+            style={[
+              styles.tabLabel,
+              activeTab === 'vocabulary' && styles.tabLabelActive,
+            ]}
+          >
+            Vocabulario
+          </Text>
+        </TouchableOpacity>
 
-          {/* Tab 2: Flashcards */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('flashcards')}
-            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all cursor-pointer ${
-              activeTab === 'flashcards'
-                ? 'text-[#ff4d6d]'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+        {/* Tab 2: Flashcards */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => setActiveTab('flashcards')}
+          activeOpacity={0.8}
+        >
+          <View
+            style={[
+              styles.tabIconBox,
+              activeTab === 'flashcards' && styles.tabIconBoxActive,
+            ]}
           >
-            <div
-              className={`p-1 rounded-lg transition-transform ${
-                activeTab === 'flashcards'
-                  ? 'bg-[#e62e4c]/20 shadow-[0_0_12px_rgba(230,46,76,0.35)] scale-110'
-                  : ''
-              }`}
-            >
-              <Layers size={18} />
-            </div>
-            <span className="text-[10px] font-bold mt-0.5 tracking-tight">Flashcards</span>
-          </button>
+            <Layers
+              size={18}
+              color={activeTab === 'flashcards' ? '#ffffff' : THEME.colors.textMuted}
+            />
+          </View>
+          <Text
+            style={[
+              styles.tabLabel,
+              activeTab === 'flashcards' && styles.tabLabelActive,
+            ]}
+          >
+            Flashcards
+          </Text>
+        </TouchableOpacity>
 
-          {/* Tab 3: Test */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('test')}
-            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all cursor-pointer ${
-              activeTab === 'test'
-                ? 'text-[#ff4d6d]'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+        {/* Tab 3: Test */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => setActiveTab('test')}
+          activeOpacity={0.8}
+        >
+          <View
+            style={[
+              styles.tabIconBox,
+              activeTab === 'test' && styles.tabIconBoxActive,
+            ]}
           >
-            <div
-              className={`p-1 rounded-lg transition-transform ${
-                activeTab === 'test'
-                  ? 'bg-[#e62e4c]/20 shadow-[0_0_12px_rgba(230,46,76,0.35)] scale-110'
-                  : ''
-              }`}
-            >
-              <ClipboardCheck size={18} />
-            </div>
-            <span className="text-[10px] font-bold mt-0.5 tracking-tight">Test</span>
-          </button>
+            <ClipboardCheck
+              size={18}
+              color={activeTab === 'test' ? '#ffffff' : THEME.colors.textMuted}
+            />
+          </View>
+          <Text
+            style={[
+              styles.tabLabel,
+              activeTab === 'test' && styles.tabLabelActive,
+            ]}
+          >
+            Test
+          </Text>
+        </TouchableOpacity>
 
-          {/* Tab 4: Estadísticas */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('stats')}
-            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all cursor-pointer ${
-              activeTab === 'stats'
-                ? 'text-[#ff4d6d]'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+        {/* Tab 4: Progreso */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => setActiveTab('stats')}
+          activeOpacity={0.8}
+        >
+          <View
+            style={[
+              styles.tabIconBox,
+              activeTab === 'stats' && styles.tabIconBoxActive,
+            ]}
           >
-            <div
-              className={`p-1 rounded-lg transition-transform ${
-                activeTab === 'stats'
-                  ? 'bg-[#e62e4c]/20 shadow-[0_0_12px_rgba(230,46,76,0.35)] scale-110'
-                  : ''
-              }`}
-            >
-              <BarChart3 size={18} />
-            </div>
-            <span className="text-[10px] font-bold mt-0.5 tracking-tight">Progreso</span>
-          </button>
+            <BarChart3
+              size={18}
+              color={activeTab === 'stats' ? '#ffffff' : THEME.colors.textMuted}
+            />
+          </View>
+          <Text
+            style={[
+              styles.tabLabel,
+              activeTab === 'stats' && styles.tabLabelActive,
+            ]}
+          >
+            Progreso
+          </Text>
+        </TouchableOpacity>
 
-          {/* Tab 5: Ajustes */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('settings')}
-            className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all cursor-pointer ${
-              activeTab === 'settings'
-                ? 'text-[#ff4d6d]'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+        {/* Tab 5: Ajustes */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => setActiveTab('settings')}
+          activeOpacity={0.8}
+        >
+          <View
+            style={[
+              styles.tabIconBox,
+              activeTab === 'settings' && styles.tabIconBoxActive,
+            ]}
           >
-            <div
-              className={`p-1 rounded-lg transition-transform ${
-                activeTab === 'settings'
-                  ? 'bg-[#e62e4c]/20 shadow-[0_0_12px_rgba(230,46,76,0.35)] scale-110'
-                  : ''
-              }`}
-            >
-              <Settings size={18} />
-            </div>
-            <span className="text-[10px] font-bold mt-0.5 tracking-tight">Ajustes</span>
-          </button>
-        </nav>
-      </div>
+            <Settings
+              size={18}
+              color={activeTab === 'settings' ? '#ffffff' : THEME.colors.textMuted}
+            />
+          </View>
+          <Text
+            style={[
+              styles.tabLabel,
+              activeTab === 'settings' && styles.tabLabelActive,
+            ]}
+          >
+            Ajustes
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Add / Edit Word Modal */}
       {isAddModalOpen && (
-        <Suspense fallback={null}>
-          <AddWordModal
-            isOpen={isAddModalOpen}
-            onClose={() => {
-              setIsAddModalOpen(false);
-              setEditingWord(null);
-            }}
-            onSave={handleSaveWord}
-            initialWord={editingWord}
-            categories={categories}
-            defaultCategoryGroup={selectedFilter.type === 'category' ? selectedFilter.group : undefined}
-            defaultCategorySub={selectedFilter.type === 'category' ? selectedFilter.sub : undefined}
-          />
-        </Suspense>
+        <AddWordModal
+          isOpen={isAddModalOpen}
+          onClose={() => {
+            setIsAddModalOpen(false);
+            setEditingWord(null);
+          }}
+          onSave={handleSaveWord}
+          initialWord={editingWord}
+          categories={categories}
+          defaultCategoryGroup={
+            selectedFilter.type === 'category' ? selectedFilter.group : undefined
+          }
+          defaultCategorySub={
+            selectedFilter.type === 'category' ? selectedFilter.sub : undefined
+          }
+        />
       )}
 
       {/* Export / Import Modal */}
       {isExportModalOpen && (
-        <Suspense fallback={null}>
-          <ExportImportModal
-            isOpen={isExportModalOpen}
-            onClose={() => setIsExportModalOpen(false)}
-            words={words}
-            onImportWords={handleImportWords}
-          />
-        </Suspense>
+        <ExportImportModal
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          words={words}
+          onImportWords={handleImportWords}
+        />
       )}
 
       {/* Edit Profile Modal */}
       {isEditProfileOpen && (
-        <Suspense fallback={null}>
-          <EditProfileModal
-            isOpen={isEditProfileOpen}
-            onClose={() => setIsEditProfileOpen(false)}
-            currentUser={currentUser}
-            onProfileUpdated={(updated) => setCurrentUser(updated)}
-          />
-        </Suspense>
+        <EditProfileModal
+          isOpen={isEditProfileOpen}
+          onClose={() => setIsEditProfileOpen(false)}
+          currentUser={currentUser}
+          onProfileUpdated={(updated) => setCurrentUser(updated)}
+        />
       )}
-    </div>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  appContainer: {
+    flex: 1,
+    backgroundColor: THEME.colors.bgDark,
+  },
+  mainContent: {
+    flex: 1,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    backgroundColor: 'rgba(20, 15, 33, 0.98)',
+    borderTopWidth: 1,
+    borderTopColor: THEME.colors.border,
+    paddingVertical: 8,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 2,
+  },
+  tabIconBox: {
+    padding: 6,
+    borderRadius: THEME.radius.md,
+  },
+  tabIconBoxActive: {
+    backgroundColor: THEME.colors.crimson,
+    shadowColor: THEME.colors.crimson,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  tabLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: THEME.colors.textSubtle,
+    marginTop: 3,
+  },
+  tabLabelActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+});

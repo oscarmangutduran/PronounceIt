@@ -1,21 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Modal,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import {
   X,
   Volume2,
-  Check,
   Sparkles,
-  Loader2,
-  ChevronDown,
-  ChevronUp,
-  CheckCircle2,
-  BookOpen,
+  Check,
   Folder,
-  Plus,
-  RefreshCw,
-} from 'lucide-react';
-import { WordItem, WordLevel, WordStatus, CategoryItem } from '../../types';
+  BookOpen,
+} from 'lucide-react-native';
+import { WordItem, WordLevel, CategoryItem } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
-import { autoEnrichWord, isGeminiConfigured } from '../../lib/dictionaryService';
+import { autoEnrichWord } from '../../lib/dictionaryService';
+import { THEME } from '../../theme';
 
 interface AddWordModalProps {
   isOpen: boolean;
@@ -27,717 +33,459 @@ interface AddWordModalProps {
   defaultCategorySub?: string;
 }
 
-export const WORD_POS_OPTIONS = [
-  { value: 'article', label: 'article (Artículo)' },
-  { value: 'verb', label: 'verb (Verbo)' },
-  { value: 'noun', label: 'noun (Sustantivo)' },
-  { value: 'adjective', label: 'adjective (Adjetivo)' },
-  { value: 'adverb', label: 'adverb (Adverbio)' },
-  { value: 'pronoun', label: 'pronoun (Pronombre)' },
-  { value: 'preposition', label: 'preposition (Preposición)' },
-  { value: 'conjunction', label: 'conjunction (Conjunción)' },
-  { value: 'interjection', label: 'interjection (Interjección)' },
-  { value: 'phrasal verb', label: 'phrasal verb (Verbo compuesto)' },
-  { value: 'phrase', label: 'phrase (Frase / Modismo)' },
-] as const;
-
 export const AddWordModal: React.FC<AddWordModalProps> = ({
   isOpen,
   onClose,
   onSave,
   initialWord,
-  categories,
   defaultCategoryGroup,
   defaultCategorySub,
 }) => {
   const [word, setWord] = useState('');
-  const [loadingAuto, setLoadingAuto] = useState(false);
-  const [autoEnriched, setAutoEnriched] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  // Auto-filled and user-editable fields
-  const [partOfSpeech, setPartOfSpeech] = useState('noun');
-  const [level, setLevel] = useState<WordLevel>('B2');
-  const [ipa, setIpa] = useState('');
-  const [phoneticGuide, setPhoneticGuide] = useState('');
-  const [phoneticNote, setPhoneticNote] = useState('');
   const [translation, setTranslation] = useState('');
+  const [phoneticGuide, setPhoneticGuide] = useState('');
+  const [ipa, setIpa] = useState('');
   const [definition, setDefinition] = useState('');
   const [exampleEn, setExampleEn] = useState('');
   const [exampleEs, setExampleEs] = useState('');
-  const [status, setStatus] = useState<WordStatus>('nueva');
-
-  // Categories management
-  const availableCategories = categories && categories.length > 0 ? categories : vocabService.getCategories();
-  const [categoryGroup, setCategoryGroup] = useState<string>('Grammar');
-  const [categorySub, setCategorySub] = useState<string>('General');
-  const [isCustomCategory, setIsCustomCategory] = useState<boolean>(false);
-  const [customCategoryName, setCustomCategoryName] = useState<string>('');
-  const [isCustomSubcategory, setIsCustomSubcategory] = useState<boolean>(false);
-  const [customSubcategoryName, setCustomSubcategoryName] = useState<string>('');
-  const [hasUserCustomizedCategory, setHasUserCustomizedCategory] = useState<boolean>(false);
+  const [level, setLevel] = useState<WordLevel>('B1');
+  const [partOfSpeech, setPartOfSpeech] = useState('noun');
+  const [categoryGroup, setCategoryGroup] = useState('General');
+  const [categorySub, setCategorySub] = useState('');
+  const [loadingAuto, setLoadingAuto] = useState(false);
 
   useEffect(() => {
     if (initialWord) {
       setWord(initialWord.word);
-      setPartOfSpeech(initialWord.partOfSpeech);
-      setLevel(initialWord.level);
-      setIpa(initialWord.ipa);
-      setPhoneticGuide(initialWord.phoneticGuide);
-      setPhoneticNote(initialWord.phoneticNote || '');
       setTranslation(initialWord.translation);
+      setPhoneticGuide(initialWord.phoneticGuide || '');
+      setIpa(initialWord.ipa || '');
       setDefinition(initialWord.definition || '');
-      setExampleEn(initialWord.exampleEn);
-      setExampleEs(initialWord.exampleEs);
-      setStatus(initialWord.status);
-      setCategoryGroup(initialWord.categoryGroup);
-      setCategorySub(initialWord.categorySub);
-      setIsCustomCategory(false);
-      setCustomCategoryName('');
-      setIsCustomSubcategory(false);
-      setCustomSubcategoryName('');
-      setHasUserCustomizedCategory(true);
-      setAutoEnriched(true);
-      setShowAdvanced(false);
+      setExampleEn(initialWord.exampleEn || '');
+      setExampleEs(initialWord.exampleEs || '');
+      setLevel(initialWord.level || 'B1');
+      setPartOfSpeech(initialWord.partOfSpeech || 'noun');
+      setCategoryGroup(initialWord.categoryGroup || 'General');
+      setCategorySub(initialWord.categorySub || '');
     } else {
       setWord('');
-      setPartOfSpeech('noun');
-      setLevel('B2');
-      setIpa('');
-      setPhoneticGuide('');
-      setPhoneticNote('');
       setTranslation('');
+      setPhoneticGuide('');
+      setIpa('');
       setDefinition('');
       setExampleEn('');
       setExampleEs('');
-      setStatus('nueva');
-
-      const initialGroup = defaultCategoryGroup || availableCategories[0]?.name || 'Grammar';
-      const foundCat = availableCategories.find((c) => c.name === initialGroup) || availableCategories[0];
-      const initialSub = defaultCategorySub || foundCat?.subcategories?.[0]?.name || 'General';
-
-      setCategoryGroup(initialGroup);
-      setCategorySub(initialSub);
-      setIsCustomCategory(false);
-      setCustomCategoryName('');
-      setIsCustomSubcategory(false);
-      setCustomSubcategoryName('');
-      setHasUserCustomizedCategory(Boolean(defaultCategoryGroup));
-      setAutoEnriched(false);
-      setShowAdvanced(false);
+      setLevel('B1');
+      setPartOfSpeech('noun');
+      setCategoryGroup(defaultCategoryGroup || 'General');
+      setCategorySub(defaultCategorySub || '');
     }
-  }, [initialWord, isOpen, defaultCategoryGroup, defaultCategorySub]);
+  }, [initialWord, defaultCategoryGroup, defaultCategorySub, isOpen]);
 
-  // Debounced automatic auto-fill as the user types the English word
-  useEffect(() => {
-    if (!isOpen || initialWord) return;
-
-    const trimmed = word.trim();
-    if (trimmed.length < 2) {
-      setAutoEnriched(false);
+  const handleAutoEnrich = async () => {
+    if (!word.trim()) {
+      Alert.alert('Aviso', 'Escribe primero una palabra en inglés.');
       return;
     }
 
-    const timer = setTimeout(async () => {
-      setLoadingAuto(true);
-      try {
-        const enriched = await autoEnrichWord(trimmed);
-        setPartOfSpeech(enriched.partOfSpeech);
-        setLevel(enriched.level);
-        setIpa(enriched.ipa);
-        setPhoneticGuide(enriched.phoneticGuide);
-        setPhoneticNote(enriched.phoneticNote);
-        setTranslation(enriched.translation);
-        setDefinition(enriched.definition);
-        setExampleEn(enriched.exampleEn);
-        setExampleEs(enriched.exampleEs);
-
-        // Only assign suggested category if user hasn't explicitly specified or selected one
-        if (!hasUserCustomizedCategory && !isCustomCategory && !isCustomSubcategory) {
-          const matchCat = availableCategories.find((c) => c.name.toLowerCase() === enriched.categoryGroup.toLowerCase());
-          if (matchCat) {
-            setCategoryGroup(matchCat.name);
-            const matchSub = matchCat.subcategories?.find((s) => s.name.toLowerCase() === enriched.categorySub.toLowerCase());
-            if (matchSub) {
-              setCategorySub(matchSub.name);
-            } else if (matchCat.subcategories?.[0]) {
-              setCategorySub(matchCat.subcategories[0].name);
-            }
-          }
-        }
-        setAutoEnriched(true);
-      } catch (e) {
-        console.warn('Auto enrichment error', e);
-      } finally {
-        setLoadingAuto(false);
-      }
-    }, 450);
-
-    return () => clearTimeout(timer);
-  }, [word, isOpen, initialWord, hasUserCustomizedCategory, isCustomCategory, isCustomSubcategory, availableCategories]);
-
-  if (!isOpen) return null;
-
-  const currentCat = availableCategories.find((c) => c.name === categoryGroup);
-  const currentSubcategories = currentCat?.subcategories || [];
-
-  const handleTestAudio = () => {
-    if (word) vocabService.speak(word);
-  };
-
-  const handleRegenerate = async () => {
-    const trimmed = word.trim();
-    if (!trimmed) return;
     setLoadingAuto(true);
     try {
-      const enriched = await autoEnrichWord(trimmed);
-      setPartOfSpeech(enriched.partOfSpeech);
-      setLevel(enriched.level);
-      setIpa(enriched.ipa);
-      setPhoneticGuide(enriched.phoneticGuide);
-      setPhoneticNote(enriched.phoneticNote);
-      setTranslation(enriched.translation);
-      setDefinition(enriched.definition);
-      setExampleEn(enriched.exampleEn);
-      setExampleEs(enriched.exampleEs);
-      setAutoEnriched(true);
+      const result = await autoEnrichWord(word.trim());
+      if (result) {
+        if (result.translation) setTranslation(result.translation);
+        if (result.phoneticGuide) setPhoneticGuide(result.phoneticGuide);
+        if (result.ipa) setIpa(result.ipa);
+        if (result.definition) setDefinition(result.definition);
+        if (result.exampleEn) setExampleEn(result.exampleEn);
+        if (result.exampleEs) setExampleEs(result.exampleEs);
+        if (result.level) setLevel(result.level);
+        if (result.partOfSpeech) setPartOfSpeech(result.partOfSpeech);
+        if (result.categoryGroup) setCategoryGroup(result.categoryGroup);
+        if (result.categorySub) setCategorySub(result.categorySub);
+      }
     } catch (e) {
-      console.warn('Regeneration error', e);
+      console.warn('Auto enrich error:', e);
     } finally {
       setLoadingAuto(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanWord = word.trim();
-    if (!cleanWord) {
-      alert('Por favor, escribe la palabra en inglés.');
+  const handleSave = () => {
+    if (!word.trim() || !translation.trim()) {
+      Alert.alert('Campos requeridos', 'Por favor ingresa la palabra y su traducción.');
       return;
-    }
-
-    const finalCategoryGroup = isCustomCategory ? customCategoryName.trim() : categoryGroup.trim();
-    const finalCategorySub = (isCustomCategory || isCustomSubcategory) ? customSubcategoryName.trim() : categorySub.trim();
-
-    if (!finalCategoryGroup) {
-      alert('Por favor, selecciona o escribe la categoría principal.');
-      return;
-    }
-
-    if (!finalCategorySub) {
-      alert('Por favor, selecciona o escribe la subcategoría.');
-      return;
-    }
-
-    let finalPos = partOfSpeech;
-    let finalTrans = translation;
-    let finalLevel = level;
-    let finalIpa = ipa;
-    let finalPhoneticGuide = phoneticGuide;
-    let finalPhoneticNote = phoneticNote;
-    let finalDef = definition;
-    let finalExEn = exampleEn;
-    let finalExEs = exampleEs;
-
-    // If translation or part of speech haven't been resolved yet, enrich on the fly
-    if (!finalTrans || !finalIpa || !finalPos) {
-      try {
-        const enriched = await autoEnrichWord(cleanWord);
-        if (!finalPos) finalPos = enriched.partOfSpeech;
-        if (!finalTrans) finalTrans = enriched.translation;
-        if (!finalLevel) finalLevel = enriched.level;
-        if (!finalIpa) finalIpa = enriched.ipa;
-        if (!finalPhoneticGuide) finalPhoneticGuide = enriched.phoneticGuide;
-        if (!finalPhoneticNote) finalPhoneticNote = enriched.phoneticNote;
-        if (!finalDef) finalDef = enriched.definition;
-        if (!finalExEn) finalExEn = enriched.exampleEn;
-        if (!finalExEs) finalExEs = enriched.exampleEs;
-      } catch {}
     }
 
     onSave({
-      word: cleanWord.charAt(0).toUpperCase() + cleanWord.slice(1),
-      partOfSpeech: (finalPos || 'noun').trim(),
-      level: finalLevel || 'B1',
-      ipa: (finalIpa || `/${cleanWord.toLowerCase()}/`).trim(),
-      phoneticGuide: (finalPhoneticGuide || `"${cleanWord.toLowerCase()}"`).trim(),
-      phoneticNote: (finalPhoneticNote || 'Pronunciación estándar en inglés').trim(),
-      translation: (finalTrans || cleanWord).trim(),
-      definition: (finalDef || '').trim(),
-      exampleEn: (finalExEn || `${cleanWord} is used in English.`).trim(),
-      exampleEs: (finalExEs || `Se utiliza en inglés.`).trim(),
-      highlightWord: cleanWord.toLowerCase(),
-      status,
+      word: word.trim(),
+      translation: translation.trim(),
+      phoneticGuide: phoneticGuide.trim() || `"${word.trim().toLowerCase()}"`,
+      ipa: ipa.trim(),
+      definition: definition.trim(),
+      exampleEn: exampleEn.trim(),
+      exampleEs: exampleEs.trim(),
+      level,
+      partOfSpeech,
+      categoryGroup: categoryGroup.trim() || 'General',
+      categorySub: categorySub.trim(),
+      status: initialWord ? initialWord.status : 'nueva',
       isFavorite: initialWord ? initialWord.isFavorite : false,
-      categoryGroup: finalCategoryGroup,
-      categorySub: finalCategorySub,
+      srsIntervalDays: initialWord?.srsIntervalDays ?? 1,
     });
+
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn select-none text-white">
-      <div className="w-full max-w-xl bg-[#1c162e] rounded-3xl shadow-2xl border border-white/15 overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="px-6 py-4 bg-[#140f21] border-b border-white/10 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#e62e4c] text-white flex items-center justify-center font-bold shadow-md shadow-[#e62e4c]/30">
-              <Sparkles size={18} />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <span>{initialWord ? 'Editar Palabra' : 'Añadir Palabra'}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-pink-300 bg-[#e62e4c]/20 border border-[#e62e4c]/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  {isGeminiConfigured() ? '✨ IA Gemini' : 'Auto-Rellenado ✨'}
-                </span>
-              </h3>
-              <p className="text-xs text-slate-400">
-                Solo introduce la palabra en inglés, categoría y subcategoría. Todo lo demás se auto-completa solo.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+    <Modal
+      visible={isOpen}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          {/* Header */}
+          <View style={styles.modalHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={styles.headerIcon}>
+                <BookOpen size={16} color={THEME.colors.crimsonLight} />
+              </View>
+              <Text style={styles.headerTitle}>
+                {initialWord ? 'Editar Palabra' : 'Nueva Palabra'}
+              </Text>
+            </View>
+
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <X size={18} color={THEME.colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.scrollBody}
           >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-4">
-          {/* Main English Input Field */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold uppercase text-slate-300 tracking-wide">
-              Palabra en inglés *
-            </label>
-            <div className="relative flex items-center">
-              <input
-                type="text"
-                value={word}
-                onChange={(e) => setWord(e.target.value)}
-                placeholder="ej. Stakeholder, Resilience, Breakthrough, Overcome..."
-                className="w-full h-12 pl-4 pr-24 rounded-2xl bg-black/50 border border-white/20 text-base font-bold text-white placeholder-slate-500 focus:outline-none focus:border-[#e62e4c] focus:ring-1 focus:ring-[#e62e4c] transition-all shadow-inner"
-                required
-                autoFocus
-              />
-
-              {/* Status / Audio Test button */}
-              <div className="absolute right-3 flex items-center gap-1.5">
-                {loadingAuto ? (
-                  <span className="flex items-center gap-1 text-[11px] text-pink-300 bg-[#e62e4c]/20 px-2 py-1 rounded-lg border border-[#e62e4c]/30 animate-pulse">
-                    <Loader2 size={13} className="animate-spin text-[#ff4d6d]" />
-                    <span>Auto...</span>
-                  </span>
-                ) : word.trim() ? (
-                  <button
-                    type="button"
-                    onClick={handleTestAudio}
-                    className="p-1.5 rounded-xl bg-[#e62e4c]/20 hover:bg-[#e62e4c]/30 text-[#ff4d6d] border border-[#e62e4c]/30 cursor-pointer transition-all shadow-sm"
-                    title="Escuchar pronunciación"
-                  >
-                    <Volume2 size={16} />
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-
-          {/* SECCIÓN OBLIGATORIA: Categoría y Subcategoría */}
-          <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-3.5 shadow-sm">
-            <div className="flex items-center justify-between border-b border-white/10 pb-2">
-              <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                <Folder size={15} className="text-[#ff4d6d]" />
-                <span>Categoría y Subcategoría *</span>
-              </span>
-              <span className="text-[10px] text-slate-400 font-medium">
-                Ubicación en tu biblioteca
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* 1. Categoría Principal */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="block text-[11px] font-bold uppercase text-slate-300">
-                    Categoría Principal *
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCustomCategory(!isCustomCategory);
-                      setHasUserCustomizedCategory(true);
-                      if (!isCustomCategory) {
-                        setCustomCategoryName('');
-                        setIsCustomSubcategory(true);
-                        setCustomSubcategoryName('');
-                      }
-                    }}
-                    className="text-[10px] text-[#ff4d6d] hover:text-pink-300 font-semibold cursor-pointer transition-colors"
-                  >
-                    {isCustomCategory ? 'Elegir existente' : '+ Crear nueva'}
-                  </button>
-                </div>
-
-                {isCustomCategory ? (
-                  <input
-                    type="text"
-                    value={customCategoryName}
-                    onChange={(e) => {
-                      setCustomCategoryName(e.target.value);
-                      setHasUserCustomizedCategory(true);
-                    }}
-                    placeholder="Nombre nueva categoría..."
-                    className="w-full px-3 py-2 rounded-xl bg-black/60 border border-pink-500/50 focus:border-[#e62e4c] text-xs font-semibold text-white placeholder-slate-500 focus:outline-none shadow-sm"
-                    required
-                  />
-                ) : (
-                  <select
-                    value={categoryGroup}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setHasUserCustomizedCategory(true);
-                      if (val === '__NEW__') {
-                        setIsCustomCategory(true);
-                        setCustomCategoryName('');
-                        setIsCustomSubcategory(true);
-                        setCustomSubcategoryName('');
-                      } else {
-                        setCategoryGroup(val);
-                        const found = availableCategories.find((c) => c.name === val);
-                        if (found?.subcategories?.[0]) {
-                          setCategorySub(found.subcategories[0].name);
-                          setIsCustomSubcategory(false);
-                        }
-                      }
-                    }}
-                    className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-xs font-semibold text-white focus:outline-none focus:border-[#e62e4c] cursor-pointer"
-                    required
-                  >
-                    {availableCategories.map((c) => (
-                      <option key={c.id || c.name} value={c.name} className="bg-[#1c162e]">
-                        {c.name}
-                      </option>
-                    ))}
-                    <option value="__NEW__" className="bg-[#1c162e] text-pink-300 font-bold">
-                      + Escribir nueva categoría...
-                    </option>
-                  </select>
-                )}
-              </div>
-
-              {/* 2. Subcategoría */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="block text-[11px] font-bold uppercase text-slate-300">
-                    Subcategoría *
-                  </label>
-                  {!isCustomCategory && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsCustomSubcategory(!isCustomSubcategory);
-                        setHasUserCustomizedCategory(true);
-                        if (!isCustomSubcategory) {
-                          setCustomSubcategoryName('');
-                        }
-                      }}
-                      className="text-[10px] text-[#ff4d6d] hover:text-pink-300 font-semibold cursor-pointer transition-colors"
-                    >
-                      {isCustomSubcategory ? 'Elegir existente' : '+ Crear nueva'}
-                    </button>
-                  )}
-                </div>
-
-                {isCustomSubcategory || isCustomCategory ? (
-                  <input
-                    type="text"
-                    value={customSubcategoryName}
-                    onChange={(e) => {
-                      setCustomSubcategoryName(e.target.value);
-                      setHasUserCustomizedCategory(true);
-                    }}
-                    placeholder="Nombre subcategoría..."
-                    className="w-full px-3 py-2 rounded-xl bg-black/60 border border-pink-500/50 focus:border-[#e62e4c] text-xs font-semibold text-white placeholder-slate-500 focus:outline-none shadow-sm"
-                    required
-                  />
-                ) : (
-                  <select
-                    value={categorySub}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setHasUserCustomizedCategory(true);
-                      if (val === '__NEW__') {
-                        setIsCustomSubcategory(true);
-                        setCustomSubcategoryName('');
-                      } else {
-                        setCategorySub(val);
-                      }
-                    }}
-                    className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/15 text-xs font-semibold text-white focus:outline-none focus:border-[#e62e4c] cursor-pointer"
-                    required
-                  >
-                    {currentSubcategories.map((sub) => (
-                      <option key={sub.id || sub.name} value={sub.name} className="bg-[#1c162e]">
-                        {sub.name}
-                      </option>
-                    ))}
-                    <option value="__NEW__" className="bg-[#1c162e] text-pink-300 font-bold">
-                      + Escribir nueva subcategoría...
-                    </option>
-                  </select>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Detalles generados automáticamente ✨ */}
-          {word.trim() && (
-            <div className="p-4 rounded-2xl bg-gradient-to-b from-[#241a3a] to-[#1a142b] border border-[#e62e4c]/30 shadow-lg space-y-3.5 animate-fadeIn">
-              <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <Sparkles size={14} className="text-[#ff4d6d]" />
-                    <span>Detalles automáticos</span>
-                  </span>
-                  {isGeminiConfigured() ? (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      Gemini Flash IA
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-pink-300 bg-[#e62e4c]/20 border border-[#e62e4c]/30 px-2 py-0.5 rounded-full">
-                      Auto-Rellenado ✨
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2.5">
-                  {isGeminiConfigured() && (
-                    <button
-                      type="button"
-                      onClick={handleRegenerate}
-                      disabled={loadingAuto}
-                      className="text-[11px] text-[#ff4d6d] hover:text-pink-300 font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                      title="Generar otra variante de frase y traducción con Gemini"
-                    >
-                      <RefreshCw size={11} className={loadingAuto ? 'animate-spin' : ''} />
-                      <span>Regenerar</span>
-                    </button>
-                  )}
+            {/* Word Input + AI enrichment button */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Palabra en Inglés *</Text>
+              <View style={styles.wordInputRow}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="Ej: breakthrough"
+                  placeholderTextColor={THEME.colors.textSubtle}
+                  value={word}
+                  onChangeText={setWord}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.aiButton}
+                  onPress={handleAutoEnrich}
+                  disabled={loadingAuto}
+                >
                   {loadingAuto ? (
-                    <span className="flex items-center gap-1 text-[11px] text-pink-300 animate-pulse font-semibold">
-                      <Loader2 size={12} className="animate-spin text-[#ff4d6d]" />
-                      <span>{isGeminiConfigured() ? 'Consultando Gemini...' : 'Detectando...'}</span>
-                    </span>
+                    <ActivityIndicator size="small" color="#ffffff" />
                   ) : (
-                    <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold">
-                      <CheckCircle2 size={13} />
-                      <span>Listo</span>
-                    </span>
+                    <>
+                      <Sparkles size={14} color="#ffffff" style={{ marginRight: 4 }} />
+                      <Text style={styles.aiButtonText}>IA</Text>
+                    </>
                   )}
-                </div>
-              </div>
+                </TouchableOpacity>
+              </View>
+            </View>
 
-              {/* Fila: Tipo de palabra y Traducción (Auto-detectados) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* 1. Tipo de palabra */}
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-bold uppercase text-slate-300">
-                    Tipo de palabra (Auto)
-                  </label>
-                  <select
-                    value={partOfSpeech}
-                    onChange={(e) => setPartOfSpeech(e.target.value)}
-                    className="w-full h-9 px-3 rounded-xl bg-black/50 border border-white/15 text-xs font-semibold text-white focus:outline-none focus:border-[#e62e4c] transition-all cursor-pointer"
+            {/* Translation */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Traducción al Español *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ej: avance importante / gran descubrimiento"
+                placeholderTextColor={THEME.colors.textSubtle}
+                value={translation}
+                onChangeText={setTranslation}
+              />
+            </View>
+
+            {/* Phonetic guide */}
+            <View style={styles.inputGroup}>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Pronunciación en Español (Guía)</Text>
+                {word.trim() ? (
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                    onPress={() => vocabService.speak(word)}
                   >
-                    {WORD_POS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value} className="bg-[#1c162e]">
-                        {opt.label}
-                      </option>
-                    ))}
-                    {!WORD_POS_OPTIONS.some((opt) => opt.value === partOfSpeech) && partOfSpeech && (
-                      <option value={partOfSpeech} className="bg-[#1c162e]">
-                        {partOfSpeech}
-                      </option>
-                    )}
-                  </select>
-                </div>
+                    <Volume2 size={13} color={THEME.colors.crimsonLight} />
+                    <Text style={{ fontSize: 11, color: THEME.colors.crimsonLight }}>
+                      Escuchar
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder='Ej: "breeik-thruu"'
+                placeholderTextColor={THEME.colors.textSubtle}
+                value={phoneticGuide}
+                onChangeText={setPhoneticGuide}
+              />
+            </View>
 
-                {/* 2. Traducción al español */}
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-bold uppercase text-slate-300">
-                    Traducción al español (Auto)
-                  </label>
-                  <input
-                    type="text"
-                    value={translation}
-                    onChange={(e) => setTranslation(e.target.value)}
-                    placeholder={loadingAuto ? 'Traduciendo...' : 'Traducción automática...'}
-                    className="w-full h-9 px-3 rounded-xl bg-black/50 border border-white/15 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#e62e4c] transition-all"
-                  />
-                </div>
-              </div>
+            {/* IPA & Level */}
+            <View style={styles.twoColRow}>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.label}>Fonética IPA</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ej: /ˈbreɪkˌθruː/"
+                  placeholderTextColor={THEME.colors.textSubtle}
+                  value={ipa}
+                  onChangeText={setIpa}
+                />
+              </View>
 
-              {/* Fonética IPA y Guía generadas */}
-              {(ipa || phoneticGuide) && (
-                <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-[10px] uppercase font-bold text-slate-400">IPA:</span>
-                    <span className="font-mono text-[#ff758c] font-bold text-xs">{ipa}</span>
-                    <span className="text-slate-300 text-xs italic">{phoneticGuide}</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#e62e4c]/20 text-pink-300 border border-[#e62e4c]/30">
-                    {level}
-                  </span>
-                </div>
-              )}
-
-              {/* Bilingual Example sentence */}
-              {exampleEn && (
-                <div className="pt-1 text-xs space-y-1">
-                  <span className="text-slate-400 text-[10px] uppercase font-bold flex items-center gap-1.5">
-                    <span>Frase de ejemplo con</span>
-                    <span className="text-[#ff758c] font-black underline">{word}</span>
-                  </span>
-                  <p className="text-slate-200 font-medium leading-relaxed italic bg-black/30 p-2 rounded-xl border border-white/10 text-[11px]">
-                    "{exampleEn}"
-                  </p>
-                  {exampleEs && (
-                    <p className="text-slate-400 text-[11px] leading-relaxed pl-1">
-                      "{exampleEs}"
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Notice when Gemini is not yet configured */}
-              {!isGeminiConfigured() && (
-                <div className="pt-1 text-[10.5px] text-slate-400 bg-purple-950/20 p-2 rounded-xl border border-purple-500/20 flex items-center justify-between">
-                  <span>💡 Para frases 100% ricas, únicas y variadas, activa tu clave gratis de <b>Gemini en Ajustes</b>.</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Optional Collapsible Accordion to manually adjust fields if desired */}
-          <div className="pt-1">
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer select-none"
-            >
-              <span>{showAdvanced ? 'Ocultar campos avanzados' : 'Personalizar fonética, nivel y ejemplos (opcional)'}</span>
-              {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-
-            {showAdvanced && (
-              <div className="mt-3 p-4 rounded-2xl bg-black/40 border border-white/10 space-y-3.5 animate-fadeIn">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                      Fonética IPA
-                    </label>
-                    <input
-                      type="text"
-                      value={ipa}
-                      onChange={(e) => setIpa(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs font-mono text-[#ff758c] focus:outline-none focus:border-[#e62e4c]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                      Pronunciación aproximada
-                    </label>
-                    <input
-                      type="text"
-                      value={phoneticGuide}
-                      onChange={(e) => setPhoneticGuide(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c]"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                      Nivel CEFR
-                    </label>
-                    <select
-                      value={level}
-                      onChange={(e) => setLevel(e.target.value as WordLevel)}
-                      className="w-full px-3 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c] cursor-pointer"
+              <View style={[styles.inputGroup, { width: 100 }]}>
+                <Text style={styles.label}>Nivel MCER</Text>
+                <View style={styles.levelPillRow}>
+                  {['A1', 'A2', 'B1', 'B2', 'C1'].map((lvl) => (
+                    <TouchableOpacity
+                      key={lvl}
+                      style={[
+                        styles.miniLevelPill,
+                        level === lvl && styles.miniLevelPillActive,
+                      ]}
+                      onPress={() => setLevel(lvl as WordLevel)}
                     >
-                      <option value="A1" className="bg-[#1c162e]">A1 - Principiante</option>
-                      <option value="A2" className="bg-[#1c162e]">A2 - Básico</option>
-                      <option value="B1" className="bg-[#1c162e]">B1 - Intermedio</option>
-                      <option value="B2" className="bg-[#1c162e]">B2 - Intermedio Alto</option>
-                      <option value="C1" className="bg-[#1c162e]">C1 - Avanzado</option>
-                      <option value="C2" className="bg-[#1c162e]">C2 - Dominio Nativo</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                      Nota Fonética / Regla
-                    </label>
-                    <input
-                      type="text"
-                      value={phoneticNote}
-                      onChange={(e) => setPhoneticNote(e.target.value)}
-                      placeholder="ej. Sílaba tónica destacada..."
-                      className="w-full px-3 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c]"
-                    />
-                  </div>
-                </div>
+                      <Text
+                        style={[
+                          styles.miniLevelPillText,
+                          level === lvl && styles.miniLevelPillTextActive,
+                        ]}
+                      >
+                        {lvl}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
 
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                    Frase de ejemplo en inglés
-                  </label>
-                  <textarea
-                    value={exampleEn}
-                    onChange={(e) => setExampleEn(e.target.value)}
-                    rows={2}
-                    className="w-full px-3 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c] resize-none"
-                  />
-                </div>
+            {/* Example English */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Frase de Ejemplo (Inglés)</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Ej: Scientists made a major breakthrough."
+                placeholderTextColor={THEME.colors.textSubtle}
+                value={exampleEn}
+                onChangeText={setExampleEn}
+                multiline
+              />
+            </View>
 
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                    Traducción de la frase
-                  </label>
-                  <textarea
-                    value={exampleEs}
-                    onChange={(e) => setExampleEs(e.target.value)}
-                    rows={2}
-                    className="w-full px-3 py-1.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white focus:outline-none focus:border-[#e62e4c] resize-none"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+            {/* Example Spanish */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Traducción de Ejemplo (Español)</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Ej: Los científicos lograron un avance importante."
+                placeholderTextColor={THEME.colors.textSubtle}
+                value={exampleEs}
+                onChangeText={setExampleEs}
+                multiline
+              />
+            </View>
 
-          {/* Action buttons */}
-          <div className="pt-4 border-t border-white/10 flex items-center justify-end gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-white/15 text-xs font-semibold text-slate-300 hover:bg-white/10 cursor-pointer transition-all"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={!word.trim() || loadingAuto}
-              className="px-6 py-2.5 rounded-xl bg-[#e62e4c] hover:bg-[#ff3b59] text-xs font-bold text-white shadow-lg shadow-[#e62e4c]/30 disabled:opacity-50 cursor-pointer flex items-center gap-2 transition-all active:scale-[0.99]"
-            >
-              <Check size={15} />
-              <span>{initialWord ? 'Guardar Cambios' : 'Añadir Palabra'}</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            {/* Category group & sub */}
+            <View style={styles.twoColRow}>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.label}>Categoría Grupo</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ej: Readings / Business"
+                  placeholderTextColor={THEME.colors.textSubtle}
+                  value={categoryGroup}
+                  onChangeText={setCategoryGroup}
+                />
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.label}>Subcategoría</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ej: Cap. 1 / Vocabulario"
+                  placeholderTextColor={THEME.colors.textSubtle}
+                  value={categorySub}
+                  onChangeText={setCategorySub}
+                />
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* Modal Footer Actions */}
+          <View style={styles.modalFooter}>
+            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+              <Text style={styles.cancelButtonText}>Cancelar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+              <Check size={16} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={styles.saveButtonText}>Guardar Palabra</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: THEME.colors.bgCard,
+    borderTopLeftRadius: THEME.radius.xl,
+    borderTopRightRadius: THEME.radius.xl,
+    maxHeight: '90%',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.border,
+  },
+  headerIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(230, 46, 76, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  closeBtn: {
+    padding: 6,
+  },
+  scrollBody: {
+    padding: 20,
+    gap: 12,
+  },
+  inputGroup: {
+    gap: 6,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: THEME.colors.textMuted,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  input: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.radius.md,
+    paddingHorizontal: 12,
+    height: 44,
+    color: '#ffffff',
+    fontSize: 13,
+  },
+  textArea: {
+    height: 64,
+    textAlignVertical: 'top',
+    paddingVertical: 10,
+  },
+  wordInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  aiButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: THEME.colors.crimson,
+    paddingHorizontal: 14,
+    borderRadius: THEME.radius.md,
+  },
+  aiButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  twoColRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  levelPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  miniLevelPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  miniLevelPillActive: {
+    backgroundColor: THEME.colors.crimson,
+  },
+  miniLevelPillText: {
+    color: THEME.colors.textSubtle,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  miniLevelPillTextActive: {
+    color: '#ffffff',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: THEME.colors.border,
+    gap: 10,
+  },
+  cancelButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: THEME.radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  cancelButtonText: {
+    color: THEME.colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  saveButton: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: THEME.radius.md,
+    backgroundColor: THEME.colors.crimson,
+  },
+  saveButtonText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+});

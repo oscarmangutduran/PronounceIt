@@ -2,6 +2,7 @@ import { TestQuestion } from '../types';
 import { VerbQuestionEvaluation } from '../components/workspace/IrregularVerbsTestView';
 import { firebaseService } from './firebaseClient';
 import { backendApi } from './apiClient';
+import { appStorage } from './storage';
 
 export interface StoredTestItem {
   id: string;
@@ -28,6 +29,11 @@ class TestHistoryService {
   private listeners: (() => void)[] = [];
 
   constructor() {
+    this.init();
+  }
+
+  public async init() {
+    await appStorage.init();
     this.loadHistory();
     this.initCloudSync();
   }
@@ -40,7 +46,6 @@ class TestHistoryService {
   }
 
   public async syncWithCloud(): Promise<void> {
-    // 1. Try Express backend
     try {
       const isBackendLive = await backendApi.checkHealth();
       if (isBackendLive) {
@@ -58,7 +63,6 @@ class TestHistoryService {
       console.warn('Backend test sync warning:', e);
     }
 
-    // 2. Try Firebase fallback
     if (firebaseService.isFirebaseConnected()) {
       try {
         const remote = await firebaseService.fetchTestHistory();
@@ -75,9 +79,9 @@ class TestHistoryService {
   }
 
   private loadHistory() {
-    try { localStorage.removeItem('pronounceit_test_history_v1'); } catch {}
+    try { appStorage.removeItem('pronounceit_test_history_v1'); } catch {}
     try {
-      const stored = localStorage.getItem(STORAGE_KEY_TEST_HISTORY);
+      const stored = appStorage.getItem(STORAGE_KEY_TEST_HISTORY);
       if (stored) {
         this.history = JSON.parse(stored);
       } else {
@@ -87,14 +91,14 @@ class TestHistoryService {
     } catch {
       this.history = [...INITIAL_TEST_HISTORY];
     }
+    this.notify();
   }
 
   private saveHistory() {
     try {
-      localStorage.setItem(STORAGE_KEY_TEST_HISTORY, JSON.stringify(this.history));
-    } catch {
-      // ignore
-    }
+      appStorage.setItem(STORAGE_KEY_TEST_HISTORY, JSON.stringify(this.history));
+    } catch {}
+    this.notify();
   }
 
   public getHistory(): StoredTestItem[] {

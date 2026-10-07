@@ -1,7 +1,10 @@
+import { Platform } from 'react-native';
 import { WordItem } from '../types';
 import { StoredTestItem } from './testHistoryStore';
 
-const BASE_URL = '/api';
+const BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  (Platform.OS === 'android' ? 'http://10.0.2.2:5000/api' : 'http://localhost:5000/api');
 
 export interface ApiResponse<T = any> {
   success?: boolean;
@@ -123,7 +126,8 @@ class BackendApiClient {
     }
   }
 
-  public async updateWord(word: WordItem): Promise<boolean> {
+  public async updateWord(wordOrId: WordItem | string, maybeWord?: WordItem): Promise<boolean> {
+    const word = typeof wordOrId === 'string' ? (maybeWord || ({ id: wordOrId } as WordItem)) : wordOrId;
     try {
       const res = await fetch(`${BASE_URL}/words/${encodeURIComponent(word.id)}`, {
         method: 'PUT',
