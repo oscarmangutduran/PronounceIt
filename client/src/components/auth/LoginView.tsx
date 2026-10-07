@@ -56,7 +56,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
     }
     return saved !== null ? saved : '';
   });
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState(() => {
+    const isRemembered = appStorage.getItem('pronounceit_remember_me') === 'true';
+    if (!isRemembered) return '';
+    const saved = appStorage.getItem('pronounceit_saved_password');
+    return saved !== null ? saved : '';
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -66,6 +71,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [welcomeNotice, setWelcomeNotice] = useState<WelcomeEmailNotice | null>(null);
+
+  const handleToggleRemember = () => {
+    const nextVal = !rememberMe;
+    setRememberMe(nextVal);
+    if (!nextVal) {
+      appStorage.removeItem('pronounceit_remember_me');
+      appStorage.removeItem('pronounceit_saved_email');
+      appStorage.removeItem('pronounceit_saved_password');
+      appStorage.removeItem('pronounceit_saved_username');
+    }
+  };
 
   const handleSubmit = async () => {
     setError(null);
@@ -111,6 +127,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
         if (rememberMe) {
           appStorage.setItem('pronounceit_remember_me', 'true');
           appStorage.setItem('pronounceit_saved_email', email.trim());
+          appStorage.setItem('pronounceit_saved_password', newPassword);
           if (username) appStorage.setItem('pronounceit_saved_username', username.trim());
         }
         setSuccess('¡Contraseña actualizada con éxito! Entrando a la aplicación...');
@@ -169,10 +186,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
         if (rememberMe) {
           appStorage.setItem('pronounceit_remember_me', 'true');
           appStorage.setItem('pronounceit_saved_email', email.trim());
+          appStorage.setItem('pronounceit_saved_password', password);
           if (username) appStorage.setItem('pronounceit_saved_username', username.trim());
         } else {
           appStorage.removeItem('pronounceit_remember_me');
           appStorage.removeItem('pronounceit_saved_email');
+          appStorage.removeItem('pronounceit_saved_password');
           appStorage.removeItem('pronounceit_saved_username');
         }
 
@@ -455,13 +474,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
             {(mode === 'signin' || mode === 'signup') && (
               <TouchableOpacity
                 style={styles.rememberRow}
-                onPress={() => setRememberMe(!rememberMe)}
+                onPress={handleToggleRemember}
                 activeOpacity={0.8}
               >
                 <View style={[styles.checkbox, rememberMe && styles.checkboxActive]}>
                   {rememberMe && <View style={styles.checkboxInner} />}
                 </View>
-                <Text style={styles.rememberText}>Recordar mi sesión en este dispositivo</Text>
+                <Text style={styles.rememberText}>Recordar mis datos (correo y contraseña)</Text>
               </TouchableOpacity>
             )}
 
