@@ -1,0 +1,50 @@
+services:
+  # ==========================================
+  # Backend API Service (Node.js + Express)
+  # ==========================================
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: pronounceit-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - CLIENT_ORIGIN=http://localhost:3000
+    volumes:
+      # Persistent JSON database storage mapped to host
+      - ./server/data:/app/data
+    networks:
+      - pronounceit-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ==========================================
+  # Frontend Web Service (React + Vite + Nginx)
+  # ==========================================
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: pronounceit-frontend
+    restart: unless-stopped
+    ports:
+      # Port 3000 mapped to container port 80 (prevents conflicts with XAMPP Apache on port 80)
+      - "3000:80"
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - pronounceit-net
+
+networks:
+  pronounceit-net:
+    driver: bridge
