@@ -64,21 +64,10 @@ export interface DatabaseSchema {
 }
 
 const DEFAULT_DB: DatabaseSchema = {
-  users: [
-    {
-      id: 'demo-user-1',
-      email: 'usuario@pronounceit.com',
-      username: 'Usuario PronounceIt',
-      password: 'password123',
-      must_change_password: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  ],
+  users: [],
   words: [
     {
       id: 'word-1',
-      userId: 'demo-user-1',
       word: 'Ephemeral',
       phonetic: '/ɪˈfem.ər.əl/',
       translation: 'Efímero / De corta duración',
@@ -97,7 +86,6 @@ const DEFAULT_DB: DatabaseSchema = {
     },
     {
       id: 'word-2',
-      userId: 'demo-user-1',
       word: 'Resilience',
       phonetic: '/rɪˈzɪl.jəns/',
       translation: 'Resiliencia / Capacidad de recuperación',

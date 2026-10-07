@@ -15,11 +15,19 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
   });
   const [email, setEmail] = useState(() => {
     const saved = localStorage.getItem('pronounceit_saved_email');
-    return saved !== null ? saved : 'alexgorbatow@yandex.ru';
+    if (saved === 'alexgorbatow@yandex.ru' || saved === 'usuario@pronounceit.com') {
+      localStorage.removeItem('pronounceit_saved_email');
+      return '';
+    }
+    return saved !== null ? saved : '';
   });
   const [username, setUsername] = useState(() => {
     const saved = localStorage.getItem('pronounceit_saved_username');
-    return saved !== null ? saved : 'alexgorbatow';
+    if (saved === 'alexgorbatow' || saved === 'Usuario PronounceIt') {
+      localStorage.removeItem('pronounceit_saved_username');
+      return '';
+    }
+    return saved !== null ? saved : '';
   });
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -385,7 +393,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="alexgorbatow@yandex.ru"
+                        placeholder="tu_correo@ejemplo.com"
                         className="w-full pb-2 pt-0.5 bg-transparent border-b border-white/20 text-xs sm:text-sm text-white placeholder-slate-500/60 focus:outline-none focus:border-white transition-colors pr-7"
                         required
                       />
@@ -407,7 +415,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                           type="text"
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
-                          placeholder="alexgorbatow"
+                          placeholder="tu_usuario"
                           className="w-full pb-2 pt-0.5 bg-transparent border-b border-white/20 text-xs sm:text-sm text-white placeholder-slate-500/60 focus:outline-none focus:border-white transition-colors pr-7"
                           required
                         />

@@ -147,15 +147,43 @@ class FirebaseService {
   }
 
   private init() {
-    // 1. Synchronously restore cached user
+    // 1. Synchronously restore cached user (purge demo users)
     try {
       const cached = localStorage.getItem(STORAGE_KEY_FIREBASE_USER);
       if (cached) {
-        this.currentUser = JSON.parse(cached);
+        const u = JSON.parse(cached);
+        if (
+          u.id === 'usr-alex-gorbatow' ||
+          u.username?.toLowerCase() === 'alexgorbatow' ||
+          u.email?.toLowerCase() === 'alexgorbatow@yandex.ru' ||
+          u.id === 'demo-user-1'
+        ) {
+          localStorage.removeItem(STORAGE_KEY_FIREBASE_USER);
+          localStorage.removeItem('pronounceit_saved_email');
+          localStorage.removeItem('pronounceit_saved_username');
+          this.currentUser = null;
+        } else {
+          this.currentUser = u;
+        }
       }
     } catch {
       // ignore
     }
+
+    // Clean registered accounts store from demo accounts
+    try {
+      const accounts = this.getStoredAccounts();
+      const filtered = accounts.filter(
+        (a) =>
+          a.id !== 'usr-alex-gorbatow' &&
+          a.username.toLowerCase() !== 'alexgorbatow' &&
+          a.email.toLowerCase() !== 'alexgorbatow@yandex.ru' &&
+          a.id !== 'demo-user-1'
+      );
+      if (filtered.length !== accounts.length) {
+        this.saveStoredAccounts(filtered);
+      }
+    } catch {}
 
     // 2. Synchronously ensure avatar is restored from all persistent stores
     const savedAvatar = this.getSavedAvatar(this.currentUser?.id, this.currentUser?.username, this.currentUser?.email);
@@ -485,74 +513,10 @@ class FirebaseService {
       };
     }
 
-    // Demo account access (alexgorbatow)
-    if (input === 'alexgorbatow' || input === 'alexgorbatow@yandex.ru') {
-      let avatarUrl = this.getSavedAvatar('usr-alex-gorbatow', 'alexgorbatow', 'alexgorbatow@yandex.ru');
-      let fullName = 'Alex Gorbatow';
-
-      if (this.db) {
-        try {
-          const uDoc = await getDoc(doc(this.db, 'users', 'usr-alex-gorbatow'));
-          if (uDoc.exists()) {
-            const data = uDoc.data();
-            if (data?.avatar_url) avatarUrl = data.avatar_url;
-            if (data?.full_name) fullName = data.full_name;
-          }
-        } catch {}
-      }
-
-      if (avatarUrl) {
-        this.saveAvatar('usr-alex-gorbatow', avatarUrl, 'alexgorbatow', 'alexgorbatow@yandex.ru');
-      }
-
-      const demoProfile: UserProfile = {
-        id: 'usr-alex-gorbatow',
-        email: 'alexgorbatow@yandex.ru',
-        full_name: fullName,
-        username: 'alexgorbatow',
-        avatar_url: avatarUrl,
-        must_change_password: password === '12345',
-        role: 'user',
-        created_at: new Date().toISOString(),
-      };
-      this.currentUser = demoProfile;
-      localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(demoProfile));
-      this.notify();
-      return {
-        success: true,
-        mustChangePassword: password === '12345',
-        user: demoProfile,
-      };
-    }
-
-    // Standard default user fallback
-    let fallbackAvatar = this.getSavedAvatar(undefined, input, input);
-    if (this.db && input) {
-      try {
-        const uDoc = await getDoc(doc(this.db, 'users', input));
-        if (uDoc.exists() && uDoc.data()?.avatar_url) {
-          fallbackAvatar = uDoc.data()?.avatar_url;
-        }
-      } catch {}
-    }
-
-    const fallbackProfile: UserProfile = {
-      id: `usr-${Date.now().toString(36)}`,
-      email: input.includes('@') ? input : `${input}@pronounceit.app`,
-      full_name: input.split('@')[0],
-      username: input.split('@')[0],
-      avatar_url: fallbackAvatar,
-      must_change_password: password === '12345',
-      role: 'user',
-      created_at: new Date().toISOString(),
-    };
-    this.currentUser = fallbackProfile;
-    localStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(fallbackProfile));
-    this.notify();
+    // No valid user match found
     return {
-      success: true,
-      mustChangePassword: password === '12345',
-      user: fallbackProfile,
+      success: false,
+      message: 'Usuario o contraseña no válidos. Si no tienes una cuenta, regístrate para comenzar.',
     };
   }
 
