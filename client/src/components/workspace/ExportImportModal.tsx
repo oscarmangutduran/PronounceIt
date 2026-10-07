@@ -9,10 +9,11 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { X, Download, Upload, Copy, Check } from 'lucide-react-native';
+import { X, Download, Upload, Copy, Check, FileSpreadsheet, FolderUp } from 'lucide-react-native';
 import { WordItem } from '../../types';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { wordsToCsv, parseCsvToWords, downloadCsvFile } from '../../lib/csvService';
 
 interface ExportImportModalProps {
   isOpen: boolean;
@@ -28,7 +29,8 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
   onImportWords,
 }) => {
   const [activeTab, setActiveTab] = useState<'export' | 'import'>('export');
-  const [importJson, setImportJson] = useState('');
+  const [importCsv, setImportCsv] = useState('');
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
   const [statusModal, setStatusModal] = useState<{
     title: string;
@@ -37,155 +39,268 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
     onCloseAction?: () => void;
   } | null>(null);
 
-  const exportString = JSON.stringify(words, null, 2);
+  const exportCsvString = wordsToCsv(words);
+
+  const handleDownload = () => {
+    downloadCsvFile('pronounceit_vocabulario.csv', exportCsvString);
+    setStatusModal({
+      title: '¡Descarga Iniciada!',
+      message: `Se ha descargado el archivo "pronounceit_vocabulario.csv" con ${words.length} palabras.`,
+      variant: 'success',
+    });
+  };
 
   const handleCopy = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(exportString).catch(() => {});
+      navigator.clipboard.writeText(exportCsvString).catch(() => {});
     }
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  const handlePickFile = () => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.csv,text/csv';
+      input.onchange = (e: any) => {
+        const file = e.target?.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const content = event.target?.result as string;
+          if (content) {
+            setImportCsv(content);
+            setUploadedFileName(file.name);
+          }
+        };
+        reader.readAsText(file, 'utf-8');
+      };
+      input.click();
+    }
+  };
+
   const handleImport = () => {
-    try {
-      const parsed = JSON.parse(importJson);
-      if (!Array.isArray(parsed)) {
-        setStatusModal({
-          title: 'Formato Incorrecto',
-          message: 'El JSON debe ser un array o lista de palabras.',
-          variant: 'warning',
-        });
-        return;
-      }
-      onImportWords(parsed);
+    const trimmed = importCsv.trim();
+    if (!trimmed) {
       setStatusModal({
-        title: '¡Importación Exitosa!',
-        message: `Se importaron ${parsed.length} palabras correctamente a tu vocabulario.`,
-        variant: 'success',
-        onCloseAction: () => {
-          setStatusModal(null);
-          onClose();
-        },
+        title: 'Archivo Vacío',
+        message: 'Por favor, selecciona un archivo .csv o pega el contenido en el recuadro.',
+        variant: 'warning',
       });
-    } catch {
+      return;
+    }
+
+    // Parse CSV
+    let parsedWords = parseCsvToWords(trimmed);
+
+    // Legacy fallback: if JSON is pasted instead of CSV
+    if (parsedWords.length === 0 && (trimmed.startsWith('[') || trimmed.startsWith('{'))) {
+      try {
+        const jsonParsed = JSON.parse(trimmed);
+        if (Array.isArray(jsonParsed)) {
+          parsedWords = jsonParsed;
+        }
+      } catch {}
+    }
+
+    if (parsedWords.length === 0) {
       setStatusModal({
-        title: 'Error de Formato',
-        message: 'El texto ingresado no es un JSON válido. Revisa que la sintaxis sea correcta.',
+        title: 'Formato no reconocido',
+        message:
+          'No se encontraron palabras válidas en el CSV. Asegúrate de incluir columnas como "palabra" y "traduccion" (o "word" y "translation").',
         variant: 'danger',
       });
+      return;
     }
+
+    onImportWords(parsedWords);
+    setStatusModal({
+      title: '¡Importación Exitosa!',
+      message: `Se importaron ${parsedWords.length} palabras correctamente a tu vocabulario.`,
+      variant: 'success',
+      onCloseAction: () => {
+        setStatusModal(null);
+        setImportCsv('');
+        setUploadedFileName(null);
+        onClose();
+      },
+    });
   };
 
   return (
     <>
       <Modal visible={isOpen} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.card}>
-          <View style={styles.header}>
-            <View style={styles.tabRow}>
-              <TouchableOpacity
-                style={[styles.tab, activeTab === 'export' && styles.tabActive]}
-                onPress={() => setActiveTab('export')}
-              >
-                <Download size={14} color={activeTab === 'export' ? '#ffffff' : THEME.colors.textMuted} />
-                <Text style={[styles.tabText, activeTab === 'export' && styles.tabTextActive]}>
-                  Exportar ({words.length})
-                </Text>
-              </TouchableOpacity>
+        <View style={styles.overlay}>
+          <View style={styles.card}>
+            {/* Header & Tabs */}
+            <View style={styles.header}>
+              <View style={styles.tabRow}>
+                <TouchableOpacity
+                  style={[styles.tab, activeTab === 'export' && styles.tabActive]}
+                  onPress={() => setActiveTab('export')}
+                  activeOpacity={0.8}
+                >
+                  <Download
+                    size={14}
+                    color={activeTab === 'export' ? '#ffffff' : THEME.colors.textMuted}
+                  />
+                  <Text
+                    style={[styles.tabText, activeTab === 'export' && styles.tabTextActive]}
+                  >
+                    Exportar CSV ({words.length})
+                  </Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.tab, activeTab === 'import' && styles.tabActive]}
-                onPress={() => setActiveTab('import')}
-              >
-                <Upload size={14} color={activeTab === 'import' ? '#ffffff' : THEME.colors.textMuted} />
-                <Text style={[styles.tabText, activeTab === 'import' && styles.tabTextActive]}>
-                  Importar
-                </Text>
+                <TouchableOpacity
+                  style={[styles.tab, activeTab === 'import' && styles.tabActive]}
+                  onPress={() => setActiveTab('import')}
+                  activeOpacity={0.8}
+                >
+                  <Upload
+                    size={14}
+                    color={activeTab === 'import' ? '#ffffff' : THEME.colors.textMuted}
+                  />
+                  <Text
+                    style={[styles.tabText, activeTab === 'import' && styles.tabTextActive]}
+                  >
+                    Importar CSV
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.8}>
+                <X size={18} color={THEME.colors.textMuted} />
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <X size={18} color={THEME.colors.textMuted} />
-            </TouchableOpacity>
-          </View>
+            {/* Modal Body */}
+            <ScrollView
+              style={styles.bodyScrollView}
+              contentContainerStyle={styles.body}
+              showsVerticalScrollIndicator={false}
+            >
+              {activeTab === 'export' ? (
+                <>
+                  <View style={styles.descriptionRow}>
+                    <FileSpreadsheet size={18} color={THEME.colors.crimsonLight} />
+                    <Text style={styles.infoText}>
+                      Descarga o copia tu vocabulario en formato <Text style={styles.boldText}>CSV (.csv)</Text> compatible con Excel, Google Sheets y copias de seguridad.
+                    </Text>
+                  </View>
 
-          <View style={styles.body}>
-            {activeTab === 'export' ? (
-              <>
-                <Text style={styles.infoText}>
-                  Copia los datos de tu vocabulario para guardarlos como copia de seguridad.
-                </Text>
-                <TextInput
-                  style={styles.jsonBox}
-                  value={exportString}
-                  editable={false}
-                  multiline
-                />
-                <TouchableOpacity
-                  style={[styles.importActionBtn, isCopied && styles.copiedBtn]}
-                  onPress={handleCopy}
-                  activeOpacity={0.85}
-                >
-                  {isCopied ? (
-                    <>
-                      <Check size={16} color="#ffffff" style={{ marginRight: 6 }} />
-                      <Text style={styles.importActionText}>¡Copiado al Portapapeles!</Text>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={16} color="#ffffff" style={{ marginRight: 6 }} />
-                      <Text style={styles.importActionText}>Copiar al Portapapeles</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <Text style={styles.infoText}>
-                  Pega aquí el JSON exportado para agregar o restaurar palabras.
-                </Text>
-                <TextInput
-                  style={[styles.jsonBox, styles.inputBox]}
-                  placeholder='[ { "word": "example", "translation": "ejemplo" } ]'
-                  placeholderTextColor={THEME.colors.textSubtle}
-                  value={importJson}
-                  onChangeText={setImportJson}
-                  multiline
-                />
-                <TouchableOpacity
-                  style={styles.importActionBtn}
-                  onPress={handleImport}
-                >
-                  <Upload size={16} color="#ffffff" style={{ marginRight: 6 }} />
-                  <Text style={styles.importActionText}>Importar Palabras</Text>
-                </TouchableOpacity>
-              </>
-            )}
+                  <View style={styles.buttonActionRow}>
+                    <TouchableOpacity
+                      style={styles.downloadPrimaryBtn}
+                      onPress={handleDownload}
+                      activeOpacity={0.85}
+                    >
+                      <Download size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                      <Text style={styles.downloadPrimaryBtnText}>Descargar archivo .CSV</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.copyBtn, isCopied && styles.copyBtnSuccess]}
+                      onPress={handleCopy}
+                      activeOpacity={0.85}
+                    >
+                      {isCopied ? (
+                        <>
+                          <Check size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                          <Text style={styles.copyBtnText}>¡Copiado!</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                          <Text style={styles.copyBtnText}>Copiar CSV</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={styles.subLabel}>Vista previa del CSV generado:</Text>
+                  <TextInput
+                    style={styles.csvBox}
+                    value={exportCsvString}
+                    editable={false}
+                    multiline
+                  />
+                </>
+              ) : (
+                <>
+                  <View style={styles.descriptionRow}>
+                    <FolderUp size={18} color={THEME.colors.crimsonLight} />
+                    <Text style={styles.infoText}>
+                      Selecciona un archivo <Text style={styles.boldText}>.csv</Text> de tu ordenador o pega su contenido con columnas como <Text style={styles.codeText}>palabra, traduccion, categoria</Text>.
+                    </Text>
+                  </View>
+
+                  {/* File Upload Selector Button */}
+                  <TouchableOpacity
+                    style={styles.uploadPickerBtn}
+                    onPress={handlePickFile}
+                    activeOpacity={0.85}
+                  >
+                    <FolderUp size={18} color={THEME.colors.crimsonLight} style={{ marginRight: 8 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.uploadPickerBtnText}>
+                        {uploadedFileName
+                          ? `Archivo cargado: ${uploadedFileName}`
+                          : 'Cargar archivo .CSV desde tu equipo'}
+                      </Text>
+                      <Text style={styles.uploadPickerBtnSub}>
+                        {uploadedFileName ? 'Haz clic para seleccionar otro archivo' : 'Formato .csv delimitado por comas o punto y coma'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <Text style={styles.subLabel}>O pega el contenido CSV directamente aquí:</Text>
+                  <TextInput
+                    style={[styles.csvBox, styles.inputBox]}
+                    placeholder={`palabra,traduccion,categoria,nivel\napple,manzana,Frutas,A1\nbreakthrough,avance decisivo,Tecnologia,B2`}
+                    placeholderTextColor={THEME.colors.textSubtle}
+                    value={importCsv}
+                    onChangeText={(val) => {
+                      setImportCsv(val);
+                      if (uploadedFileName) setUploadedFileName(null);
+                    }}
+                    multiline
+                  />
+
+                  <TouchableOpacity
+                    style={styles.importActionBtn}
+                    onPress={handleImport}
+                    activeOpacity={0.85}
+                  >
+                    <Upload size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                    <Text style={styles.importActionText}>Importar Palabras a Vocabulario</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </ScrollView>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
 
-    {/* Custom Status Modal */}
-    {statusModal && (
-      <ConfirmModal
-        isOpen={!!statusModal}
-        title={statusModal.title}
-        message={statusModal.message}
-        confirmText="Entendido"
-        cancelText={null}
-        variant={statusModal.variant}
-        onConfirm={() => {
-          if (statusModal.onCloseAction) {
-            statusModal.onCloseAction();
-          } else {
-            setStatusModal(null);
-          }
-        }}
-        onCancel={() => setStatusModal(null)}
-      />
-    )}
+      {/* Custom Status Modal */}
+      {statusModal && (
+        <ConfirmModal
+          isOpen={!!statusModal}
+          title={statusModal.title}
+          message={statusModal.message}
+          confirmText="Entendido"
+          cancelText={null}
+          variant={statusModal.variant}
+          onConfirm={() => {
+            if (statusModal.onCloseAction) {
+              statusModal.onCloseAction();
+            } else {
+              setStatusModal(null);
+            }
+          }}
+          onCancel={() => setStatusModal(null)}
+        />
+      )}
     </>
   );
 };
@@ -205,8 +320,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.12)',
     padding: 22,
     width: '100%',
-    maxWidth: 600,
-    maxHeight: '88%',
+    maxWidth: 620,
+    maxHeight: '90%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.6,
@@ -248,21 +363,111 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: 4,
   },
+  bodyScrollView: {
+    maxHeight: 520,
+  },
   body: {
     gap: 12,
+    paddingBottom: 4,
+  },
+  descriptionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    padding: 10,
+    borderRadius: THEME.radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   infoText: {
+    flex: 1,
     fontSize: 12,
     color: THEME.colors.textMuted,
-    lineHeight: 16,
+    lineHeight: 18,
   },
-  jsonBox: {
+  boldText: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  codeText: {
+    color: THEME.colors.crimsonLight,
+    fontFamily: 'monospace',
+  },
+  subLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: THEME.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  buttonActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  downloadPrimaryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: THEME.colors.crimson,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: THEME.radius.md,
+  },
+  downloadPrimaryBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: THEME.radius.md,
+  },
+  copyBtnSuccess: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  copyBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  uploadPickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(230, 46, 76, 0.35)',
+    padding: 12,
+    borderRadius: THEME.radius.md,
+  },
+  uploadPickerBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  uploadPickerBtnSub: {
+    color: THEME.colors.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  csvBox: {
     backgroundColor: 'rgba(0, 0, 0, 0.35)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: THEME.radius.md,
     padding: 12,
-    height: 220,
+    height: 180,
     color: '#e2e8f0',
     fontFamily: 'monospace',
     fontSize: 11,
@@ -283,10 +488,7 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.crimson,
     paddingVertical: 12,
     borderRadius: THEME.radius.md,
-    marginTop: 6,
-  },
-  copiedBtn: {
-    backgroundColor: '#10b981',
+    marginTop: 4,
   },
   importActionText: {
     color: '#ffffff',
