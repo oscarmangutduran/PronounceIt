@@ -29,6 +29,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
   onImportWords,
 }) => {
   const [activeTab, setActiveTab] = useState<'export' | 'import'>('export');
+  const [delimiter, setDelimiter] = useState<';' | ','>(';');
   const [importCsv, setImportCsv] = useState('');
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
@@ -39,13 +40,13 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
     onCloseAction?: () => void;
   } | null>(null);
 
-  const exportCsvString = wordsToCsv(words);
+  const exportCsvString = wordsToCsv(words, delimiter);
 
   const handleDownload = () => {
     downloadCsvFile('pronounceit_vocabulario.csv', exportCsvString);
     setStatusModal({
       title: '¡Descarga Iniciada!',
-      message: `Se ha descargado el archivo "pronounceit_vocabulario.csv" con ${words.length} palabras.`,
+      message: `Se ha descargado el archivo "pronounceit_vocabulario.csv" con ${words.length} palabras separadas en columnas individuales.`,
       variant: 'success',
     });
   };
@@ -185,8 +186,50 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
                   <View style={styles.descriptionRow}>
                     <FileSpreadsheet size={18} color={THEME.colors.crimsonLight} />
                     <Text style={styles.infoText}>
-                      Descarga o copia tu vocabulario en formato <Text style={styles.boldText}>CSV (.csv)</Text> compatible con Excel, Google Sheets y copias de seguridad.
+                      Cada dato se exporta en su propia columna separada (<Text style={styles.boldText}>Columna A: palabra, B: traduccion, C: categoria...</Text>). Compatible con Excel y Google Sheets.
                     </Text>
+                  </View>
+
+                  {/* Delimiter Selector */}
+                  <View style={styles.delimiterContainer}>
+                    <Text style={styles.subLabel}>Separador de Columnas:</Text>
+                    <View style={styles.delimiterOptions}>
+                      <TouchableOpacity
+                        style={[
+                          styles.delimiterPill,
+                          delimiter === ';' && styles.delimiterPillActive,
+                        ]}
+                        onPress={() => setDelimiter(';')}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={[
+                            styles.delimiterText,
+                            delimiter === ';' && styles.delimiterTextActive,
+                          ]}
+                        >
+                          ; Punto y coma (Excel / Columnas)
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.delimiterPill,
+                          delimiter === ',' && styles.delimiterPillActive,
+                        ]}
+                        onPress={() => setDelimiter(',')}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={[
+                            styles.delimiterText,
+                            delimiter === ',' && styles.delimiterTextActive,
+                          ]}
+                        >
+                          , Coma (Estándar)
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   <View style={styles.buttonActionRow}>
@@ -249,7 +292,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
                           : 'Cargar archivo .CSV desde tu equipo'}
                       </Text>
                       <Text style={styles.uploadPickerBtnSub}>
-                        {uploadedFileName ? 'Haz clic para seleccionar otro archivo' : 'Formato .csv delimitado por comas o punto y coma'}
+                        {uploadedFileName ? 'Haz clic para seleccionar otro archivo' : 'Formato .csv delimitado por columnas (punto y coma o comas)'}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -257,7 +300,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
                   <Text style={styles.subLabel}>O pega el contenido CSV directamente aquí:</Text>
                   <TextInput
                     style={[styles.csvBox, styles.inputBox]}
-                    placeholder={`palabra,traduccion,categoria,nivel\napple,manzana,Frutas,A1\nbreakthrough,avance decisivo,Tecnologia,B2`}
+                    placeholder={`palabra;traduccion;categoria;nivel\napple;manzana;Frutas;A1\nbreakthrough;avance decisivo;Tecnologia;B2`}
                     placeholderTextColor={THEME.colors.textSubtle}
                     value={importCsv}
                     onChangeText={(val) => {
@@ -394,6 +437,37 @@ const styles = StyleSheet.create({
     color: THEME.colors.crimsonLight,
     fontFamily: 'monospace',
   },
+  delimiterContainer: {
+    gap: 6,
+  },
+  delimiterOptions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  delimiterPill: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: THEME.radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  delimiterPillActive: {
+    backgroundColor: 'rgba(230, 46, 76, 0.15)',
+    borderColor: THEME.colors.crimson,
+  },
+  delimiterText: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+    fontWeight: '500',
+  },
+  delimiterTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
   subLabel: {
     fontSize: 11,
     fontWeight: '600',
@@ -467,7 +541,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: THEME.radius.md,
     padding: 12,
-    height: 180,
+    height: 160,
     color: '#e2e8f0',
     fontFamily: 'monospace',
     fontSize: 11,

@@ -3,10 +3,11 @@ import { WordItem, WordLevel, WordStatus } from '../types';
 /**
  * Escapes a single CSV value according to RFC 4180
  */
-function escapeCsvValue(val: any): string {
+function escapeCsvValue(val: any, delimiter: string = ';'): string {
   if (val === null || val === undefined) return '';
   const str = String(val);
   if (
+    str.includes(delimiter) ||
     str.includes(',') ||
     str.includes(';') ||
     str.includes('"') ||
@@ -20,8 +21,10 @@ function escapeCsvValue(val: any): string {
 
 /**
  * Converts a list of WordItems into standard CSV format with UTF-8 BOM
+ * and explicit Excel separator directive (sep=;) so that Microsoft Excel
+ * and other spreadsheet tools place each element into its own separate column.
  */
-export function wordsToCsv(words: WordItem[]): string {
+export function wordsToCsv(words: WordItem[], delimiter: string = ';'): string {
   const headers = [
     'palabra',
     'traduccion',
@@ -40,24 +43,30 @@ export function wordsToCsv(words: WordItem[]): string {
   ];
 
   const rows = words.map((w) => [
-    escapeCsvValue(w.word || ''),
-    escapeCsvValue(w.translation || ''),
-    escapeCsvValue(w.categoryGroup || ''),
-    escapeCsvValue(w.categorySub || ''),
-    escapeCsvValue(w.level || 'B1'),
-    escapeCsvValue(w.partOfSpeech || 'noun'),
-    escapeCsvValue(w.ipa || ''),
-    escapeCsvValue(w.phoneticGuide || ''),
-    escapeCsvValue(w.phoneticNote || ''),
-    escapeCsvValue(w.exampleEn || ''),
-    escapeCsvValue(w.exampleEs || ''),
-    escapeCsvValue(w.definition || ''),
-    escapeCsvValue(w.status || 'nueva'),
-    escapeCsvValue(w.isFavorite ? 'si' : 'no'),
+    escapeCsvValue(w.word || '', delimiter),
+    escapeCsvValue(w.translation || '', delimiter),
+    escapeCsvValue(w.categoryGroup || '', delimiter),
+    escapeCsvValue(w.categorySub || '', delimiter),
+    escapeCsvValue(w.level || 'B1', delimiter),
+    escapeCsvValue(w.partOfSpeech || 'noun', delimiter),
+    escapeCsvValue(w.ipa || '', delimiter),
+    escapeCsvValue(w.phoneticGuide || '', delimiter),
+    escapeCsvValue(w.phoneticNote || '', delimiter),
+    escapeCsvValue(w.exampleEn || '', delimiter),
+    escapeCsvValue(w.exampleEs || '', delimiter),
+    escapeCsvValue(w.definition || '', delimiter),
+    escapeCsvValue(w.status || 'nueva', delimiter),
+    escapeCsvValue(w.isFavorite ? 'si' : 'no', delimiter),
   ]);
 
-  const csvBody = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
-  return `\uFEFF${csvBody}`;
+  const csvBody = [
+    headers.join(delimiter),
+    ...rows.map((r) => r.join(delimiter)),
+  ].join('\r\n');
+
+  // Prefix with UTF-8 BOM (\uFEFF) and Excel separator instruction (sep=;)
+  // to guarantee Excel splits each item into separate columns.
+  return `\uFEFFsep=${delimiter}\r\n${csvBody}`;
 }
 
 /**
@@ -150,23 +159,41 @@ const HEADER_KEY_MAP: Record<string, keyof WordItem> = {
 };
 
 /**
- * Parses a CSV string respecting RFC 4180 quotes and multiple delimiters (, ; \t)
+ * Parses a CSV string respecting RFC 4180 quotes, Excel sep= header, and multiple delimiters (, ; \t)
  */
 export function parseCsvRows(csvText: string): string[][] {
-  const cleanText = csvText.replace(/^\uFEFF/, '').trim();
+  let cleanText = csvText.replace(/^\uFEFF/, '').trim();
   if (!cleanText) return [];
 
-  // Detect delimiter from first line
+  // Check if there is an explicit sep=; or sep=, directive
+  let explicitDelimiter: string | null = null;
+  if (cleanText.toLowerCase().startsWith('sep=')) {
+    const newlineMatch = cleanText.match(/\r\n|\n|\r/);
+    if (newlineMatch && newlineMatch.index !== undefined) {
+      const sepLine = cleanText.substring(0, newlineMatch.index).trim();
+      const extracted = sepLine.split('=')[1]?.trim();
+      if (extracted) {
+        explicitDelimiter = extracted;
+      }
+      cleanText = cleanText.substring(newlineMatch.index).trim();
+    }
+  }
+
+  // Detect delimiter from first non-empty line if not explicit
   const firstLine = cleanText.split(/\r\n|\n|\r/)[0] || '';
   const commaCount = (firstLine.match(/,/g) || []).length;
   const semicolonCount = (firstLine.match(/;/g) || []).length;
   const tabCount = (firstLine.match(/\t/g) || []).length;
 
-  let delimiter = ',';
-  if (semicolonCount > commaCount && semicolonCount > tabCount) {
-    delimiter = ';';
-  } else if (tabCount > commaCount && tabCount > semicolonCount) {
-    delimiter = '\t';
+  let delimiter = explicitDelimiter || ';';
+  if (!explicitDelimiter) {
+    if (commaCount > semicolonCount && commaCount > tabCount) {
+      delimiter = ',';
+    } else if (tabCount > semicolonCount && tabCount > commaCount) {
+      delimiter = '\t';
+    } else {
+      delimiter = ';';
+    }
   }
 
   const rows: string[][] = [];
@@ -181,6 +208,7 @@ export function parseCsvRows(csvText: string): string[][] {
     if (insideQuotes) {
       if (char === '"') {
         if (nextChar === '"') {
+          // Escaped quote: "" -> "
           currentField += '"';
           i++;
         } else {
