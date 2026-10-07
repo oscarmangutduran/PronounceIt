@@ -62,6 +62,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -293,14 +294,25 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
             {mode === 'signup' && (
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Nombre o Usuario</Text>
-                <View style={styles.inputWrapper}>
-                  <User size={18} color={THEME.colors.textSubtle} style={styles.inputIcon} />
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    focusedField === 'username' && styles.inputWrapperFocused,
+                  ]}
+                >
+                  <User
+                    size={18}
+                    color={focusedField === 'username' ? THEME.colors.crimson : THEME.colors.textSubtle}
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.textInput}
                     placeholder="Ej. Alex Brown"
                     placeholderTextColor={THEME.colors.textSubtle}
                     value={username}
                     onChangeText={setUsername}
+                    onFocus={() => setFocusedField('username')}
+                    onBlur={() => setFocusedField(null)}
                     autoCapitalize="words"
                   />
                 </View>
@@ -312,14 +324,25 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                 <Text style={styles.inputLabel}>
                   {mode === 'signin' ? 'Correo o Nombre de Usuario' : 'Correo Electrónico'}
                 </Text>
-                <View style={styles.inputWrapper}>
-                  <Mail size={18} color={THEME.colors.textSubtle} style={styles.inputIcon} />
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    focusedField === 'email' && styles.inputWrapperFocused,
+                  ]}
+                >
+                  <Mail
+                    size={18}
+                    color={focusedField === 'email' ? THEME.colors.crimson : THEME.colors.textSubtle}
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.textInput}
                     placeholder="tu@correo.com"
                     placeholderTextColor={THEME.colors.textSubtle}
                     value={email}
                     onChangeText={setEmail}
+                    onFocus={() => setFocusedField('email')}
+                    onBlur={() => setFocusedField(null)}
                     keyboardType="email-address"
                     autoCapitalize="none"
                   />
@@ -335,14 +358,25 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                     <Text style={styles.forgotLink}>¿Olvidaste tu contraseña?</Text>
                   </TouchableOpacity>
                 </View>
-                <View style={styles.inputWrapper}>
-                  <Lock size={18} color={THEME.colors.textSubtle} style={styles.inputIcon} />
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    focusedField === 'password' && styles.inputWrapperFocused,
+                  ]}
+                >
+                  <Lock
+                    size={18}
+                    color={focusedField === 'password' ? THEME.colors.crimson : THEME.colors.textSubtle}
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.textInput}
                     placeholder="Tu contraseña secreta"
                     placeholderTextColor={THEME.colors.textSubtle}
                     value={password}
                     onChangeText={setPassword}
+                    onFocus={() => setFocusedField('password')}
+                    onBlur={() => setFocusedField(null)}
                     secureTextEntry={!showPassword}
                   />
                   <TouchableOpacity
@@ -363,14 +397,25 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               <>
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Nueva Contraseña</Text>
-                  <View style={styles.inputWrapper}>
-                    <Lock size={18} color={THEME.colors.textSubtle} style={styles.inputIcon} />
+                  <View
+                    style={[
+                      styles.inputWrapper,
+                      focusedField === 'newPassword' && styles.inputWrapperFocused,
+                    ]}
+                  >
+                    <Lock
+                      size={18}
+                      color={focusedField === 'newPassword' ? THEME.colors.crimson : THEME.colors.textSubtle}
+                      style={styles.inputIcon}
+                    />
                     <TextInput
                       style={styles.textInput}
                       placeholder="Mínimo 6 caracteres"
                       placeholderTextColor={THEME.colors.textSubtle}
                       value={newPassword}
                       onChangeText={setNewPassword}
+                      onFocus={() => setFocusedField('newPassword')}
+                      onBlur={() => setFocusedField(null)}
                       secureTextEntry={!showNewPassword}
                     />
                     <TouchableOpacity
@@ -388,14 +433,25 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
 
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Confirmar Contraseña</Text>
-                  <View style={styles.inputWrapper}>
-                    <Lock size={18} color={THEME.colors.textSubtle} style={styles.inputIcon} />
+                  <View
+                    style={[
+                      styles.inputWrapper,
+                      focusedField === 'confirmPassword' && styles.inputWrapperFocused,
+                    ]}
+                  >
+                    <Lock
+                      size={18}
+                      color={focusedField === 'confirmPassword' ? THEME.colors.crimson : THEME.colors.textSubtle}
+                      style={styles.inputIcon}
+                    />
                     <TextInput
                       style={styles.textInput}
                       placeholder="Repite tu nueva contraseña"
                       placeholderTextColor={THEME.colors.textSubtle}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
+                      onFocus={() => setFocusedField('confirmPassword')}
+                      onBlur={() => setFocusedField(null)}
                       secureTextEntry={!showNewPassword}
                     />
                   </View>
@@ -671,6 +727,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 48,
   },
+  inputWrapperFocused: {
+    borderColor: THEME.colors.crimson,
+    backgroundColor: 'rgba(230, 46, 76, 0.05)',
+    shadowColor: THEME.colors.crimson,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 3,
+  },
   inputIcon: {
     marginRight: 10,
   },
@@ -678,6 +743,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#ffffff',
     fontSize: 14,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as any) : {}),
   },
   eyeIcon: {
     padding: 4,

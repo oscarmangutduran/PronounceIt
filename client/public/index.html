@@ -24,6 +24,15 @@
         height: 100%;
         flex: 1;
       }
+      /* Remove browser default white focus outlines on inputs */
+      input, textarea, select {
+        outline: none !important;
+        box-shadow: none !important;
+      }
+      input:focus, textarea:focus, select:focus, input:focus-visible, textarea:focus-visible {
+        outline: none !important;
+        box-shadow: none !important;
+      }
     </style>
   </head>
 
