@@ -8,3 +8,9 @@ coverage/
 !.env.example
 .expo/
 
+# Android build outputs & binaries
+*.apk
+*.aab
+.gradle/
+client/android/app/build/
+client/android/.gradle/

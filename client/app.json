@@ -10,6 +10,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.oscarmangut.pronounceit",
       "adaptiveIcon": {
         "backgroundColor": "#0f0c18",
         "foregroundImage": "./assets/android-icon-foreground.png",
