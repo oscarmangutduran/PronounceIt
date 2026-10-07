@@ -14,7 +14,6 @@ import {
   Volume2,
   Key,
   LogOut,
-  RotateCcw,
   Sparkles,
   Check,
   Edit2,
@@ -39,7 +38,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [audioSettings, setAudioSettings] = useState(() => vocabService.getAudioSettings());
   const [apiKey, setApiKey] = useState(() => getGeminiApiKey());
   const [isSavedKey, setIsSavedKey] = useState(false);
-  const [showResetModal, setShowResetModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleUpdateRate = (rate: number) => {
@@ -56,10 +54,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const testVoice = () => {
     vocabService.speak('PronounceIt provides instant native pronunciation for all your words.');
-  };
-
-  const confirmReset = () => {
-    setShowResetModal(true);
   };
 
   return (
@@ -181,20 +175,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </View>
       </View>
 
-      {/* Maintenance & Data */}
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Datos & Restablecimiento</Text>
-
-        <TouchableOpacity
-          style={styles.resetBtn}
-          onPress={confirmReset}
-          activeOpacity={0.8}
-        >
-          <RotateCcw size={16} color="#f87171" style={{ marginRight: 8 }} />
-          <Text style={styles.resetBtnText}>Restablecer palabras a estado inicial</Text>
-        </TouchableOpacity>
-      </View>
-
       {/* Logout button */}
       <TouchableOpacity
         style={styles.logoutBtn}
@@ -204,21 +184,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <LogOut size={16} color="#ffffff" style={{ marginRight: 8 }} />
         <Text style={styles.logoutBtnText}>Cerrar Sesión</Text>
       </TouchableOpacity>
-
-      {/* Confirm Modals */}
-      <ConfirmModal
-        isOpen={showResetModal}
-        title="Restablecer Vocabulario"
-        message="¿Seguro que deseas reiniciar todo el vocabulario a los valores iniciales? Esta acción eliminará las palabras agregadas recientemente."
-        confirmText="Restablecer"
-        cancelText="Cancelar"
-        variant="danger"
-        onConfirm={() => {
-          setShowResetModal(false);
-          vocabService.resetToDefault();
-        }}
-        onCancel={() => setShowResetModal(false)}
-      />
 
       <ConfirmModal
         isOpen={showLogoutModal}
@@ -408,21 +373,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
-  },
-  resetBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.25)',
-    paddingVertical: 12,
-    borderRadius: THEME.radius.md,
-  },
-  resetBtnText: {
-    color: '#f87171',
-    fontSize: 13,
-    fontWeight: '600',
   },
   logoutBtn: {
     flexDirection: 'row',
