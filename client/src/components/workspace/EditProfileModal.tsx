@@ -28,6 +28,7 @@ import { UserProfile } from '../../types';
 import { firebaseService } from '../../lib/firebaseClient';
 import { backendApi } from '../../lib/apiClient';
 import { THEME } from '../../theme';
+import * as ImagePicker from 'expo-image-picker';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -75,10 +76,51 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handlePickImage = () => {
+  const handlePickImage = async () => {
     setError(null);
+
+    // 1. En navegador Web: usar el input HTML tradicional
     if (Platform.OS === 'web' && fileInputRef.current) {
       fileInputRef.current.click();
+      return;
+    }
+
+    // 2. En dispositivos móviles (Android / iOS): abrir la galería nativa del teléfono
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        setError('Se requieren permisos de acceso a las fotos para seleccionar tu imagen.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+
+        if (asset.fileSize && asset.fileSize > MAX_IMAGE_SIZE_BYTES) {
+          const sizeMb = (asset.fileSize / (1024 * 1024)).toFixed(2);
+          setError(`La imagen supera el límite de 5 MB (${sizeMb} MB).`);
+          return;
+        }
+
+        if (asset.base64) {
+          const mime = asset.mimeType || 'image/jpeg';
+          setAvatarUrl(`data:${mime};base64,${asset.base64}`);
+        } else if (asset.uri) {
+          setAvatarUrl(asset.uri);
+        }
+        setError(null);
+      }
+    } catch (err: any) {
+      console.error('Error al abrir la galería:', err);
+      setError('No se pudo abrir la galería de imágenes: ' + (err?.message || 'Error desconocido'));
     }
   };
 

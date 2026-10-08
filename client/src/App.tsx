@@ -44,8 +44,10 @@ import { AddWordModal } from './components/workspace/AddWordModal';
 import { ExportImportModal } from './components/workspace/ExportImportModal';
 import { EditProfileModal } from './components/workspace/EditProfileModal';
 import { useResponsive } from './lib/useResponsive';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function App() {
+function MainApp() {
+  const insets = useSafeAreaInsets();
   const {
     showSidebarSplit,
     showTopNavTabs,
@@ -299,7 +301,7 @@ export default function App() {
 
       {/* Bottom Tab Navigation Bar (Mobile only) */}
       {showBottomBar && (
-        <View style={styles.tabBar}>
+        <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           {/* Tab 1: Vocabulario */}
           <TouchableOpacity
             style={styles.tabItem}
@@ -480,6 +482,14 @@ export default function App() {
   );
 }
 
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <MainApp />
+    </SafeAreaProvider>
+  );
+}
+
 const styles = StyleSheet.create({
   appContainer: {
     flex: 1,
@@ -523,18 +533,16 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   testSectionContainer: {
-    flex: 1,
     width: '100%',
+    alignSelf: 'stretch',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 8,
   },
   settingsSectionContainer: {
-    flex: 1,
     width: '100%',
+    alignSelf: 'stretch',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 8,
   },
 
   // Footer styles
@@ -600,7 +608,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: THEME.colors.border,
     paddingVertical: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },

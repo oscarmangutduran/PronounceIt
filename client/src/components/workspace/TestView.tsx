@@ -133,7 +133,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
 
   if (testType === 'irregular_verbs') {
     return (
-      <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.container}>
         <View style={styles.contentWrapper}>
           <View style={styles.modeTabBar}>
             <TouchableOpacity
@@ -156,7 +156,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
 
           <IrregularVerbsTestView onBackToVocabulary={onBackToVocabulary} />
         </View>
-      </ScrollView>
+      </View>
     );
   }
 
@@ -166,7 +166,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
     const score10 = Number(((score / total) * 10).toFixed(1));
 
     return (
-      <ScrollView contentContainerStyle={styles.centerContainer}>
+      <View style={styles.centerContainer}>
         <View style={styles.contentWrapper}>
           <View style={styles.card}>
             <View style={styles.resultsBadge}>
@@ -194,7 +194,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
             </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
+      </View>
     );
   }
 
@@ -203,7 +203,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
     const q = questions[currentIdx];
 
     return (
-      <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.container}>
         <View style={styles.contentWrapper}>
           {/* Header Progress */}
           <View style={styles.quizHeader}>
@@ -303,13 +303,13 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
             )}
           </View>
         </View>
-      </ScrollView>
+      </View>
     );
   }
 
   // Setup / Entry Screen
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.container}>
       <View style={styles.contentWrapper}>
         {/* Mode switcher tabs */}
         <View style={styles.modeTabBar}>
@@ -393,30 +393,29 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
         onConfirm={() => setInsufficientWordsModal(false)}
         onCancel={() => setInsufficientWordsModal(false)}
       />
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    paddingBottom: 40,
-    backgroundColor: THEME.colors.bgDark,
-    alignItems: 'center',
     width: '100%',
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingBottom: 24,
   },
   centerContainer: {
-    padding: 16,
-    paddingBottom: 40,
+    width: '100%',
+    alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: THEME.colors.bgDark,
-    width: '100%',
+    paddingBottom: 24,
   },
   contentWrapper: {
     width: '100%',
     maxWidth: 680,
     alignSelf: 'center',
+    paddingHorizontal: 4,
   },
   modeTabBar: {
     flexDirection: 'row',
@@ -425,7 +424,6 @@ const styles = StyleSheet.create({
     padding: 4,
     marginBottom: 16,
     width: '100%',
-    maxWidth: 680,
     alignSelf: 'center',
   },
   modeTab: {
@@ -434,6 +432,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
+    paddingHorizontal: 8,
     borderRadius: THEME.radius.md,
     gap: 6,
   },
@@ -452,11 +451,10 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: THEME.colors.bgCard,
     borderRadius: THEME.radius.xl,
-    padding: 24,
+    padding: 20,
     borderWidth: 1,
     borderColor: THEME.colors.border,
     width: '100%',
-    maxWidth: 680,
     alignSelf: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },

@@ -8,7 +8,9 @@ import {
   Platform,
   useWindowDimensions,
   Image,
+  StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   BookOpen,
   Layers,
@@ -47,11 +49,16 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   const { width, showTopNavTabs, isPhone } = useResponsive();
   const showSearch = !isPhone && width >= 800;
   const [showDropdown, setShowDropdown] = useState(false);
+  const insets = useSafeAreaInsets();
+  const topPadding = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : (Platform.OS === 'ios' ? 44 : 12)
+  );
 
   const initial = (currentUser?.full_name || currentUser?.username || 'U')[0].toUpperCase();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: topPadding }]}>
       {/* LEFT: Brand Logo & Title */}
       <View style={styles.brandRow}>
         <PronounceItLogo size={36} />

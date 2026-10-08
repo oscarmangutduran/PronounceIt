@@ -167,7 +167,7 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
   // 1. SETUP SCREEN
   if (!testActive && !testCompleted) {
     return (
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.scrollContainer}>
         <View style={styles.contentWrapper}>
           <View style={styles.setupCard}>
             <View style={styles.setupHeader}>
@@ -239,7 +239,7 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
           onConfirm={() => setNoVerbsModal(false)}
           onCancel={() => setNoVerbsModal(false)}
         />
-      </ScrollView>
+      </View>
     );
   }
 
@@ -252,7 +252,7 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
     const score10 = Number(((fullyCorrect / total) * 10).toFixed(1));
 
     return (
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.scrollContainer}>
         <View style={styles.contentWrapper}>
           <View style={styles.setupCard}>
             <View style={styles.resultsBadge}>
@@ -276,13 +276,13 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
+      </View>
     );
   }
 
   // 3. TESTING SCREEN
   return (
-    <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+    <View style={styles.scrollContainer}>
       <View style={styles.contentWrapper}>
         {/* Header bar */}
         <View style={styles.testHeader}>
@@ -385,14 +385,13 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
         )}
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   scrollContainer: {
-    padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 24,
     alignItems: 'center',
     width: '100%',
   },
@@ -404,12 +403,11 @@ const styles = StyleSheet.create({
   setupCard: {
     backgroundColor: THEME.colors.bgCard,
     borderRadius: THEME.radius.xl,
-    padding: 24,
+    padding: 20,
     borderWidth: 1,
     borderColor: THEME.colors.border,
     alignItems: 'center',
     width: '100%',
-    maxWidth: 680,
     alignSelf: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
@@ -541,11 +539,10 @@ const styles = StyleSheet.create({
   questionCard: {
     backgroundColor: THEME.colors.bgCard,
     borderRadius: THEME.radius.xl,
-    padding: 24,
+    padding: 20,
     borderWidth: 1,
     borderColor: THEME.colors.border,
     width: '100%',
-    maxWidth: 680,
     alignSelf: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
