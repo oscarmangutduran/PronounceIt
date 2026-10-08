@@ -8,7 +8,8 @@
     "build": "expo export -p web",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "generate:icons": "node scripts/build-icons.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
@@ -27,6 +28,7 @@
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@types/react": "~19.2.2",
     "typescript": "~6.0.3"
   },

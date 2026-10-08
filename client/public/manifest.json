@@ -1,0 +1,24 @@
+{
+  "short_name": "PronounceIt",
+  "name": "PronounceIt - Inglés & Fonética",
+  "description": "Domina la pronunciación y vocabulario en inglés con fonética IPA interactiva",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "type": "image/png",
+      "sizes": "192x192 512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "type": "image/png",
+      "sizes": "180x180",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f0c18",
+  "theme_color": "#0f0c18",
+  "display": "standalone",
+  "orientation": "any"
+}
