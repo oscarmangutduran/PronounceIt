@@ -1,3 +1,7 @@
+import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import * as DocumentPicker from 'expo-document-picker';
 import { WordItem, WordLevel, WordStatus } from '../types';
 
 /**
@@ -85,6 +89,124 @@ export function downloadCsvFile(filename: string, content: string): void {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Exports a CSV file across both Web (download) and Mobile (native share / save sheet)
+ */
+export async function exportCsvFileAsync(
+  filename: string,
+  content: string
+): Promise<{ success: boolean; message?: string }> {
+  const finalName = filename.toLowerCase().endsWith('.csv') ? filename : `${filename}.csv`;
+
+  // 1. Web
+  if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    downloadCsvFile(finalName, content);
+    return { success: true };
+  }
+
+  // 2. Mobile (Android & iOS)
+  try {
+    const dir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+    const fileUri = `${dir}${finalName}`;
+    await FileSystem.writeAsStringAsync(fileUri, content, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+
+    const isAvailable = await Sharing.isAvailableAsync();
+    if (isAvailable) {
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/csv',
+        dialogTitle: 'Exportar Vocabulario PronounceIt',
+        UTI: 'public.comma-separated-values-text',
+      });
+      return { success: true };
+    }
+
+    return { success: true, message: `Guardado en: ${fileUri}` };
+  } catch (err: any) {
+    console.error('Error exportando CSV en móvil:', err);
+    return { success: false, message: err?.message || 'Error al exportar archivo CSV' };
+  }
+}
+
+/**
+ * Opens document picker to select and read a CSV file on Mobile or Web
+ */
+export async function pickCsvFileAsync(): Promise<{
+  success: boolean;
+  content?: string;
+  fileName?: string;
+  error?: string;
+}> {
+  try {
+    const res = await DocumentPicker.getDocumentAsync({
+      type: ['text/csv', 'text/comma-separated-values', 'text/*', '*/*'],
+      copyToCacheDirectory: true,
+    });
+
+    if (res.canceled || !res.assets || res.assets.length === 0) {
+      return { success: false };
+    }
+
+    const asset = res.assets[0];
+    const fileName = asset.name || 'vocabulario.csv';
+
+    // On Web if file object is provided
+    if (asset.file && typeof (asset.file as any).text === 'function') {
+      const text = await (asset.file as any).text();
+      return { success: true, content: text, fileName };
+    }
+
+    if (asset.uri) {
+      if (Platform.OS === 'web') {
+        const resp = await fetch(asset.uri);
+        const text = await resp.text();
+        return { success: true, content: text, fileName };
+      } else {
+        try {
+          const text = await FileSystem.readAsStringAsync(asset.uri, {
+            encoding: FileSystem.EncodingType.UTF8,
+          });
+          return { success: true, content: text, fileName };
+        } catch {
+          const resp = await fetch(asset.uri);
+          const text = await resp.text();
+          return { success: true, content: text, fileName };
+        }
+      }
+    }
+
+    return { success: false, error: 'No se pudo leer el archivo seleccionado.' };
+  } catch (err: any) {
+    console.warn('DocumentPicker fallback:', err);
+
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      return new Promise((resolve) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.csv,text/csv,text/plain';
+        input.onchange = (e: any) => {
+          const file = e.target?.files?.[0];
+          if (!file) {
+            resolve({ success: false });
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const content = event.target?.result as string;
+            resolve({ success: true, content, fileName: file.name });
+          };
+          reader.onerror = () => resolve({ success: false, error: 'Error leyendo archivo' });
+          reader.readAsText(file, 'utf-8');
+        };
+        input.click();
+      });
+    }
+
+    return { success: false, error: err?.message || 'Error seleccionando archivo' };
+  }
 }
 
 /**

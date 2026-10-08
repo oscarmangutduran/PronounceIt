@@ -254,6 +254,7 @@ function MainApp() {
                 currentUser={currentUser}
                 onLogout={handleLogout}
                 onOpenEditProfile={() => setIsEditProfileOpen(true)}
+                onOpenExportModal={() => setIsExportModalOpen(true)}
               />
             </View>
           )}

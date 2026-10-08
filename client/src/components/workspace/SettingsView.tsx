@@ -17,6 +17,7 @@ import {
   Sparkles,
   Check,
   Edit2,
+  FileSpreadsheet,
 } from 'lucide-react-native';
 import { UserProfile } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
@@ -29,12 +30,14 @@ interface SettingsViewProps {
   currentUser: UserProfile | null;
   onLogout: () => void;
   onOpenEditProfile?: () => void;
+  onOpenExportModal?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   currentUser,
   onLogout,
   onOpenEditProfile,
+  onOpenExportModal,
 }) => {
   const { isPhone } = useResponsive();
   const [audioSettings, setAudioSettings] = useState(() => vocabService.getAudioSettings());
@@ -181,6 +184,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Backup / CSV Import-Export */}
+      {onOpenExportModal && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Copia de Seguridad y Datos</Text>
+          <Text style={styles.sectionSubtitle}>
+            Exporta tus palabras a un archivo .CSV compatible con Excel o importa nuevo vocabulario a tu cuenta.
+          </Text>
+          <TouchableOpacity
+            style={styles.exportDataBtn}
+            onPress={onOpenExportModal}
+            activeOpacity={0.85}
+          >
+            <FileSpreadsheet size={16} color="#ffffff" style={{ marginRight: 8 }} />
+            <Text style={styles.exportDataBtnText}>Exportar / Importar Vocabulario (.CSV)</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Logout button */}
       <TouchableOpacity
@@ -394,6 +415,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveKeyText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  exportDataBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#7c3aed',
+    paddingVertical: 12,
+    borderRadius: THEME.radius.md,
+    marginTop: 10,
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  exportDataBtnText: {
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',

@@ -13,7 +13,7 @@ import { X, Download, Upload, Copy, Check, FileSpreadsheet, FolderUp } from 'luc
 import { WordItem } from '../../types';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
-import { wordsToCsv, parseCsvToWords, downloadCsvFile } from '../../lib/csvService';
+import { wordsToCsv, parseCsvToWords, exportCsvFileAsync, pickCsvFileAsync } from '../../lib/csvService';
 
 interface ExportImportModalProps {
   isOpen: boolean;
@@ -42,13 +42,24 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
 
   const exportCsvString = wordsToCsv(words, delimiter);
 
-  const handleDownload = () => {
-    downloadCsvFile('pronounceit_vocabulario.csv', exportCsvString);
-    setStatusModal({
-      title: '¡Descarga Iniciada!',
-      message: `Se ha descargado el archivo "pronounceit_vocabulario.csv" con ${words.length} palabras separadas en columnas individuales.`,
-      variant: 'success',
-    });
+  const handleDownload = async () => {
+    const res = await exportCsvFileAsync('pronounceit_vocabulario.csv', exportCsvString);
+    if (res.success) {
+      setStatusModal({
+        title: '¡Exportación Exitosa!',
+        message:
+          Platform.OS === 'web'
+            ? `Se ha descargado el archivo "pronounceit_vocabulario.csv" con ${words.length} palabras separadas en columnas individuales.`
+            : `Se ha generado el archivo CSV con ${words.length} palabras. Puedes guardarlo en tus Archivos o compartirlo.`,
+        variant: 'success',
+      });
+    } else {
+      setStatusModal({
+        title: 'Error de Exportación',
+        message: res.message || 'No se pudo generar el archivo CSV.',
+        variant: 'danger',
+      });
+    }
   };
 
   const handleCopy = () => {
@@ -59,25 +70,19 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  const handlePickFile = () => {
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.csv,text/csv';
-      input.onchange = (e: any) => {
-        const file = e.target?.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const content = event.target?.result as string;
-          if (content) {
-            setImportCsv(content);
-            setUploadedFileName(file.name);
-          }
-        };
-        reader.readAsText(file, 'utf-8');
-      };
-      input.click();
+  const handlePickFile = async () => {
+    const res = await pickCsvFileAsync();
+    if (res.success && res.content) {
+      setImportCsv(res.content);
+      if (res.fileName) {
+        setUploadedFileName(res.fileName);
+      }
+    } else if (res.error) {
+      setStatusModal({
+        title: 'Error al abrir archivo',
+        message: res.error,
+        variant: 'danger',
+      });
     }
   };
 

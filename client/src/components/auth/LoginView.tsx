@@ -236,6 +236,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
       <ImageBackground
         source={require('../../assets/login_hero.jpg')}
         style={styles.bgImage}
+        imageStyle={styles.bgImageInner}
         resizeMode="cover"
       >
         <View style={styles.overlay} />
@@ -628,10 +629,14 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
+    backgroundColor: THEME.colors.bgDark,
+  },
+  bgImageInner: {
+    opacity: 0.28,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 12, 24, 0.92)',
+    backgroundColor: 'rgba(8, 6, 15, 0.78)',
   },
   scrollContent: {
     flexGrow: 1,
