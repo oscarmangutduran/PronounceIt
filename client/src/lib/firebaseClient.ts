@@ -272,6 +272,8 @@ class FirebaseService {
         this.db = getFirestore(this.app);
         this.isConnected = true;
 
+        this.syncLocalAccountsToCloud();
+
         onAuthStateChanged(this.auth, (user) => {
           this.handleAuthStateChange(user);
         });
@@ -350,6 +352,8 @@ class FirebaseService {
         this.db = getFirestore(this.app);
         this.isConnected = true;
 
+        this.syncLocalAccountsToCloud();
+
         onAuthStateChanged(this.auth, (user) => {
           this.handleAuthStateChange(user);
         });
@@ -396,6 +400,38 @@ class FirebaseService {
 
   private saveStoredAccounts(accounts: StoredAccount[]) {
     appStorage.setItem('pronounceit_registered_accounts_v1', JSON.stringify(accounts));
+  }
+
+  public async syncLocalAccountsToCloud(): Promise<void> {
+    if (!this.db) return;
+    try {
+      const localAccounts = this.getStoredAccounts();
+      if (!localAccounts || localAccounts.length === 0) return;
+      for (const acc of localAccounts) {
+        if (!acc.username || !acc.email) continue;
+        const uKey = acc.username.trim().toLowerCase();
+        const eKey = acc.email.trim().toLowerCase();
+        try {
+          const snap = await getDoc(doc(this.db, 'accounts', uKey));
+          if (!snap.exists()) {
+            await Promise.all([
+              setDoc(doc(this.db, 'accounts', uKey), acc, { merge: true }),
+              setDoc(doc(this.db, 'accounts', eKey), acc, { merge: true }),
+              setDoc(doc(this.db, 'users', acc.id), {
+                id: acc.id,
+                email: acc.email,
+                username: acc.username,
+                full_name: acc.fullName || acc.username,
+                avatar_url: acc.avatarUrl || null,
+                must_change_password: Boolean(acc.mustChangePassword),
+                created_at: acc.createdAt || new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              }, { merge: true }),
+            ]);
+          }
+        } catch {}
+      }
+    } catch {}
   }
 
   public getSavedAvatar(userId?: string, username?: string, email?: string): string | undefined {
@@ -456,108 +492,131 @@ class FirebaseService {
     password: string
   ): Promise<{ success: boolean; message?: string; mustChangePassword?: boolean; user?: UserProfile }> {
     const input = (emailOrUsername || '').trim().toLowerCase();
-    if (!input || !password) {
+    const cleanPass = (password || '').trim();
+    if (!input || !cleanPass) {
       return { success: false, message: 'Por favor ingresa tu usuario/correo y contraseña' };
     }
 
-    // Try Firebase Auth if input is an email
-    if (this.auth && input.includes('@')) {
+    let foundAccount: StoredAccount | null = null;
+
+    // 1. Check in Firestore Cloud Database (WORKS ACROSS ALL DEVICES)
+    if (this.db) {
       try {
-        const cred = await signInWithEmailAndPassword(this.auth, input, password);
-        const u = cred.user;
-        let avatarUrl = u.photoURL || this.getSavedAvatar(u.uid, input.split('@')[0], u.email || input);
-        if (this.db) {
-          try {
-            const uDoc = await getDoc(doc(this.db, 'users', u.uid));
-            if (uDoc.exists() && uDoc.data()?.avatar_url) {
-              avatarUrl = uDoc.data()?.avatar_url;
-            }
-          } catch {}
+        const snap = await getDoc(doc(this.db, 'accounts', input));
+        if (snap.exists()) {
+          foundAccount = snap.data() as StoredAccount;
         }
-        if (avatarUrl) {
-          this.saveAvatar(u.uid, avatarUrl, input.split('@')[0], u.email || input);
-        }
-        const profile: UserProfile = {
-          id: u.uid,
-          email: u.email || input,
-          full_name: u.displayName || input.split('@')[0],
-          username: input.split('@')[0],
-          avatar_url: avatarUrl,
-          role: 'user',
-        };
-        this.currentUser = profile;
-        appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
-        this.notify();
-        return { success: true, user: profile };
-      } catch (err: any) {
-        // Fallback to local accounts or Express backend if Firebase Auth threw user-not-found
+      } catch (err) {
+        console.warn('[Firestore] Error buscando cuenta en base de datos:', err);
       }
     }
 
-    // Check with Express backend if available
-    try {
-      const serverAuth = await backendApi.login(input, password);
-      if (serverAuth && serverAuth.success && serverAuth.user) {
-        const sUser = serverAuth.user;
-        const profile: UserProfile = {
-          id: sUser.id,
-          email: sUser.email,
-          full_name: sUser.username,
-          username: sUser.username,
-          must_change_password: Boolean(serverAuth.mustChangePassword || sUser.must_change_password),
-          avatar_url: sUser.avatar_url || this.getSavedAvatar(sUser.id, sUser.username, sUser.email),
-          role: 'user',
-          created_at: sUser.created_at,
-        };
-        this.currentUser = profile;
-        appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
-        this.notify();
-        return {
-          success: true,
-          mustChangePassword: Boolean(serverAuth.mustChangePassword || sUser.must_change_password),
-          user: profile,
-        };
+    // 2. Fallback to local accounts if not found in Firestore (or offline)
+    if (!foundAccount) {
+      const accounts = this.getStoredAccounts();
+      const localMatch = accounts.find(
+        (a) => a.email.toLowerCase() === input || a.username.toLowerCase() === input
+      );
+      if (localMatch) {
+        foundAccount = localMatch;
+        // Asynchronously sync to Firestore so it's ready for all other devices
+        if (this.db) {
+          const uKey = localMatch.username.toLowerCase();
+          const eKey = localMatch.email.toLowerCase();
+          Promise.all([
+            setDoc(doc(this.db, 'accounts', uKey), localMatch, { merge: true }),
+            setDoc(doc(this.db, 'accounts', eKey), localMatch, { merge: true }),
+            setDoc(doc(this.db, 'users', localMatch.id), {
+              id: localMatch.id,
+              email: localMatch.email,
+              username: localMatch.username,
+              full_name: localMatch.fullName || localMatch.username,
+              avatar_url: localMatch.avatarUrl || null,
+              must_change_password: Boolean(localMatch.mustChangePassword),
+              created_at: localMatch.createdAt || new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }, { merge: true }),
+          ]).catch(() => {});
+        }
       }
-    } catch {}
+    }
 
-    // Check stored accounts
-    const accounts = this.getStoredAccounts();
-    const existing = accounts.find(
-      (a) => a.email.toLowerCase() === input || a.username.toLowerCase() === input
-    );
+    // 3. Fallback to Express backend if still not found
+    if (!foundAccount) {
+      try {
+        const serverAuth = await backendApi.login(input, cleanPass);
+        if (serverAuth && serverAuth.success && serverAuth.user) {
+          const sUser = serverAuth.user;
+          const profile: UserProfile = {
+            id: sUser.id,
+            email: sUser.email,
+            full_name: sUser.username,
+            username: sUser.username,
+            must_change_password: Boolean(serverAuth.mustChangePassword || sUser.must_change_password),
+            avatar_url: sUser.avatar_url || this.getSavedAvatar(sUser.id, sUser.username, sUser.email),
+            role: 'user',
+            created_at: sUser.created_at,
+          };
+          this.currentUser = profile;
+          appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
+          this.notify();
+          return {
+            success: true,
+            mustChangePassword: profile.must_change_password,
+            user: profile,
+          };
+        }
+      } catch {}
+    }
 
-    if (existing) {
-      if (existing.password !== password) {
+    // 4. Verify password if account was found
+    if (foundAccount) {
+      if (foundAccount.password !== cleanPass) {
         return { success: false, message: 'Contraseña incorrecta' };
       }
-      let avatarUrl = existing.avatarUrl || this.getSavedAvatar(existing.id, existing.username, existing.email);
+
+      // Save/update this account in local device cache
+      const accounts = this.getStoredAccounts();
+      const existingIdx = accounts.findIndex(
+        (a) => a.id === foundAccount!.id || a.username.toLowerCase() === foundAccount!.username.toLowerCase()
+      );
+      if (existingIdx >= 0) {
+        accounts[existingIdx] = { ...accounts[existingIdx], ...foundAccount };
+      } else {
+        accounts.push(foundAccount);
+      }
+      this.saveStoredAccounts(accounts);
+
+      let avatarUrl = foundAccount.avatarUrl || this.getSavedAvatar(foundAccount.id, foundAccount.username, foundAccount.email);
       if (this.db) {
         try {
-          const uDoc = await getDoc(doc(this.db, 'users', existing.id));
+          const uDoc = await getDoc(doc(this.db, 'users', foundAccount.id));
           if (uDoc.exists() && uDoc.data()?.avatar_url) {
             avatarUrl = uDoc.data()?.avatar_url;
           }
         } catch {}
       }
       if (avatarUrl) {
-        this.saveAvatar(existing.id, avatarUrl, existing.username, existing.email);
+        this.saveAvatar(foundAccount.id, avatarUrl, foundAccount.username, foundAccount.email);
       }
+
       const profile: UserProfile = {
-        id: existing.id,
-        email: existing.email,
-        full_name: existing.fullName || existing.username,
-        username: existing.username,
-        must_change_password: existing.mustChangePassword,
+        id: foundAccount.id,
+        email: foundAccount.email,
+        full_name: foundAccount.fullName || foundAccount.username,
+        username: foundAccount.username,
+        must_change_password: Boolean(foundAccount.mustChangePassword),
         avatar_url: avatarUrl,
         role: 'user',
-        created_at: existing.createdAt,
+        created_at: foundAccount.createdAt,
       };
+
       this.currentUser = profile;
       appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
       this.notify();
       return {
         success: true,
-        mustChangePassword: existing.mustChangePassword,
+        mustChangePassword: Boolean(foundAccount.mustChangePassword),
         user: profile,
       };
     }
@@ -575,47 +634,78 @@ class FirebaseService {
   ): Promise<{ success: boolean; message?: string; emailNotice?: WelcomeEmailNotice; user?: UserProfile }> {
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanUsername = (username || '').trim();
+    const uKey = cleanUsername.toLowerCase();
 
     if (!cleanEmail || !cleanUsername) {
       return { success: false, message: 'El correo y el nombre de usuario son obligatorios.' };
     }
 
+    // 1. Check if user already exists in Firestore Cloud Database
+    if (this.db) {
+      try {
+        const [uSnap, eSnap] = await Promise.all([
+          getDoc(doc(this.db, 'accounts', uKey)),
+          getDoc(doc(this.db, 'accounts', cleanEmail)),
+        ]);
+        if (uSnap.exists()) {
+          return { success: false, message: 'Ya existe una cuenta con este nombre de usuario.' };
+        }
+        if (eSnap.exists()) {
+          return { success: false, message: 'Ya existe una cuenta con este correo electrónico.' };
+        }
+      } catch (err) {
+        console.warn('[Firestore] Error comprobando cuentas existentes:', err);
+      }
+    }
+
+    // 2. Also check local device cache
     const accounts = this.getStoredAccounts();
     const alreadyExists = accounts.some(
-      (a) => a.email.toLowerCase() === cleanEmail || a.username.toLowerCase() === cleanUsername.toLowerCase()
+      (a) => a.email.toLowerCase() === cleanEmail || a.username.toLowerCase() === uKey
     );
-
     if (alreadyExists) {
       return { success: false, message: 'Ya existe una cuenta con este correo o nombre de usuario.' };
     }
 
+    const userId = `usr-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
     const newAccount: StoredAccount = {
-      id: `usr-${Date.now().toString(36)}`,
+      id: userId,
       email: cleanEmail,
       username: cleanUsername,
       fullName: cleanUsername,
       password: '12345',
       mustChangePassword: true,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
+    // 3. Save to Firestore Cloud Database (so ANY other device can immediately log in)
+    if (this.db) {
+      try {
+        await Promise.all([
+          setDoc(doc(this.db, 'accounts', uKey), newAccount, { merge: true }),
+          setDoc(doc(this.db, 'accounts', cleanEmail), newAccount, { merge: true }),
+          setDoc(doc(this.db, 'users', userId), {
+            id: userId,
+            email: cleanEmail,
+            username: cleanUsername,
+            full_name: cleanUsername,
+            must_change_password: true,
+            created_at: newAccount.createdAt,
+            updated_at: newAccount.updatedAt,
+          }, { merge: true }),
+        ]);
+      } catch (err) {
+        console.error('[Firestore] Error guardando cuenta en Firestore:', err);
+      }
+    }
+
+    // 4. Save to local device storage
     accounts.push(newAccount);
     this.saveStoredAccounts(accounts);
 
-    // Synchronize with Express backend database
+    // 5. Synchronize with Express backend database if reachable
     backendApi.register(cleanEmail, cleanUsername).catch(() => {});
-
-    // Also register in Firebase Auth if available
-    if (this.auth) {
-      try {
-        await createUserWithEmailAndPassword(this.auth, cleanEmail, '12345');
-        if (this.auth.currentUser) {
-          await fbUpdateProfile(this.auth.currentUser, { displayName: cleanUsername });
-        }
-      } catch {
-        // ignore if email format or weak password restricts Firebase Auth
-      }
-    }
 
     const emailNotice: WelcomeEmailNotice = {
       to: cleanEmail,
@@ -627,7 +717,7 @@ class FirebaseService {
 
     return {
       success: true,
-      message: `Cuenta creada. Se ha enviado un correo a ${cleanEmail} con tu usuario (${cleanUsername}) y la contraseña estándar (12345).`,
+      message: `Cuenta creada con éxito. Ya puedes iniciar sesión con tu usuario (${cleanUsername}) y la contraseña estándar (12345).`,
       emailNotice,
     };
   }
@@ -644,23 +734,42 @@ class FirebaseService {
     }
 
     const input = (emailOrUsername || '').trim().toLowerCase();
+
+    // 1. Update in Firestore Cloud Database
+    if (this.db) {
+      try {
+        const snap = await getDoc(doc(this.db, 'accounts', input));
+        if (snap.exists()) {
+          const acc = snap.data() as StoredAccount;
+          acc.password = newPassword;
+          acc.mustChangePassword = false;
+          acc.updatedAt = new Date().toISOString();
+          const uKey = acc.username.toLowerCase();
+          const eKey = acc.email.toLowerCase();
+          await Promise.all([
+            setDoc(doc(this.db, 'accounts', uKey), acc, { merge: true }),
+            setDoc(doc(this.db, 'accounts', eKey), acc, { merge: true }),
+            setDoc(doc(this.db, 'users', acc.id), {
+              must_change_password: false,
+              updated_at: acc.updatedAt,
+            }, { merge: true }),
+          ]);
+        }
+      } catch (err) {
+        console.warn('[Firestore] Error actualizando contraseña en Firestore:', err);
+      }
+    }
+
+    // 2. Update local accounts
     const accounts = this.getStoredAccounts();
     const account = accounts.find(
       (a) => a.email.toLowerCase() === input || a.username.toLowerCase() === input
     );
-
     if (account) {
       account.password = newPassword;
       account.mustChangePassword = false;
+      account.updatedAt = new Date().toISOString();
       this.saveStoredAccounts(accounts);
-    }
-
-    if (this.auth?.currentUser) {
-      try {
-        await fbUpdatePassword(this.auth.currentUser, newPassword);
-      } catch {
-        // ignore
-      }
     }
 
     if (this.currentUser) {
@@ -681,12 +790,7 @@ class FirebaseService {
     if (!input) {
       return { success: false, message: 'Introduce tu correo electrónico o nombre de usuario.' };
     }
-
     const cleanInput = input.toLowerCase();
-    const accounts = this.getStoredAccounts();
-    const account = accounts.find(
-      (a) => a.email.toLowerCase() === cleanInput || a.username.toLowerCase() === cleanInput
-    );
 
     // 1. Si se especificó una nueva contraseña personalizada
     if (newPassword && newPassword.trim()) {
@@ -695,6 +799,36 @@ class FirebaseService {
       }
       const pass = newPassword.trim();
 
+      // Update in Firestore Cloud Database
+      if (this.db) {
+        try {
+          const snap = await getDoc(doc(this.db, 'accounts', cleanInput));
+          if (snap.exists()) {
+            const acc = snap.data() as StoredAccount;
+            acc.password = pass;
+            acc.mustChangePassword = false;
+            acc.updatedAt = new Date().toISOString();
+            const uKey = acc.username.toLowerCase();
+            const eKey = acc.email.toLowerCase();
+            await Promise.all([
+              setDoc(doc(this.db, 'accounts', uKey), acc, { merge: true }),
+              setDoc(doc(this.db, 'accounts', eKey), acc, { merge: true }),
+              setDoc(doc(this.db, 'users', acc.id), {
+                must_change_password: false,
+                updated_at: acc.updatedAt,
+              }, { merge: true }),
+            ]);
+          }
+        } catch (err) {
+          console.warn('[Firestore] Error en resetPassword Firestore:', err);
+        }
+      }
+
+      // Update in local accounts
+      const accounts = this.getStoredAccounts();
+      const account = accounts.find(
+        (a) => a.email.toLowerCase() === cleanInput || a.username.toLowerCase() === cleanInput
+      );
       if (account) {
         account.password = pass;
         account.mustChangePassword = false;
@@ -706,13 +840,6 @@ class FirebaseService {
         await backendApi.resetPassword({ emailOrUsername: input, newPassword: pass });
       } catch {}
 
-      // Intentar actualizar en Firebase si estuviera disponible
-      if (this.auth?.currentUser) {
-        try {
-          await fbUpdatePassword(this.auth.currentUser, pass);
-        } catch {}
-      }
-
       return {
         success: true,
         message: '¡Contraseña restablecida con éxito! Ya puedes iniciar sesión con tu nueva contraseña.',
@@ -721,69 +848,58 @@ class FirebaseService {
 
     // 2. Si no se especificó nueva contraseña:
     // Restablecer a la contraseña temporal estándar '12345'
+    const pass = '12345';
+    let userFound = false;
+
+    if (this.db) {
+      try {
+        const snap = await getDoc(doc(this.db, 'accounts', cleanInput));
+        if (snap.exists()) {
+          userFound = true;
+          const acc = snap.data() as StoredAccount;
+          acc.password = pass;
+          acc.mustChangePassword = true;
+          acc.updatedAt = new Date().toISOString();
+          const uKey = acc.username.toLowerCase();
+          const eKey = acc.email.toLowerCase();
+          await Promise.all([
+            setDoc(doc(this.db, 'accounts', uKey), acc, { merge: true }),
+            setDoc(doc(this.db, 'accounts', eKey), acc, { merge: true }),
+            setDoc(doc(this.db, 'users', acc.id), {
+              must_change_password: true,
+              updated_at: acc.updatedAt,
+            }, { merge: true }),
+          ]);
+        }
+      } catch {}
+    }
+
+    const accounts = this.getStoredAccounts();
+    const account = accounts.find(
+      (a) => a.email.toLowerCase() === cleanInput || a.username.toLowerCase() === cleanInput
+    );
     if (account) {
-      account.password = '12345';
+      userFound = true;
+      account.password = pass;
       account.mustChangePassword = true;
       this.saveStoredAccounts(accounts);
+    }
 
-      // Sincronizar con backend
-      try {
-        await backendApi.resetPassword({ emailOrUsername: input, newPassword: '12345' });
-      } catch {}
+    try {
+      await backendApi.resetPassword({ emailOrUsername: input, newPassword: pass });
+    } catch {}
 
-      // Intentar enviar correo con Firebase si estuviera activo
-      let firebaseEmailSent = false;
-      if (this.auth) {
-        try {
-          await sendPasswordResetEmail(this.auth, account.email);
-          firebaseEmailSent = true;
-        } catch {}
-      }
-
-      const note = firebaseEmailSent
-        ? ' Se ha enviado también un aviso a tu correo.'
-        : '';
-
+    if (!userFound) {
       return {
-        success: true,
-        tempPassword: '12345',
-        message: `Tu contraseña ha sido restablecida a la temporal estándar: 12345.${note} Ya puedes iniciar sesión con 12345 y definir tu nueva clave.`,
+        success: false,
+        message: 'No se encontró ninguna cuenta registrada con ese correo o usuario.',
       };
     }
 
-    // 3. Probar contra el backend si no estaba en local accounts
-    try {
-      const serverRes = await backendApi.resetPassword({ emailOrUsername: input });
-      if (serverRes && serverRes.success) {
-        return {
-          success: true,
-          tempPassword: serverRes.tempPassword || '12345',
-          message: serverRes.message || 'Contraseña restablecida a la estándar: 12345.',
-        };
-      }
-    } catch {}
-
-    // 4. Intentar Firebase directo
-    if (this.auth) {
-      try {
-        await sendPasswordResetEmail(this.auth, input);
-        return {
-          success: true,
-          message: `Se ha enviado un correo de recuperación a ${input} a través de Firebase. Revisa tu bandeja de entrada y spam.`,
-        };
-      } catch (err: any) {
-        if (err.code === 'auth/user-not-found') {
-          return {
-            success: false,
-            message: 'No existe ninguna cuenta registrada con ese correo.',
-          };
-        }
-      }
-    }
-
     return {
-      success: false,
-      message: 'No se encontró ninguna cuenta registrada con ese correo o usuario.',
+      success: true,
+      tempPassword: '12345',
+      message: 'Tu contraseña ha sido restablecida a la temporal estándar: 12345. Al iniciar sesión se te pedirá cambiarla.',
     };
   }
 
@@ -902,11 +1018,29 @@ class FirebaseService {
           email: current.email,
           updated_at: new Date().toISOString(),
         };
+        const uKey = current.username ? current.username.toLowerCase() : '';
+        const eKey = current.email ? current.email.toLowerCase() : '';
+        const accountUpdate: any = {
+          id: current.id,
+          username: current.username,
+          email: current.email,
+          fullName: current.full_name,
+          avatarUrl: resolvedAvatar || null,
+          updatedAt: new Date().toISOString(),
+        };
+        if (updates.newPassword) {
+          accountUpdate.password = updates.newPassword;
+        }
+
         const promises = [
           setDoc(doc(this.db, 'users', current.id), userData, { merge: true }),
         ];
-        if (current.username) {
-          promises.push(setDoc(doc(this.db, 'users', current.username.toLowerCase()), userData, { merge: true }));
+        if (uKey) {
+          promises.push(setDoc(doc(this.db, 'users', uKey), userData, { merge: true }));
+          promises.push(setDoc(doc(this.db, 'accounts', uKey), accountUpdate, { merge: true }));
+        }
+        if (eKey) {
+          promises.push(setDoc(doc(this.db, 'accounts', eKey), accountUpdate, { merge: true }));
         }
         await Promise.all(promises);
       } catch (err) {

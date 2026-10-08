@@ -80,6 +80,19 @@ class BackendApiClient {
     return headers;
   }
 
+  private async fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 2500): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+      return res;
+    } catch (e) {
+      clearTimeout(timer);
+      throw e;
+    }
+  }
+
   // ─── Health Check ────────────────────────────────────────────────
   public async checkHealth(): Promise<boolean> {
     const now = Date.now();
@@ -87,7 +100,6 @@ class BackendApiClient {
       return this.isServerHealthy;
     }
     try {
-      // En producción web HTTPS, si BASE_URL apunta a HTTP localhost, evitar peticiones inseguras
       if (
         Platform.OS === 'web' &&
         typeof window !== 'undefined' &&
@@ -98,10 +110,10 @@ class BackendApiClient {
         return false;
       }
 
-      const res = await fetch(`${BASE_URL}/health`, {
+      const res = await this.fetchWithTimeout(`${BASE_URL}/health`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-      });
+      }, 2000);
 
       const contentType = res.headers.get('content-type') || '';
       if (res.ok && contentType.includes('application/json')) {
@@ -121,11 +133,11 @@ class BackendApiClient {
 
   // ─── Auth Endpoints ──────────────────────────────────────────────
   public async register(email: string, username: string) {
-    const res = await fetch(`${BASE_URL}/auth/register`, {
+    const res = await this.fetchWithTimeout(`${BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, username }),
-    });
+    }, 2500);
     return res.json();
   }
 
@@ -133,11 +145,11 @@ class BackendApiClient {
    * Login: autentica al usuario y guarda el token JWT devuelto.
    */
   public async login(emailOrUsername: string, password: string) {
-    const res = await fetch(`${BASE_URL}/auth/login`, {
+    const res = await this.fetchWithTimeout(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ emailOrUsername, password }),
-    });
+    }, 2500);
     const data = await res.json();
     if (data?.token) {
       this.setToken(data.token);

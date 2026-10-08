@@ -24,6 +24,7 @@ import {
 import { MainNavTab, WordItem, WordStatus, UserProfile } from './types';
 import { firebaseService } from './lib/firebaseClient';
 import { vocabService } from './lib/vocabularyStore';
+import { testHistoryService } from './lib/testHistoryStore';
 import { appStorage } from './lib/storage';
 import { THEME } from './theme';
 
@@ -163,6 +164,8 @@ function MainApp() {
             setIsAuthenticated(true);
             setCurrentUser(firebaseService.getCurrentUser());
             setActiveTab('vocabulary');
+            vocabService.syncWithCloud().catch(() => {});
+            testHistoryService.syncWithCloud().catch(() => {});
           }}
         />
       </View>
