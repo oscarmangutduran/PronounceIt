@@ -197,6 +197,50 @@ router.post('/change-password', async (req: Request, res: Response) => {
 });
 
 // ─────────────────────────────────────────────
+// POST /api/auth/reset-password
+// ─────────────────────────────────────────────
+router.post('/reset-password', async (req: Request, res: Response) => {
+  try {
+    const { emailOrUsername, newPassword } = req.body;
+    if (!emailOrUsername) {
+      return res.status(400).json({ error: 'Debes proporcionar tu correo o nombre de usuario.' });
+    }
+
+    const db = await getDb();
+    const term = emailOrUsername.trim().toLowerCase();
+
+    const user = db.users.find(
+      (u) => u.email.toLowerCase() === term || u.username.toLowerCase() === term
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'No se encontró ninguna cuenta con ese correo o usuario.' });
+    }
+
+    const passwordToSet = (newPassword && newPassword.trim().length >= 4) ? newPassword.trim() : '12345';
+    user.password = await bcrypt.hash(passwordToSet, SALT_ROUNDS);
+    user.must_change_password = (passwordToSet === '12345');
+    user.updated_at = new Date().toISOString();
+
+    await saveDb();
+
+    console.log(`🔑 [AUTH] Contraseña restablecida para ${user.email} -> ${passwordToSet === '12345' ? '12345 (temporal)' : 'nueva contraseña personalizada'}`);
+
+    return res.json({
+      success: true,
+      message: passwordToSet === '12345'
+        ? 'Contraseña restablecida a la temporal estándar: 12345. Inicia sesión con 12345 y podrás definir tu clave definitiva.'
+        : '¡Contraseña restablecida con éxito! Ya puedes iniciar sesión con tu nueva contraseña.',
+      tempPassword: passwordToSet === '12345' ? '12345' : undefined,
+      user: sanitizeUser(user),
+    });
+  } catch (error) {
+    console.error('Error en /api/auth/reset-password:', error);
+    return res.status(500).json({ error: 'Error interno al restablecer la contraseña.' });
+  }
+});
+
+// ─────────────────────────────────────────────
 // PUT /api/auth/profile
 // ─────────────────────────────────────────────
 router.put('/profile', async (req: Request, res: Response) => {

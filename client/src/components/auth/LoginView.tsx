@@ -91,14 +91,41 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
     // 1. FORGOT PASSWORD
     if (mode === 'forgot_password') {
       if (!email.trim()) {
-        setError('Por favor, ingresa tu correo electrónico.');
+        setError('Por favor, ingresa tu correo electrónico o nombre de usuario.');
         return;
       }
+
+      if (newPassword && newPassword.trim()) {
+        if (newPassword.trim().length < 6) {
+          setError('La nueva contraseña debe tener al menos 6 caracteres.');
+          return;
+        }
+        if (newPassword.trim() === '12345') {
+          setError('La nueva contraseña no puede ser la contraseña estándar 12345.');
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          setError('Las contraseñas no coinciden.');
+          return;
+        }
+      }
+
       setLoading(true);
-      const res = await firebaseService.resetPassword(email.trim());
+      const res = await firebaseService.resetPassword(email.trim(), newPassword ? newPassword.trim() : undefined);
       setLoading(false);
+
       if (res.success) {
-        setSuccess(res.message || 'Instrucciones enviadas con éxito.');
+        setSuccess(res.message || 'Contraseña restablecida con éxito.');
+        if (res.tempPassword) {
+          setPassword(res.tempPassword);
+        } else if (newPassword) {
+          setPassword(newPassword.trim());
+        }
+        setTimeout(() => {
+          setMode('signin');
+          setNewPassword('');
+          setConfirmPassword('');
+        }, 1800);
       } else {
         setError(res.message || 'Error al procesar la solicitud.');
       }
@@ -287,7 +314,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
 
             {/* Title for change/forgot */}
             {mode === 'forgot_password' && (
-              <Text style={styles.cardHeaderTitle}>Recuperar Contraseña</Text>
+              <>
+                <Text style={styles.cardHeaderTitle}>Recuperar Contraseña</Text>
+                <Text style={styles.cardHeaderSubtitle}>
+                  Introduce tu correo o usuario. Puedes definir una nueva contraseña directamente o dejarla en blanco para restablecerla a la clave temporal (12345).
+                </Text>
+              </>
             )}
             {mode === 'change_password' && (
               <Text style={styles.cardHeaderTitle}>Actualizar Contraseña Inicial</Text>
@@ -343,7 +375,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
             {mode !== 'change_password' && (
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>
-                  {mode === 'signin' ? 'Correo o Nombre de Usuario' : 'Correo Electrónico'}
+                  {mode === 'signin' || mode === 'forgot_password' ? 'Correo o Nombre de Usuario' : 'Correo Electrónico'}
                 </Text>
                 <View
                   style={[
@@ -358,7 +390,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                   />
                   <TextInput
                     style={styles.textInput}
-                    placeholder="tu@correo.com"
+                    placeholder="tu@correo.com o tu_usuario"
                     placeholderTextColor={THEME.colors.textSubtle}
                     value={email}
                     onChangeText={setEmail}
@@ -425,10 +457,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               </View>
             )}
 
-            {mode === 'change_password' && (
+            {(mode === 'change_password' || mode === 'forgot_password') && (
               <>
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Nueva Contraseña</Text>
+                  <Text style={styles.inputLabel}>
+                    {mode === 'forgot_password' ? 'Nueva Contraseña (Opcional)' : 'Nueva Contraseña'}
+                  </Text>
                   <View
                     style={[
                       styles.inputWrapper,
@@ -442,7 +476,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                     />
                     <TextInput
                       style={styles.textInput}
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder={mode === 'forgot_password' ? 'Dejar en blanco para usar la estándar (12345)' : 'Mínimo 6 caracteres'}
                       placeholderTextColor={THEME.colors.textSubtle}
                       value={newPassword}
                       onChangeText={setNewPassword}
@@ -469,7 +503,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Confirmar Contraseña</Text>
+                  <Text style={styles.inputLabel}>
+                    {mode === 'forgot_password' ? 'Confirmar Nueva Contraseña (Opcional)' : 'Confirmar Contraseña'}
+                  </Text>
                   <View
                     style={[
                       styles.inputWrapper,
@@ -483,7 +519,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                     />
                     <TextInput
                       style={styles.textInput}
-                      placeholder="Repite tu nueva contraseña"
+                      placeholder={mode === 'forgot_password' ? 'Repite tu nueva clave si la has introducido' : 'Repite tu nueva contraseña'}
                       placeholderTextColor={THEME.colors.textSubtle}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
@@ -528,7 +564,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                 <Text style={styles.primaryButtonText}>
                   {mode === 'signin' && 'Iniciar Sesión'}
                   {mode === 'signup' && 'Crear Cuenta'}
-                  {mode === 'forgot_password' && 'Enviar Instrucciones'}
+                  {mode === 'forgot_password' && (newPassword.trim() ? 'Restablecer y Guardar Contraseña' : 'Restablecer a Contraseña Estándar (12345)')}
                   {mode === 'change_password' && 'Guardar Nueva Contraseña'}
                 </Text>
               )}
@@ -692,7 +728,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#ffffff',
+    marginBottom: 8,
+  },
+  cardHeaderSubtitle: {
+    fontSize: 13,
+    color: THEME.colors.textSubtle,
     marginBottom: 16,
+    lineHeight: 18,
   },
   errorBanner: {
     flexDirection: 'row',

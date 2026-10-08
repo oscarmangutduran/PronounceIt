@@ -156,32 +156,32 @@ class FirebaseService {
         stored?.apiKey ||
         process.env.EXPO_PUBLIC_FIREBASE_API_KEY ||
         process.env.VITE_FIREBASE_API_KEY ||
-        '',
+        'AIzaSyAfb-y-x0a2q8kRN5FJ9-PvsjKUjeuE208',
       authDomain:
         stored?.authDomain ||
         process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ||
         process.env.VITE_FIREBASE_AUTH_DOMAIN ||
-        '',
+        'pronounceit-56fe6.firebaseapp.com',
       projectId:
         stored?.projectId ||
         process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ||
         process.env.VITE_FIREBASE_PROJECT_ID ||
-        '',
+        'pronounceit-56fe6',
       storageBucket:
         stored?.storageBucket ||
         process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET ||
         process.env.VITE_FIREBASE_STORAGE_BUCKET ||
-        '',
+        'pronounceit-56fe6.firebasestorage.app',
       messagingSenderId:
         stored?.messagingSenderId ||
         process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ||
         process.env.VITE_FIREBASE_MESSAGING_SENDER_ID ||
-        '',
+        '535336392107',
       appId:
         stored?.appId ||
         process.env.EXPO_PUBLIC_FIREBASE_APP_ID ||
         process.env.VITE_FIREBASE_APP_ID ||
-        '',
+        '1:535336392107:web:1a1a0e6ab9244e362f2eee',
       isConnected: this.isConnected,
     };
   }
@@ -673,23 +673,117 @@ class FirebaseService {
     return { success: true, message: 'Contraseña actualizada correctamente.' };
   }
 
-  public async resetPassword(email: string): Promise<{ success: boolean; message?: string }> {
-    if (!email) {
-      return { success: false, message: 'Introduce un correo electrónico válido.' };
+  public async resetPassword(
+    emailOrUsername: string,
+    newPassword?: string
+  ): Promise<{ success: boolean; message?: string; tempPassword?: string }> {
+    const input = (emailOrUsername || '').trim();
+    if (!input) {
+      return { success: false, message: 'Introduce tu correo electrónico o nombre de usuario.' };
     }
 
+    const cleanInput = input.toLowerCase();
+    const accounts = this.getStoredAccounts();
+    const account = accounts.find(
+      (a) => a.email.toLowerCase() === cleanInput || a.username.toLowerCase() === cleanInput
+    );
+
+    // 1. Si se especificó una nueva contraseña personalizada
+    if (newPassword && newPassword.trim()) {
+      if (newPassword.trim().length < 4) {
+        return { success: false, message: 'La nueva contraseña debe tener al menos 4 caracteres.' };
+      }
+      const pass = newPassword.trim();
+
+      if (account) {
+        account.password = pass;
+        account.mustChangePassword = false;
+        this.saveStoredAccounts(accounts);
+      }
+
+      // Sincronizar con Express backend
+      try {
+        await backendApi.resetPassword({ emailOrUsername: input, newPassword: pass });
+      } catch {}
+
+      // Intentar actualizar en Firebase si estuviera disponible
+      if (this.auth?.currentUser) {
+        try {
+          await fbUpdatePassword(this.auth.currentUser, pass);
+        } catch {}
+      }
+
+      return {
+        success: true,
+        message: '¡Contraseña restablecida con éxito! Ya puedes iniciar sesión con tu nueva contraseña.',
+      };
+    }
+
+    // 2. Si no se especificó nueva contraseña:
+    // Restablecer a la contraseña temporal estándar '12345'
+    if (account) {
+      account.password = '12345';
+      account.mustChangePassword = true;
+      this.saveStoredAccounts(accounts);
+
+      // Sincronizar con backend
+      try {
+        await backendApi.resetPassword({ emailOrUsername: input, newPassword: '12345' });
+      } catch {}
+
+      // Intentar enviar correo con Firebase si estuviera activo
+      let firebaseEmailSent = false;
+      if (this.auth) {
+        try {
+          await sendPasswordResetEmail(this.auth, account.email);
+          firebaseEmailSent = true;
+        } catch {}
+      }
+
+      const note = firebaseEmailSent
+        ? ' Se ha enviado también un aviso a tu correo.'
+        : '';
+
+      return {
+        success: true,
+        tempPassword: '12345',
+        message: `Tu contraseña ha sido restablecida a la temporal estándar: 12345.${note} Ya puedes iniciar sesión con 12345 y definir tu nueva clave.`,
+      };
+    }
+
+    // 3. Probar contra el backend si no estaba en local accounts
+    try {
+      const serverRes = await backendApi.resetPassword({ emailOrUsername: input });
+      if (serverRes && serverRes.success) {
+        return {
+          success: true,
+          tempPassword: serverRes.tempPassword || '12345',
+          message: serverRes.message || 'Contraseña restablecida a la estándar: 12345.',
+        };
+      }
+    } catch {}
+
+    // 4. Intentar Firebase directo
     if (this.auth) {
       try {
-        await sendPasswordResetEmail(this.auth, email.trim());
-        return { success: true, message: 'Instrucciones enviadas con éxito a tu correo por Firebase.' };
+        await sendPasswordResetEmail(this.auth, input);
+        return {
+          success: true,
+          message: `Se ha enviado un correo de recuperación a ${input} a través de Firebase. Revisa tu bandeja de entrada y spam.`,
+        };
       } catch (err: any) {
-        // Continue to fallback notice
+        if (err.code === 'auth/user-not-found') {
+          return {
+            success: false,
+            message: 'No existe ninguna cuenta registrada con ese correo.',
+          };
+        }
       }
     }
 
     return {
-      success: true,
-      message: `Se han enviado las instrucciones de restablecimiento a ${email}.`,
+      success: false,
+      message: 'No se encontró ninguna cuenta registrada con ese correo o usuario.',
     };
   }
 

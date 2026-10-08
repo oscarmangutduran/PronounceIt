@@ -159,6 +159,15 @@ class BackendApiClient {
     return res.json();
   }
 
+  public async resetPassword(payload: { emailOrUsername: string; newPassword?: string }) {
+    const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  }
+
   public async updateProfile(
     userId: string,
     data: { username?: string; avatar_url?: string; password?: string; email?: string }
