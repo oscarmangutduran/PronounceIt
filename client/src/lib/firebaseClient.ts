@@ -377,6 +377,53 @@ class FirebaseService {
     return this.currentUser;
   }
 
+  public async initFromStorage(): Promise<void> {
+    await appStorage.init();
+    try {
+      const cached = appStorage.getItem(STORAGE_KEY_FIREBASE_USER);
+      if (cached) {
+        const u = JSON.parse(cached);
+        if (
+          u &&
+          u.id !== 'usr-alex-gorbatow' &&
+          u.username?.toLowerCase() !== 'alexgorbatow' &&
+          u.email?.toLowerCase() !== 'alexgorbatow@yandex.ru' &&
+          u.id !== 'demo-user-1'
+        ) {
+          this.currentUser = u;
+          const savedAvatar = this.getSavedAvatar(u.id, u.username, u.email);
+          if (savedAvatar) {
+            this.currentUser.avatar_url = savedAvatar;
+          }
+          this.notify();
+        }
+      }
+    } catch {}
+  }
+
+  public continueOffline(): UserProfile {
+    const existing = this.currentUser;
+    if (existing && existing.id.startsWith('offline_')) {
+      return existing;
+    }
+    const profile: UserProfile = {
+      id: `offline_${Date.now()}`,
+      email: 'offline@pronounceit.app',
+      full_name: 'Usuario Offline',
+      username: 'usuario_offline',
+      role: 'user',
+      created_at: new Date().toISOString(),
+    };
+    this.currentUser = profile;
+    appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
+    this.notify();
+    return profile;
+  }
+
+  public isOfflineMode(): boolean {
+    return Boolean(this.currentUser?.id?.startsWith('offline_'));
+  }
+
   public subscribe(callback: (user: UserProfile | null) => void): () => void {
     this.listeners.push(callback);
     callback(this.currentUser);
@@ -502,12 +549,15 @@ class FirebaseService {
     // 1. Check in Firestore Cloud Database (WORKS ACROSS ALL DEVICES)
     if (this.db) {
       try {
-        const snap = await getDoc(doc(this.db, 'accounts', input));
-        if (snap.exists()) {
+        const snap = await Promise.race([
+          getDoc(doc(this.db, 'accounts', input)),
+          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000)),
+        ]);
+        if (snap?.exists?.()) {
           foundAccount = snap.data() as StoredAccount;
         }
       } catch (err) {
-        console.warn('[Firestore] Error buscando cuenta en base de datos:', err);
+        console.warn('[Firestore] Offline o timeout buscando cuenta en base de datos:', err);
       }
     }
 
@@ -643,18 +693,21 @@ class FirebaseService {
     // 1. Check if user already exists in Firestore Cloud Database
     if (this.db) {
       try {
-        const [uSnap, eSnap] = await Promise.all([
-          getDoc(doc(this.db, 'accounts', uKey)),
-          getDoc(doc(this.db, 'accounts', cleanEmail)),
+        const [uSnap, eSnap] = await Promise.race([
+          Promise.all([
+            getDoc(doc(this.db, 'accounts', uKey)),
+            getDoc(doc(this.db, 'accounts', cleanEmail)),
+          ]),
+          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000)),
         ]);
-        if (uSnap.exists()) {
+        if (uSnap?.exists?.()) {
           return { success: false, message: 'Ya existe una cuenta con este nombre de usuario.' };
         }
-        if (eSnap.exists()) {
+        if (eSnap?.exists?.()) {
           return { success: false, message: 'Ya existe una cuenta con este correo electrónico.' };
         }
       } catch (err) {
-        console.warn('[Firestore] Error comprobando cuentas existentes:', err);
+        console.warn('[Firestore] Offline o timeout comprobando cuentas existentes:', err);
       }
     }
 
@@ -682,21 +735,24 @@ class FirebaseService {
     // 3. Save to Firestore Cloud Database (so ANY other device can immediately log in)
     if (this.db) {
       try {
-        await Promise.all([
-          setDoc(doc(this.db, 'accounts', uKey), newAccount, { merge: true }),
-          setDoc(doc(this.db, 'accounts', cleanEmail), newAccount, { merge: true }),
-          setDoc(doc(this.db, 'users', userId), {
-            id: userId,
-            email: cleanEmail,
-            username: cleanUsername,
-            full_name: cleanUsername,
-            must_change_password: true,
-            created_at: newAccount.createdAt,
-            updated_at: newAccount.updatedAt,
-          }, { merge: true }),
+        await Promise.race([
+          Promise.all([
+            setDoc(doc(this.db, 'accounts', uKey), newAccount, { merge: true }),
+            setDoc(doc(this.db, 'accounts', cleanEmail), newAccount, { merge: true }),
+            setDoc(doc(this.db, 'users', userId), {
+              id: userId,
+              email: cleanEmail,
+              username: cleanUsername,
+              full_name: cleanUsername,
+              must_change_password: true,
+              created_at: newAccount.createdAt,
+              updated_at: newAccount.updatedAt,
+            }, { merge: true }),
+          ]),
+          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000)),
         ]);
       } catch (err) {
-        console.error('[Firestore] Error guardando cuenta en Firestore:', err);
+        console.warn('[Firestore] Offline o timeout guardando cuenta en Firestore:', err);
       }
     }
 
@@ -738,25 +794,31 @@ class FirebaseService {
     // 1. Update in Firestore Cloud Database
     if (this.db) {
       try {
-        const snap = await getDoc(doc(this.db, 'accounts', input));
-        if (snap.exists()) {
+        const snap = await Promise.race([
+          getDoc(doc(this.db, 'accounts', input)),
+          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000)),
+        ]);
+        if (snap?.exists?.()) {
           const acc = snap.data() as StoredAccount;
           acc.password = newPassword;
           acc.mustChangePassword = false;
           acc.updatedAt = new Date().toISOString();
           const uKey = acc.username.toLowerCase();
           const eKey = acc.email.toLowerCase();
-          await Promise.all([
-            setDoc(doc(this.db, 'accounts', uKey), acc, { merge: true }),
-            setDoc(doc(this.db, 'accounts', eKey), acc, { merge: true }),
-            setDoc(doc(this.db, 'users', acc.id), {
-              must_change_password: false,
-              updated_at: acc.updatedAt,
-            }, { merge: true }),
+          await Promise.race([
+            Promise.all([
+              setDoc(doc(this.db, 'accounts', uKey), acc, { merge: true }),
+              setDoc(doc(this.db, 'accounts', eKey), acc, { merge: true }),
+              setDoc(doc(this.db, 'users', acc.id), {
+                must_change_password: false,
+                updated_at: acc.updatedAt,
+              }, { merge: true }),
+            ]),
+            new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000)),
           ]);
         }
       } catch (err) {
-        console.warn('[Firestore] Error actualizando contraseña en Firestore:', err);
+        console.warn('[Firestore] Offline o timeout actualizando contraseña en Firestore:', err);
       }
     }
 

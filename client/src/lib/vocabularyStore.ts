@@ -4,6 +4,8 @@ import { firebaseService } from './firebaseClient';
 import { backendApi } from './apiClient';
 import { appStorage } from './storage';
 
+import { networkService } from './networkService';
+
 const STORAGE_KEY_WORDS = 'pronounceit_vocab_words_v5';
 const STORAGE_KEY_CATEGORIES = 'pronounceit_user_categories_v4';
 const STORAGE_KEY_AUDIO_SETTINGS = 'pronounceit_audio_settings';
@@ -43,17 +45,34 @@ class VocabularyService {
     firebaseService.subscribe(() => {
       this.syncWithCloud();
     });
+    networkService.subscribe((isOnline) => {
+      if (isOnline) {
+        this.syncWithCloud();
+      }
+    });
+  }
+
+  public reloadFromStorage() {
+    this.loadInitialData();
   }
 
   public async syncWithCloud(): Promise<void> {
+    if (!networkService.isOnline()) {
+      return;
+    }
+
     try {
       const isBackendLive = await backendApi.checkHealth();
       if (isBackendLive) {
         const serverWords = await backendApi.getWords();
         if (serverWords !== null) {
-          this.words = serverWords;
+          const map = new Map<string, WordItem>();
+          serverWords.forEach((w) => map.set(w.id, w));
+          this.words.forEach((w) => map.set(w.id, w));
+          this.words = Array.from(map.values());
           this.saveWords();
           this.notify();
+          backendApi.bulkSaveWords(this.words).catch(() => {});
           return;
         }
       }
@@ -65,9 +84,13 @@ class VocabularyService {
       try {
         const remoteWords = await (firebaseService as any).fetchWords?.();
         if (remoteWords && Array.isArray(remoteWords)) {
-          this.words = remoteWords;
+          const map = new Map<string, WordItem>();
+          remoteWords.forEach((w: WordItem) => map.set(w.id, w));
+          this.words.forEach((w) => map.set(w.id, w));
+          this.words = Array.from(map.values());
           this.saveWords();
           this.notify();
+          (firebaseService as any).syncWordsToFirestore?.(this.words).catch(() => {});
           return;
         }
       } catch (e) {

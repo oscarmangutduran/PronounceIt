@@ -4,6 +4,8 @@ import { firebaseService } from './firebaseClient';
 import { backendApi } from './apiClient';
 import { appStorage } from './storage';
 
+import { networkService } from './networkService';
+
 export interface StoredTestItem {
   id: string;
   type: 'vocabulary' | 'irregular_verbs';
@@ -43,20 +45,34 @@ class TestHistoryService {
     firebaseService.subscribe(() => {
       this.syncWithCloud();
     });
+    networkService.subscribe((isOnline) => {
+      if (isOnline) {
+        this.syncWithCloud();
+      }
+    });
+  }
+
+  public reloadFromStorage() {
+    this.loadHistory();
   }
 
   public async syncWithCloud(): Promise<void> {
+    if (!networkService.isOnline()) {
+      return;
+    }
+
     try {
       const isBackendLive = await backendApi.checkHealth();
       if (isBackendLive) {
         const serverTests = await backendApi.getTests();
         if (serverTests && serverTests.length > 0) {
-          if (this.history.length === 0 || serverTests.length >= this.history.length) {
-            this.history = serverTests;
-            this.saveHistory();
-            this.notify();
-            return;
-          }
+          const map = new Map<string, StoredTestItem>();
+          serverTests.forEach((t) => map.set(t.id, t));
+          this.history.forEach((t) => map.set(t.id, t));
+          this.history = Array.from(map.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          this.saveHistory();
+          this.notify();
+          return;
         }
       }
     } catch (e) {
@@ -66,8 +82,11 @@ class TestHistoryService {
     if (firebaseService.isFirebaseConnected()) {
       try {
         const remote = await firebaseService.fetchTestHistory();
-        if (remote !== null) {
-          this.history = remote;
+        if (remote !== null && Array.isArray(remote)) {
+          const map = new Map<string, StoredTestItem>();
+          remote.forEach((t: StoredTestItem) => map.set(t.id, t));
+          this.history.forEach((t) => map.set(t.id, t));
+          this.history = Array.from(map.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
           this.saveHistory();
           this.notify();
           return;

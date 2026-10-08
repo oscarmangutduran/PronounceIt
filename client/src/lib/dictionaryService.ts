@@ -1,5 +1,19 @@
 import { WordItem, WordLevel, WordStatus } from '../types';
 import { appStorage } from './storage';
+import { networkService } from './networkService';
+
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 1500): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
+  }
+}
 
 export interface AutoEnrichResult {
   word: string;
@@ -474,10 +488,11 @@ Respond strictly with a single JSON object with these exact keys:
 export async function translateText(text: string): Promise<string> {
   const clean = text.trim();
   if (!clean) return '';
+  if (!networkService.isOnline()) return clean;
 
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q=${encodeURIComponent(clean)}`;
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url, {}, 1500);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data?.[0])) {
@@ -492,7 +507,7 @@ export async function translateText(text: string): Promise<string> {
   // Secondary fallback: MyMemory API
   try {
     const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean)}&langpair=en|es`;
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url, {}, 1500);
     if (res.ok) {
       const data = await res.json();
       const txt = data?.responseData?.translatedText;
@@ -510,9 +525,11 @@ export async function fetchGoogleDictionary(
   word: string
 ): Promise<{ translation: string; partOfSpeech?: string; alternatives?: string[] }> {
   const clean = word.trim().toLowerCase();
+  if (!networkService.isOnline()) return { translation: '' };
+
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&dt=bd&q=${encodeURIComponent(clean)}`;
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url, {}, 1500);
     if (res.ok) {
       const data = await res.json();
       let translation = '';
@@ -772,36 +789,42 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
   let foundDef = '';
   let foundExEn = '';
 
-  try {
-    const dictRes = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(clean)}`);
-    if (dictRes.ok) {
-      const dictData = await dictRes.json();
-      if (Array.isArray(dictData) && dictData.length > 0) {
-        const item = dictData[0];
-        if (item.phonetic) {
-          foundIpa = item.phonetic;
-        } else if (item.phonetics && Array.isArray(item.phonetics)) {
-          const withText = item.phonetics.find((p: any) => p.text);
-          if (withText) foundIpa = withText.text;
-        }
-
-        if (item.meanings && Array.isArray(item.meanings) && item.meanings.length > 0) {
-          const firstMeaning = item.meanings[0];
-          if (firstMeaning.partOfSpeech && !foundPos) {
-            foundPos = normalizePartOfSpeech(firstMeaning.partOfSpeech);
+  if (networkService.isOnline()) {
+    try {
+      const dictRes = await fetchWithTimeout(
+        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(clean)}`,
+        {},
+        1500
+      );
+      if (dictRes.ok) {
+        const dictData = await dictRes.json();
+        if (Array.isArray(dictData) && dictData.length > 0) {
+          const item = dictData[0];
+          if (item.phonetic) {
+            foundIpa = item.phonetic;
+          } else if (item.phonetics && Array.isArray(item.phonetics)) {
+            const withText = item.phonetics.find((p: any) => p.text);
+            if (withText) foundIpa = withText.text;
           }
-          if (firstMeaning.definitions && firstMeaning.definitions[0]) {
-            foundDef = firstMeaning.definitions[0].definition || '';
-            const candExample = firstMeaning.definitions[0].example || '';
-            if (candExample && new RegExp(`\\b${clean}`, 'i').test(candExample)) {
-              foundExEn = candExample;
+
+          if (item.meanings && Array.isArray(item.meanings) && item.meanings.length > 0) {
+            const firstMeaning = item.meanings[0];
+            if (firstMeaning.partOfSpeech && !foundPos) {
+              foundPos = normalizePartOfSpeech(firstMeaning.partOfSpeech);
+            }
+            if (firstMeaning.definitions && firstMeaning.definitions[0]) {
+              foundDef = firstMeaning.definitions[0].definition || '';
+              const candExample = firstMeaning.definitions[0].example || '';
+              if (candExample && new RegExp(`\\b${clean}`, 'i').test(candExample)) {
+                foundExEn = candExample;
+              }
             }
           }
         }
       }
+    } catch (e) {
+      console.warn('Dictionary API fetch failed, using fallback', e);
     }
-  } catch (e) {
-    console.warn('Dictionary API fetch failed, using fallback', e);
   }
 
   // 3. Fetch high-accuracy translation & grammatical part of speech from Google Translate

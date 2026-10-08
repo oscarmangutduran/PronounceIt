@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,11 +21,13 @@ import {
   User,
   LogOut,
   UserPen,
+  WifiOff,
 } from 'lucide-react-native';
 import { UserProfile, MainNavTab } from '../../types';
 import { THEME } from '../../theme';
 import { PronounceItLogo } from '../common/PronounceItLogo';
 import { useResponsive } from '../../lib/useResponsive';
+import { networkService } from '../../lib/networkService';
 
 interface TopNavigationProps {
   activeTab: MainNavTab;
@@ -49,6 +51,11 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   const { width, showTopNavTabs, isPhone } = useResponsive();
   const showSearch = !isPhone && width >= 800;
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isOnline, setIsOnline] = useState(networkService.isOnline());
+
+  useEffect(() => {
+    return networkService.subscribe(setIsOnline);
+  }, []);
   const insets = useSafeAreaInsets();
   const topPadding = Math.max(
     insets.top,
@@ -207,6 +214,14 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
           </View>
         )}
 
+        {/* Offline Badge */}
+        {!isOnline && (
+          <View style={styles.offlinePill}>
+            <WifiOff size={12} color="#f59e0b" style={{ marginRight: 4 }} />
+            <Text style={styles.offlinePillText}>Offline</Text>
+          </View>
+        )}
+
         {/* User Avatar Circle */}
         <View style={styles.userWrapper}>
           <TouchableOpacity
@@ -274,6 +289,15 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                 <BarChart3 size={14} color={THEME.colors.textMuted} />
                 <Text style={styles.dropdownItemText}>Mi progreso léxico</Text>
               </TouchableOpacity>
+
+              {!isOnline && (
+                <View style={styles.dropdownOfflineNotice}>
+                  <WifiOff size={13} color="#f59e0b" style={{ marginRight: 6 }} />
+                  <Text style={styles.dropdownOfflineText}>
+                    Modo sin conexión: datos guardados en el dispositivo.
+                  </Text>
+                </View>
+              )}
 
               <View style={styles.dropdownDivider} />
 
@@ -480,5 +504,38 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     marginVertical: 4,
+  },
+  offlinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 6,
+  },
+  offlinePillText: {
+    color: '#fbbf24',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  dropdownOfflineNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginHorizontal: 10,
+    marginVertical: 4,
+  },
+  dropdownOfflineText: {
+    color: '#fbbf24',
+    fontSize: 10,
+    fontWeight: '500',
+    flex: 1,
   },
 });

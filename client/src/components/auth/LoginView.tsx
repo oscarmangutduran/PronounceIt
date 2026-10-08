@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,9 +24,11 @@ import {
   ArrowLeft,
   Sparkles,
   BookOpen,
+  WifiOff,
 } from 'lucide-react-native';
 import { firebaseService, WelcomeEmailNotice } from '../../lib/firebaseClient';
 import { appStorage } from '../../lib/storage';
+import { networkService } from '../../lib/networkService';
 import { THEME } from '../../theme';
 import { PronounceItLogo } from '../common/PronounceItLogo';
 
@@ -72,6 +74,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [welcomeNotice, setWelcomeNotice] = useState<WelcomeEmailNotice | null>(null);
+  const [isOnline, setIsOnline] = useState(networkService.isOnline());
+
+  useEffect(() => {
+    return networkService.subscribe(setIsOnline);
+  }, []);
 
   const handleToggleRemember = () => {
     const nextVal = !rememberMe;
@@ -341,6 +348,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               </View>
             )}
 
+            {!isOnline && (
+              <View style={styles.offlineBanner}>
+                <WifiOff size={15} color="#f59e0b" style={{ marginRight: 6 }} />
+                <Text style={styles.offlineBannerText}>
+                  Sin conexión a internet detectada · Puedes usar la app en Modo Offline
+                </Text>
+              </View>
+            )}
+
             {/* Form Fields */}
             {mode === 'signup' && (
               <View style={styles.inputGroup}>
@@ -569,6 +585,19 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                   {mode === 'change_password' && 'Guardar Nueva Contraseña'}
                 </Text>
               )}
+            </TouchableOpacity>
+
+            {/* Offline Mode Button */}
+            <TouchableOpacity
+              style={styles.offlineButton}
+              onPress={() => {
+                firebaseService.continueOffline();
+                onSuccess();
+              }}
+              activeOpacity={0.8}
+            >
+              <WifiOff size={15} color={THEME.colors.textMuted} style={{ marginRight: 8 }} />
+              <Text style={styles.offlineButtonText}>Continuar sin conexión (Modo Offline)</Text>
             </TouchableOpacity>
           </View>
 
@@ -918,5 +947,41 @@ const styles = StyleSheet.create({
     color: THEME.colors.textMuted,
     fontSize: 11,
     fontWeight: '500',
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+  offlineBannerText: {
+    color: '#fbbf24',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
+  },
+  offlineButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  offlineButtonText: {
+    color: THEME.colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

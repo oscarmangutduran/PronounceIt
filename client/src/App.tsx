@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   Image,
   Linking,
+  ActivityIndicator,
   StatusBar as RNStatusBar,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -26,7 +27,9 @@ import { firebaseService } from './lib/firebaseClient';
 import { vocabService } from './lib/vocabularyStore';
 import { testHistoryService } from './lib/testHistoryStore';
 import { appStorage } from './lib/storage';
+import { networkService } from './lib/networkService';
 import { THEME } from './theme';
+import { PronounceItLogo } from './components/common/PronounceItLogo';
 
 // Auth View
 import { LoginView } from './components/auth/LoginView';
@@ -59,13 +62,13 @@ function MainApp() {
     isPortrait,
   } = useResponsive();
 
+  const [isInitializing, setIsInitializing] = useState(true);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     return firebaseService.getCurrentUser();
   });
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    const remembered = appStorage.getItem('pronounceit_remember_me') === 'true';
     const user = firebaseService.getCurrentUser();
-    return Boolean(user && (remembered || appStorage.getItem('pronounceit_firebase_user_v1')));
+    return Boolean(user);
   });
 
   const [activeTab, setActiveTab] = useState<MainNavTab>('vocabulary');
@@ -83,27 +86,71 @@ function MainApp() {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   useEffect(() => {
-    // Initialize storage and load words
-    appStorage.init().then(() => {
-      setWords(vocabService.getWords());
-      setCategories(vocabService.getCategories());
-      setCurrentUser(firebaseService.getCurrentUser());
-    });
+    let isMounted = true;
 
+    // 1. Initialize persistent storage and restore session/data
+    const restoreSession = async () => {
+      try {
+        await appStorage.init();
+        await firebaseService.initFromStorage();
+        vocabService.reloadFromStorage();
+        testHistoryService.reloadFromStorage();
+
+        if (isMounted) {
+          setWords(vocabService.getWords());
+          setCategories(vocabService.getCategories());
+
+          const user = firebaseService.getCurrentUser();
+          const remembered = appStorage.getItem('pronounceit_remember_me') !== 'false';
+          const hasSavedProfile = Boolean(appStorage.getItem('pronounceit_firebase_user_v1'));
+          if (user && (remembered || hasSavedProfile)) {
+            setCurrentUser(user);
+            setIsAuthenticated(true);
+          }
+        }
+      } catch (err) {
+        console.warn('Session restoration error:', err);
+      } finally {
+        if (isMounted) {
+          setIsInitializing(false);
+        }
+      }
+    };
+
+    restoreSession();
+
+    // 2. Subscriptions
     const unsubVocab = vocabService.subscribe(() => {
-      setWords(vocabService.getWords());
-      setCategories(vocabService.getCategories());
+      if (isMounted) {
+        setWords(vocabService.getWords());
+        setCategories(vocabService.getCategories());
+      }
     });
 
-    const unsubAuth = firebaseService.subscribe(() => {
-      const u = firebaseService.getCurrentUser();
-      setCurrentUser(u);
-      if (!u) setIsAuthenticated(false);
+    const unsubAuth = firebaseService.subscribe((u) => {
+      if (isMounted) {
+        setCurrentUser(u);
+        if (u) {
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+        }
+      }
+    });
+
+    const unsubNet = networkService.subscribe((isOnline) => {
+      if (isOnline) {
+        vocabService.syncWithCloud().catch(() => {});
+        testHistoryService.syncWithCloud().catch(() => {});
+        firebaseService.syncLocalAccountsToCloud().catch(() => {});
+      }
     });
 
     return () => {
+      isMounted = false;
       unsubVocab();
       unsubAuth();
+      unsubNet();
     };
   }, []);
 
@@ -153,6 +200,30 @@ function MainApp() {
   const favoritesCount = words.filter((w) => w.isFavorite).length;
   const reviewCount = words.filter((w) => w.status === 'en_repaso').length;
   const masteredCount = words.filter((w) => w.status === 'dominada').length;
+
+  // Initializing Splash Screen (avoids flashing login if session is restored from disk)
+  if (isInitializing) {
+    return (
+      <View
+        style={[
+          styles.appContainer,
+          {
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: THEME.colors.bgDark,
+          },
+        ]}
+      >
+        <StatusBar style="light" />
+        <PronounceItLogo size={60} />
+        <ActivityIndicator
+          color={THEME.colors.crimson}
+          size="small"
+          style={{ marginTop: 24 }}
+        />
+      </View>
+    );
+  }
 
   // Gatekeeper: Login View
   if (!isAuthenticated || !currentUser) {
