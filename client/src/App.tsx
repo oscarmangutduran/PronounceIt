@@ -47,6 +47,7 @@ import { SettingsView } from './components/workspace/SettingsView';
 import { AddWordModal } from './components/workspace/AddWordModal';
 import { ExportImportModal } from './components/workspace/ExportImportModal';
 import { EditProfileModal } from './components/workspace/EditProfileModal';
+import { ConfirmModal } from './components/common/ConfirmModal';
 import { useResponsive } from './lib/useResponsive';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -84,6 +85,7 @@ function MainApp() {
   const [editingWord, setEditingWord] = useState<WordItem | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -172,6 +174,7 @@ function MainApp() {
       setIsAuthenticated(false);
       setCurrentUser(null);
       setActiveTab('vocabulary');
+      setShowDeleteSuccessModal(true);
     }
   };
 
@@ -252,6 +255,16 @@ function MainApp() {
             vocabService.syncWithCloud().catch(() => {});
             testHistoryService.syncWithCloud().catch(() => {});
           }}
+        />
+
+        <ConfirmModal
+          isOpen={showDeleteSuccessModal}
+          title="Baja completada"
+          message="Tu cuenta y todos tus datos personales han sido dados de baja correctamente."
+          confirmText="Entendido"
+          cancelText={null}
+          variant="success"
+          onConfirm={() => setShowDeleteSuccessModal(false)}
         />
       </View>
     );

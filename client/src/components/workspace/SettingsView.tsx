@@ -121,6 +121,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             )}
           </View>
         </View>
+
+        {/* Acciones de Cuenta en la sección de perfil */}
+        <View style={styles.profileCardActions}>
+          <TouchableOpacity
+            style={styles.deleteAccountBtn}
+            onPress={() => setShowDeleteModal(true)}
+            activeOpacity={0.85}
+          >
+            <UserX size={15} color="#f87171" style={{ marginRight: 8 }} />
+            <Text style={styles.deleteAccountBtnText}>Darme de baja</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={() => setShowLogoutModal(true)}
+            activeOpacity={0.85}
+          >
+            <LogOut size={15} color="#ffffff" style={{ marginRight: 8 }} />
+            <Text style={styles.logoutBtnText}>Cerrar Sesión</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Speech Audio Voice Settings */}
@@ -499,5 +520,11 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '700',
+  },
+  profileCardActions: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
 });

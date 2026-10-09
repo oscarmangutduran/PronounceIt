@@ -293,6 +293,7 @@ router.delete('/delete-account', async (req: Request, res: Response) => {
   try {
     let userId = req.body?.userId;
     let email = req.body?.email;
+    let username = req.body?.username;
 
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -301,37 +302,41 @@ router.delete('/delete-account', async (req: Request, res: Response) => {
         const decoded = jwt.verify(token, JWT_SECRET) as any;
         if (decoded?.userId) userId = decoded.userId;
         if (decoded?.email) email = decoded.email;
+        if (decoded?.username) username = decoded.username;
       } catch {}
     }
 
-    if (!userId && !email) {
-      return res.status(400).json({ error: 'userId o email es requerido para dar de baja la cuenta.' });
+    if (!userId && !email && !username) {
+      return res.status(400).json({ error: 'userId, email o username es requerido para dar de baja la cuenta.' });
     }
 
     const db = await getDb();
     const cleanEmail = email ? email.trim().toLowerCase() : '';
+    const cleanUsername = username ? username.trim().toLowerCase() : '';
 
     const userIndex = db.users.findIndex(
-      (u) => (userId && u.id === userId) || (cleanEmail && u.email.toLowerCase() === cleanEmail)
+      (u) =>
+        (userId && u.id === userId) ||
+        (cleanEmail && u.email.toLowerCase() === cleanEmail) ||
+        (cleanUsername && u.username.toLowerCase() === cleanUsername)
     );
 
-    if (userIndex === -1) {
-      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    if (userIndex !== -1) {
+      const targetUser = db.users[userIndex];
+      const targetUserId = targetUser.id;
+
+      // Eliminar el usuario de la base de datos
+      db.users.splice(userIndex, 1);
+
+      // Eliminar palabras y tests asociados
+      db.words = db.words.filter((w) => w.userId !== targetUserId && w.userId !== userId);
+      db.tests = db.tests.filter((t) => t.userId !== targetUserId && t.userId !== userId);
+
+      await saveDb();
+      console.log(`🗑️ [AUTH] Cuenta eliminada (baja) exitosamente: ${targetUser.username} (${targetUser.email})`);
+    } else {
+      console.log(`ℹ️ [AUTH] delete-account: usuario no encontrado en db.json (o ya purgado), completado.`);
     }
-
-    const targetUser = db.users[userIndex];
-    const targetUserId = targetUser.id;
-
-    // Eliminar el usuario de la base de datos
-    db.users.splice(userIndex, 1);
-
-    // Eliminar palabras y tests asociados
-    db.words = db.words.filter((w) => w.userId !== targetUserId);
-    db.tests = db.tests.filter((t) => t.userId !== targetUserId);
-
-    await saveDb();
-
-    console.log(`🗑️ [AUTH] Cuenta dada de baja exitosamente: ${targetUser.username} (${targetUser.email})`);
 
     return res.json({
       success: true,

@@ -192,12 +192,12 @@ class BackendApiClient {
     return res.json();
   }
 
-  public async deleteAccount(userId?: string, email?: string): Promise<ApiResponse> {
+  public async deleteAccount(userId?: string, email?: string, username?: string): Promise<ApiResponse> {
     try {
       const res = await fetch(`${BASE_URL}/auth/delete-account`, {
         method: 'DELETE',
         headers: this.buildHeaders(),
-        body: JSON.stringify({ userId, email }),
+        body: JSON.stringify({ userId, email, username }),
       });
       return await res.json();
     } catch (e: any) {

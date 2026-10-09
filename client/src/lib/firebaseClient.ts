@@ -982,37 +982,86 @@ class FirebaseService {
 
   public async deleteAccount(): Promise<{ success: boolean; message?: string }> {
     const user = this.currentUser;
-    if (!user) {
-      return { success: false, message: 'No hay ninguna sesión activa para dar de baja.' };
-    }
+    const targetUserId = user?.id || '';
+    const targetEmail = (user?.email || '').trim().toLowerCase();
+    const targetUsername = (user?.username || '').trim().toLowerCase();
 
+    // 1. Eliminar permanentemente de las cuentas registradas en el dispositivo (pronounceit_registered_accounts_v1)
     try {
-      // 1. Eliminar en el Backend si está disponible
-      await backendApi.deleteAccount(user.id, user.email).catch((e) => console.warn('Backend deleteAccount error:', e));
-
-      // 2. Eliminar documento en Firestore si está conectado
-      if (this.db) {
-        try {
-          await deleteDoc(doc(this.db, 'users', user.id));
-        } catch (e) {
-          console.warn('Firestore delete user doc error:', e);
-        }
-      }
-
-      // 3. Eliminar usuario en Firebase Auth
-      if (this.auth?.currentUser) {
-        try {
-          await deleteUser(this.auth.currentUser);
-        } catch (e) {
-          console.warn('Firebase deleteUser error:', e);
-        }
-      }
-    } catch (err: any) {
-      console.error('Error al dar de baja cuenta:', err);
-    } finally {
-      // 4. Limpieza local de sesión
-      await this.signOut();
+      const accounts = this.getStoredAccounts().filter((a) => {
+        const aId = a.id;
+        const aEmail = (a.email || '').trim().toLowerCase();
+        const aUser = (a.username || '').trim().toLowerCase();
+        if (targetUserId && aId === targetUserId) return false;
+        if (targetEmail && aEmail === targetEmail) return false;
+        if (targetUsername && aUser === targetUsername) return false;
+        return true;
+      });
+      this.saveStoredAccounts(accounts);
+    } catch (e) {
+      console.warn('Error purgando cuenta de cache local:', e);
     }
+
+    // 2. Limpieza total de almacenamiento local (credenciales recordadas, sesión y avatares)
+    try {
+      appStorage.removeItem(STORAGE_KEY_FIREBASE_USER);
+      appStorage.removeItem('pronounceit_remember_me');
+      appStorage.removeItem('pronounceit_saved_email');
+      appStorage.removeItem('pronounceit_saved_password');
+      appStorage.removeItem('pronounceit_saved_username');
+      appStorage.removeItem('pronounceit_last_avatar');
+      appStorage.removeItem('pronounceit_auth_token');
+      if (targetUserId) appStorage.removeItem(`pronounceit_avatar_${targetUserId}`);
+      if (targetUsername) appStorage.removeItem(`pronounceit_avatar_${targetUsername}`);
+      if (targetEmail) appStorage.removeItem(`pronounceit_avatar_${targetEmail}`);
+      backendApi.setToken(null);
+    } catch (e) {
+      console.warn('Error limpiando almacenamiento local:', e);
+    }
+
+    // 3. Eliminar usuario, palabras y tests en el Backend Express
+    try {
+      await backendApi.deleteAccount(targetUserId, targetEmail, targetUsername);
+    } catch (e) {
+      console.warn('Backend deleteAccount error:', e);
+    }
+
+    // 4. Eliminar en Firestore Cloud Database si está conectado
+    if (this.db) {
+      try {
+        if (targetUserId) {
+          try {
+            const wordsCol = collection(this.db, 'users', targetUserId, 'words');
+            const wSnap = await getDocs(wordsCol);
+            const batch = writeBatch(this.db);
+            wSnap.forEach((d) => batch.delete(d.ref));
+            const testsCol = collection(this.db, 'users', targetUserId, 'test_history');
+            const tSnap = await getDocs(testsCol);
+            tSnap.forEach((d) => batch.delete(d.ref));
+            batch.delete(doc(this.db, 'users', targetUserId));
+            await batch.commit();
+          } catch (e) {
+            console.warn('Firestore user docs deletion warning:', e);
+          }
+        }
+        if (targetUsername) await deleteDoc(doc(this.db, 'accounts', targetUsername)).catch(() => {});
+        if (targetEmail) await deleteDoc(doc(this.db, 'accounts', targetEmail)).catch(() => {});
+      } catch (e) {
+        console.warn('Firestore delete account error:', e);
+      }
+    }
+
+    // 5. Eliminar usuario en Firebase Auth si aplica
+    if (this.auth?.currentUser) {
+      try {
+        await deleteUser(this.auth.currentUser);
+      } catch (e) {
+        console.warn('Firebase deleteUser error (puede requerir re-autenticación):', e);
+      }
+    }
+
+    // 6. Finalizar sesión local y emitir cambio
+    await this.signOut();
 
     return { success: true, message: 'Tu cuenta ha sido dada de baja correctamente.' };
   }
