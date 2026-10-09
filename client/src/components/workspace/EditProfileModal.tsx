@@ -35,6 +35,7 @@ interface EditProfileModalProps {
   onClose: () => void;
   currentUser: UserProfile | null;
   onProfileUpdated: (user: UserProfile) => void;
+  isDark?: boolean;
 }
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -44,7 +45,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   onClose,
   currentUser,
   onProfileUpdated,
+  isDark,
 }) => {
+  const isLight =
+    isDark === false ||
+    (Platform.OS === 'web' &&
+      typeof document !== 'undefined' &&
+      document.body.classList.contains('light-mode'));
+
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
@@ -242,58 +250,65 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   return (
     <Modal visible={isOpen} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.card}>
+        <View style={[styles.card, isLight && styles.cardLight]}>
           {/* Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, isLight && styles.headerLight]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <View style={styles.iconCircle}>
+              <View style={[styles.iconCircle, isLight && styles.iconCircleLight]}>
                 <User size={18} color="#ff4d6d" />
               </View>
               <View>
-                <Text style={styles.title}>Editar Perfil</Text>
-                <Text style={styles.headerSubtitle}>
+                <Text style={[styles.title, isLight && styles.titleLight]}>Editar Perfil</Text>
+                <Text style={[styles.headerSubtitle, isLight && styles.headerSubtitleLight]}>
                   Foto, nombre de usuario y credenciales
                 </Text>
               </View>
             </View>
 
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} disabled={isSaving}>
-              <X size={18} color={THEME.colors.textMuted} />
+            <TouchableOpacity onPress={onClose} style={[styles.closeBtn, isLight && styles.closeBtnLight]} disabled={isSaving}>
+              <X size={18} color={isLight ? '#64748b' : THEME.colors.textMuted} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.scrollArea}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={true}
+            persistentScrollbar={true}
+          >
             {/* AVATAR SECTION */}
             <View style={styles.avatarSection}>
-              <View style={styles.avatarContainer}>
+              <TouchableOpacity
+                style={styles.avatarContainer}
+                onPress={handlePickImage}
+                activeOpacity={0.85}
+                disabled={isSaving}
+                accessibilityLabel="Subir o cambiar foto de perfil"
+              >
                 {avatarUrl ? (
                   <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
                 ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarLetter}>{initial}</Text>
+                  <View style={[styles.avatarPlaceholder, isLight && styles.avatarPlaceholderLight]}>
+                    <Text style={[styles.avatarLetter, isLight && styles.avatarLetterLight]}>{initial}</Text>
                   </View>
                 )}
 
-                <TouchableOpacity
-                  style={styles.cameraBadge}
-                  onPress={handlePickImage}
-                  activeOpacity={0.8}
-                  disabled={isSaving}
-                  accessibilityLabel="Cambiar foto de perfil"
+                <View
+                  style={[styles.cameraBadge, isLight && styles.cameraBadgeLight]}
                 >
                   <Camera size={14} color="#ffffff" />
-                </TouchableOpacity>
-              </View>
+                </View>
+              </TouchableOpacity>
 
               <View style={styles.avatarActions}>
                 <TouchableOpacity
-                  style={styles.uploadBtn}
+                  style={[styles.uploadBtn, isLight && styles.uploadBtnLight]}
                   onPress={handlePickImage}
                   activeOpacity={0.8}
                   disabled={isSaving}
                 >
-                  <Upload size={13} color="#ffffff" style={{ marginRight: 6 }} />
-                  <Text style={styles.uploadBtnText}>
+                  <Upload size={13} color={isLight ? '#e62e4c' : '#ffffff'} style={{ marginRight: 6 }} />
+                  <Text style={[styles.uploadBtnText, isLight && styles.uploadBtnTextLight]}>
                     {avatarUrl ? 'Cambiar Imagen' : 'Subir Imagen'}
                   </Text>
                 </TouchableOpacity>
@@ -311,7 +326,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 ) : null}
               </View>
 
-              <Text style={styles.avatarNotice}>
+              <Text style={[styles.avatarNotice, isLight && styles.avatarNoticeLight]}>
                 Formatos soportados: JPG, PNG, WEBP, GIF (Máximo 5 MB)
               </Text>
 
@@ -345,20 +360,20 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
             {/* USERNAME & FULL NAME INPUTS */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>
+              <Text style={[styles.label, isLight && styles.labelLight]}>
                 Nombre de Usuario <Text style={{ color: '#ff4d6d' }}>*</Text>
               </Text>
-              <View style={styles.inputWrapper}>
-                <User size={15} color={THEME.colors.textSubtle} style={{ marginRight: 10 }} />
+              <View style={[styles.inputWrapper, isLight && styles.inputWrapperLight]}>
+                <User size={15} color={isLight ? '#64748b' : THEME.colors.textSubtle} style={{ marginRight: 10 }} />
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, isLight && styles.textInputLight]}
                   value={username}
                   onChangeText={(val) => {
                     setUsername(val);
                     if (error) setError(null);
                   }}
                   placeholder="ej. oscarmd91"
-                  placeholderTextColor={THEME.colors.textSubtle}
+                  placeholderTextColor={isLight ? '#94a3b8' : THEME.colors.textSubtle}
                   autoCapitalize="none"
                   editable={!isSaving}
                 />
@@ -366,41 +381,41 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Nombre Completo</Text>
-              <View style={styles.inputWrapper}>
-                <Sparkles size={15} color={THEME.colors.textSubtle} style={{ marginRight: 10 }} />
+              <Text style={[styles.label, isLight && styles.labelLight]}>Nombre Completo</Text>
+              <View style={[styles.inputWrapper, isLight && styles.inputWrapperLight]}>
+                <Sparkles size={15} color={isLight ? '#64748b' : THEME.colors.textSubtle} style={{ marginRight: 10 }} />
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, isLight && styles.textInputLight]}
                   value={fullName}
                   onChangeText={setFullName}
                   placeholder="Tu nombre y apellido"
-                  placeholderTextColor={THEME.colors.textSubtle}
+                  placeholderTextColor={isLight ? '#94a3b8' : THEME.colors.textSubtle}
                   editable={!isSaving}
                 />
               </View>
             </View>
 
             {/* PASSWORD SECTION */}
-            <View style={styles.passwordDivider}>
+            <View style={[styles.passwordDivider, isLight && styles.passwordDividerLight]}>
               <Text style={styles.passwordSectionTitle}>CAMBIAR CONTRASEÑA</Text>
-              <Text style={styles.passwordSectionHint}>
+              <Text style={[styles.passwordSectionHint, isLight && styles.passwordSectionHintLight]}>
                 (Opcional. Deja estos campos en blanco si deseas conservar tu contraseña actual)
               </Text>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Nueva Contraseña</Text>
-              <View style={styles.inputWrapper}>
-                <Lock size={15} color={THEME.colors.textSubtle} style={{ marginRight: 10 }} />
+              <Text style={[styles.label, isLight && styles.labelLight]}>Nueva Contraseña</Text>
+              <View style={[styles.inputWrapper, isLight && styles.inputWrapperLight]}>
+                <Lock size={15} color={isLight ? '#64748b' : THEME.colors.textSubtle} style={{ marginRight: 10 }} />
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, isLight && styles.textInputLight]}
                   value={newPassword}
                   onChangeText={(val) => {
                     setNewPassword(val);
                     if (error) setError(null);
                   }}
                   placeholder="Nueva contraseña (mínimo 4 caracteres)"
-                  placeholderTextColor={THEME.colors.textSubtle}
+                  placeholderTextColor={isLight ? '#94a3b8' : THEME.colors.textSubtle}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   editable={!isSaving}
@@ -410,27 +425,27 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   style={{ padding: 4 }}
                 >
                   {showPassword ? (
-                    <EyeOff size={16} color={THEME.colors.textMuted} />
+                    <EyeOff size={16} color={isLight ? '#64748b' : THEME.colors.textMuted} />
                   ) : (
-                    <Eye size={16} color={THEME.colors.textMuted} />
+                    <Eye size={16} color={isLight ? '#64748b' : THEME.colors.textMuted} />
                   )}
                 </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Confirmar Nueva Contraseña</Text>
-              <View style={styles.inputWrapper}>
-                <Lock size={15} color={THEME.colors.textSubtle} style={{ marginRight: 10 }} />
+              <Text style={[styles.label, isLight && styles.labelLight]}>Confirmar Nueva Contraseña</Text>
+              <View style={[styles.inputWrapper, isLight && styles.inputWrapperLight]}>
+                <Lock size={15} color={isLight ? '#64748b' : THEME.colors.textSubtle} style={{ marginRight: 10 }} />
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, isLight && styles.textInputLight]}
                   value={confirmPassword}
                   onChangeText={(val) => {
                     setConfirmPassword(val);
                     if (error) setError(null);
                   }}
                   placeholder="Repite la nueva contraseña"
-                  placeholderTextColor={THEME.colors.textSubtle}
+                  placeholderTextColor={isLight ? '#94a3b8' : THEME.colors.textSubtle}
                   secureTextEntry={!showConfirmPassword}
                   autoCapitalize="none"
                   editable={!isSaving}
@@ -440,9 +455,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   style={{ padding: 4 }}
                 >
                   {showConfirmPassword ? (
-                    <EyeOff size={16} color={THEME.colors.textMuted} />
+                    <EyeOff size={16} color={isLight ? '#64748b' : THEME.colors.textMuted} />
                   ) : (
-                    <Eye size={16} color={THEME.colors.textMuted} />
+                    <Eye size={16} color={isLight ? '#64748b' : THEME.colors.textMuted} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -450,14 +465,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           </ScrollView>
 
           {/* Footer Actions */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, isLight && styles.footerLight]}>
             <TouchableOpacity
-              style={styles.cancelBtn}
+              style={[styles.cancelBtn, isLight && styles.cancelBtnLight]}
               onPress={onClose}
               disabled={isSaving}
               activeOpacity={0.8}
             >
-              <Text style={styles.cancelBtnText}>Cancelar</Text>
+              <Text style={[styles.cancelBtnText, isLight && styles.cancelBtnTextLight]}>Cancelar</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -498,7 +513,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     width: '100%',
     maxWidth: 440,
-    maxHeight: '92%',
+    maxHeight: '90%',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     padding: 24,
@@ -507,6 +522,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.6,
     shadowRadius: 28,
     elevation: 20,
+    display: 'flex',
+    flexDirection: 'column',
   },
   header: {
     flexDirection: 'row',
@@ -547,7 +564,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   scrollArea: {
-    maxHeight: 460,
+    maxHeight: 440,
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  scrollContent: {
+    paddingRight: 6,
+    paddingBottom: 8,
   },
   avatarSection: {
     alignItems: 'center',
@@ -752,5 +775,80 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
+  },
+  /* Light mode style overrides */
+  cardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 28,
+  },
+  headerLight: {
+    borderBottomColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  iconCircleLight: {
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
+    borderColor: 'rgba(230, 46, 76, 0.2)',
+  },
+  titleLight: {
+    color: '#0f172a',
+  },
+  headerSubtitleLight: {
+    color: '#64748b',
+  },
+  closeBtnLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  avatarPlaceholderLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+  },
+  avatarLetterLight: {
+    color: '#0f172a',
+  },
+  cameraBadgeLight: {
+    borderColor: '#ffffff',
+  },
+  uploadBtnLight: {
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
+    borderColor: 'rgba(230, 46, 76, 0.25)',
+  },
+  uploadBtnTextLight: {
+    color: '#e62e4c',
+  },
+  avatarNoticeLight: {
+    color: '#64748b',
+  },
+  labelLight: {
+    color: '#334155',
+  },
+  inputWrapperLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  textInputLight: {
+    color: '#0f172a',
+  },
+  passwordDividerLight: {
+    borderTopColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  passwordSectionHintLight: {
+    color: '#64748b',
+  },
+  footerLight: {
+    borderTopColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  cancelBtnLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
+  },
+  cancelBtnTextLight: {
+    color: '#475569',
   },
 });
