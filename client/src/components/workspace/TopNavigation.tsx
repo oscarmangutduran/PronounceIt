@@ -110,7 +110,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
               style={[
                 styles.navTabText,
                 !isDark && styles.navTabTextLight,
-                activeTab === 'vocabulary' && styles.navTabTextActive,
+                activeTab === 'vocabulary' && (isDark ? styles.navTabTextActive : styles.navTabTextActiveLight),
               ]}
             >
               Vocabulario / Biblioteca
@@ -134,7 +134,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
               style={[
                 styles.navTabText,
                 !isDark && styles.navTabTextLight,
-                activeTab === 'flashcards' && styles.navTabTextActive,
+                activeTab === 'flashcards' && (isDark ? styles.navTabTextActive : styles.navTabTextActiveLight),
               ]}
             >
               Práctica con Flashcards
@@ -158,7 +158,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
               style={[
                 styles.navTabText,
                 !isDark && styles.navTabTextLight,
-                activeTab === 'test' && styles.navTabTextActive,
+                activeTab === 'test' && (isDark ? styles.navTabTextActive : styles.navTabTextActiveLight),
               ]}
             >
               Test
@@ -182,7 +182,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
               style={[
                 styles.navTabText,
                 !isDark && styles.navTabTextLight,
-                activeTab === 'stats' && styles.navTabTextActive,
+                activeTab === 'stats' && (isDark ? styles.navTabTextActive : styles.navTabTextActiveLight),
               ]}
             >
               Estadísticas
@@ -206,7 +206,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
               style={[
                 styles.navTabText,
                 !isDark && styles.navTabTextLight,
-                activeTab === 'settings' && styles.navTabTextActive,
+                activeTab === 'settings' && (isDark ? styles.navTabTextActive : styles.navTabTextActiveLight),
               ]}
             >
               Configuración
@@ -508,6 +508,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
   },
+  // Note: themeToggleBtnLight is also applied to themeToggleBtnMobile in light mode (reused below in JSX)
   rightActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -678,6 +679,10 @@ const styles = StyleSheet.create({
   },
   navTabTextLight: {
     color: '#64748b',
+  },
+  navTabTextActiveLight: {
+    color: '#e62e4c',
+    fontWeight: '700',
   },
   searchBoxLight: {
     backgroundColor: '#f1f5f9',
