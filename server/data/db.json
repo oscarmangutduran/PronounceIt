@@ -10,13 +10,31 @@
       "updated_at": "2026-10-07T06:50:11.666Z"
     },
     {
-      "id": "usr_84b06ea3",
+      "id": "usr_fc5289ed",
+      "email": "test_passchange@test.com",
+      "username": "testpasschange",
+      "password": "$2b$12$EMlJclnl9RbiWLmsUNXsIOia2nnnELzCmM4X5WwwCtVxQv9Q6.swm",
+      "must_change_password": false,
+      "created_at": "2026-10-09T09:11:46.845Z",
+      "updated_at": "2026-10-09T09:14:00.817Z"
+    },
+    {
+      "id": "usr_c4aa9fa2",
+      "email": "nuevo_usuario_prueba@test.com",
+      "username": "nuevo_usuario_prueba",
+      "password": "$2b$12$amYQgQF1EAXW56DB3zUz6OnvQU1NxWsJjbZmCUDg7t8pWGJRtubPG",
+      "must_change_password": true,
+      "created_at": "2026-10-09T09:45:52.883Z",
+      "updated_at": "2026-10-09T09:45:52.883Z"
+    },
+    {
+      "id": "usr_647a3972",
       "email": "oscarmangutd91@gmail.com",
       "username": "oscarmd",
-      "password": "$2b$12$PN4KH9tab1TNGdcwdgMGiuG4CSdGS5zv9oVjqOXsL8Yq1IlvRKUUW",
+      "password": "$2b$12$BFwCLvQ/GdAE8miebN1IEusvnZp8fUDLv8k8sOsW.SybgP.JONmeC",
       "must_change_password": true,
-      "created_at": "2026-10-09T09:34:54.422Z",
-      "updated_at": "2026-10-09T09:34:54.422Z"
+      "created_at": "2026-10-09T10:00:17.780Z",
+      "updated_at": "2026-10-09T10:00:17.780Z"
     }
   ],
   "words": [],
