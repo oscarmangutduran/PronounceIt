@@ -87,6 +87,32 @@ function MainApp() {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
 
+  // Theme mode: dark by default, persists in storage
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    const saved = appStorage.getItem('pronounceit_theme');
+    return saved !== 'light';
+  });
+
+  const handleToggleTheme = () => {
+    setIsDark((prev) => {
+      const nextVal = !prev;
+      appStorage.setItem('pronounceit_theme', nextVal ? 'dark' : 'light');
+      return nextVal;
+    });
+  };
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      if (!isDark) {
+        document.body.classList.add('light-mode');
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else {
+        document.body.classList.remove('light-mode');
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    }
+  }, [isDark]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -99,11 +125,11 @@ function MainApp() {
         document.head.appendChild(styleEl);
       }
       styleEl.textContent = `
+        /* 1. Base input resets */
         input, textarea, select {
           outline: none !important;
           box-shadow: none !important;
           background-color: transparent !important;
-          color: #ffffff !important;
         }
         input:-webkit-autofill,
         input:-webkit-autofill:hover,
@@ -119,6 +145,132 @@ function MainApp() {
         input:-webkit-autofill:focus {
           -webkit-box-shadow: 0 0 0px 1000px #21142b inset !important;
           box-shadow: 0 0 0px 1000px #21142b inset !important;
+        }
+
+        /* 2. LIGHT MODE THEME */
+        body.light-mode {
+          background-color: #f8fafc !important;
+          color: #0f172a !important;
+        }
+
+        body.light-mode #root,
+        body.light-mode .r-backgroundColor-j5djr6 {
+          background-color: #f8fafc !important;
+        }
+
+        /* Navbar & Sidebar in light mode */
+        body.light-mode .r-backgroundColor-tlp0cc {
+          background-color: #ffffff !important;
+          border-bottom-color: rgba(0, 0, 0, 0.08) !important;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+        }
+
+        /* Cards and elevated panels in light mode */
+        body.light-mode .r-backgroundColor-1u0509z,
+        body.light-mode .r-backgroundColor-17ebd94,
+        body.light-mode .r-backgroundColor-1sk63vw,
+        body.light-mode .r-backgroundColor-oudt42 {
+          background-color: #ffffff !important;
+          border-color: rgba(0, 0, 0, 0.08) !important;
+          box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04) !important;
+        }
+
+        /* Inputs, chips and secondary surfaces in light mode */
+        body.light-mode .r-backgroundColor-1frf0rj,
+        body.light-mode .r-backgroundColor-xl3lkw,
+        body.light-mode .r-backgroundColor-9r4rsd {
+          background-color: #f1f5f9 !important;
+          border-color: rgba(0, 0, 0, 0.08) !important;
+        }
+
+        /* Table header & item rows in light mode */
+        body.light-mode .r-backgroundColor-7na9ed,
+        body.light-mode .r-backgroundColor-1cuuowz {
+          background-color: #f8fafc !important;
+          border-color: rgba(0, 0, 0, 0.06) !important;
+        }
+
+        body.light-mode .r-backgroundColor-91ejfr {
+          background-color: rgba(0, 0, 0, 0.05) !important;
+        }
+
+        body.light-mode .r-backgroundColor-m3ef6a {
+          background-color: #e2e8f0 !important;
+        }
+
+        body.light-mode .r-backgroundColor-1m5ggi5,
+        body.light-mode .r-backgroundColor-58xgd4 {
+          background-color: rgba(0, 0, 0, 0.04) !important;
+        }
+
+        /* Borders in light mode */
+        body.light-mode .r-borderColor-hoph7w,
+        body.light-mode .r-borderColor-af1wpz,
+        body.light-mode .r-borderColor-5ligpg,
+        body.light-mode .r-borderColor-75jtiq,
+        body.light-mode .r-borderColor-16jufec,
+        body.light-mode .r-borderBottomColor-1d499e2,
+        body.light-mode .r-borderBottomColor-1tsoen8 {
+          border-color: rgba(0, 0, 0, 0.08) !important;
+        }
+
+        /* Typography in light mode */
+        body.light-mode .r-color-jwli3a {
+          color: #0f172a !important;
+        }
+        body.light-mode .r-color-1npgj5g {
+          color: #64748b !important;
+        }
+        body.light-mode .r-color-1s7ct43 {
+          color: #94a3b8 !important;
+        }
+
+        /* Crimson, Purple, Emerald and accent buttons/badges keep white text */
+        body.light-mode .r-backgroundColor-1r79fvh,
+        body.light-mode .r-backgroundColor-1r79fvh .r-color-jwli3a,
+        body.light-mode .r-backgroundColor-99b2gy,
+        body.light-mode .r-backgroundColor-99b2gy .r-color-jwli3a,
+        body.light-mode .r-backgroundColor-1edbsjc,
+        body.light-mode .r-backgroundColor-1edbsjc .r-color-jwli3a,
+        body.light-mode .r-backgroundColor-m0idy1,
+        body.light-mode .r-backgroundColor-m0idy1 .r-color-jwli3a {
+          color: #ffffff !important;
+        }
+
+        /* Dropdown menu & modals in light mode */
+        body.light-mode .r-backgroundColor-1fm9cyo {
+          background-color: #ffffff !important;
+          border-color: rgba(0, 0, 0, 0.1) !important;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+        }
+
+        /* Autofill in light mode */
+        body.light-mode input:-webkit-autofill,
+        body.light-mode input:-webkit-autofill:hover,
+        body.light-mode input:-webkit-autofill:focus,
+        body.light-mode input:-webkit-autofill:active {
+          -webkit-text-fill-color: #0f172a !important;
+          caret-color: #0f172a !important;
+          -webkit-box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
+          box-shadow: 0 0 0px 1000px #f1f5f9 inset !important;
+        }
+
+        /* Footer & mobile bottom bar in light mode */
+        body.light-mode .r-backgroundColor-x6ug61 {
+          background-color: #ffffff !important;
+          border-top-color: rgba(0, 0, 0, 0.08) !important;
+        }
+
+        /* Pure black text for recommended apps and footer in light mode */
+        body.light-mode .r-backgroundColor-x6ug61 span,
+        body.light-mode .r-backgroundColor-x6ug61 div {
+          color: #000000 !important;
+        }
+
+        body.light-mode .r-backgroundColor-mvguba {
+          background-color: rgba(255, 255, 255, 0.98) !important;
+          border-top-color: rgba(0, 0, 0, 0.08) !important;
+          box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05) !important;
         }
       `;
     }
@@ -305,7 +457,7 @@ function MainApp() {
 
   return (
     <View style={styles.appContainer}>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Top Navigation */}
       <TopNavigation
@@ -317,6 +469,8 @@ function MainApp() {
         searchTerm={globalSearch}
         onSearchChange={setGlobalSearch}
         onOpenEditProfile={() => setIsEditProfileOpen(true)}
+        isDark={isDark}
+        onToggleTheme={handleToggleTheme}
       />
 
       {/* Workspace Content */}
@@ -388,6 +542,8 @@ function MainApp() {
                 onDeleteAccount={handleDeleteAccount}
                 onOpenEditProfile={() => setIsEditProfileOpen(true)}
                 onOpenExportModal={() => setIsExportModalOpen(true)}
+                isDark={isDark}
+                onToggleTheme={handleToggleTheme}
               />
             </View>
           )}
@@ -395,41 +551,49 @@ function MainApp() {
 
         {/* Global Footer (shown on Desktop and Tablet when bottom bar is hidden) */}
         {!showBottomBar && (
-          <View style={styles.footerContainer}>
-            <Text style={styles.footerCopyright}>
+          <View style={[styles.footerContainer, !isDark && styles.footerContainerLight]}>
+            <Text style={[styles.footerCopyright, !isDark && styles.footerTextBlack]}>
               © PronounceIt | Desarrollado con ❤️ Oscar Mangut Dev
             </Text>
             <View style={styles.footerPartners}>
-              <Text style={styles.footerPartnerTitle}>APLICACIONES RECOMENDADAS:</Text>
+              <Text style={[styles.footerPartnerTitle, !isDark && styles.footerPartnerTitleLight]}>
+                APLICACIONES RECOMENDADAS:
+              </Text>
               <TouchableOpacity
-                style={styles.footerPartnerBadge}
+                style={[styles.footerPartnerBadge, !isDark && styles.footerPartnerBadgeLight]}
                 onPress={() => Linking.openURL('https://www.duolingo.com/')}
               >
                 <Image
                   source={require('./assets/duolingo.png')}
                   style={styles.footerPartnerLogo}
                 />
-                <Text style={styles.footerPartnerName}>Duolingo</Text>
+                <Text style={[styles.footerPartnerName, !isDark && styles.footerPartnerNameLight]}>
+                  Duolingo
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.footerPartnerBadge}
+                style={[styles.footerPartnerBadge, !isDark && styles.footerPartnerBadgeLight]}
                 onPress={() => Linking.openURL('https://beespeaker.com/')}
               >
                 <Image
                   source={require('./assets/beespeaker.png')}
                   style={styles.footerPartnerLogo}
                 />
-                <Text style={styles.footerPartnerName}>BeeSpeaker</Text>
+                <Text style={[styles.footerPartnerName, !isDark && styles.footerPartnerNameLight]}>
+                  BeeSpeaker
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.footerPartnerBadge}
+                style={[styles.footerPartnerBadge, !isDark && styles.footerPartnerBadgeLight]}
                 onPress={() => Linking.openURL('https://wlingua.com/')}
               >
                 <Image
                   source={require('./assets/wlingua.png')}
                   style={styles.footerPartnerLogo}
                 />
-                <Text style={styles.footerPartnerName}>Wlingua</Text>
+                <Text style={[styles.footerPartnerName, !isDark && styles.footerPartnerNameLight]}>
+                  Wlingua
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -734,6 +898,26 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#e2e8f0',
+  },
+  footerContainerLight: {
+    backgroundColor: '#ffffff',
+    borderTopColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  footerTextBlack: {
+    color: '#000000',
+    fontWeight: '600',
+  },
+  footerPartnerTitleLight: {
+    color: '#000000',
+    fontWeight: '800',
+  },
+  footerPartnerBadgeLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: 'rgba(0, 0, 0, 0.12)',
+  },
+  footerPartnerNameLight: {
+    color: '#000000',
+    fontWeight: '700',
   },
 
   // Mobile Bottom Tab Bar

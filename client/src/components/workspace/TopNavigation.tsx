@@ -23,6 +23,8 @@ import {
   UserPen,
   WifiOff,
   UserX,
+  Sun,
+  Moon,
 } from 'lucide-react-native';
 import { UserProfile, MainNavTab } from '../../types';
 import { THEME } from '../../theme';
@@ -40,6 +42,8 @@ interface TopNavigationProps {
   searchTerm: string;
   onSearchChange: (val: string) => void;
   onOpenEditProfile: () => void;
+  isDark?: boolean;
+  onToggleTheme?: () => void;
 }
 
 export const TopNavigation: React.FC<TopNavigationProps> = ({
@@ -51,6 +55,8 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   searchTerm,
   onSearchChange,
   onOpenEditProfile,
+  isDark = true,
+  onToggleTheme,
 }) => {
   const { width, showTopNavTabs, isPhone } = useResponsive();
   const showSearch = !isPhone && width >= 800;
@@ -197,11 +203,46 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
               Configuración
             </Text>
           </TouchableOpacity>
+
+          {/* Botón de alternancia de Tema: Sol si modo oscuro, Luna si modo claro */}
+          <TouchableOpacity
+            style={[
+              styles.themeToggleBtn,
+              !isDark && styles.themeToggleBtnLight,
+            ]}
+            onPress={onToggleTheme}
+            activeOpacity={0.75}
+            accessibilityLabel={isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+          >
+            {isDark ? (
+              <Sun size={16} color="#fbbf24" />
+            ) : (
+              <Moon size={16} color="#6366f1" />
+            )}
+          </TouchableOpacity>
         </View>
       )}
 
       {/* RIGHT: Search + User Avatar */}
       <View style={styles.rightActions}>
+        {/* Theme Toggle Mobile */}
+        {!showTopNavTabs && (
+          <TouchableOpacity
+            style={[
+              styles.themeToggleBtnMobile,
+              !isDark && styles.themeToggleBtnLight,
+            ]}
+            onPress={onToggleTheme}
+            activeOpacity={0.75}
+            accessibilityLabel={isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+          >
+            {isDark ? (
+              <Sun size={17} color="#fbbf24" />
+            ) : (
+              <Moon size={17} color="#6366f1" />
+            )}
+          </TouchableOpacity>
+        )}
         {/* Quick Search */}
         {showSearch && (
           <View style={styles.searchBox}>
@@ -303,6 +344,19 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                   </Text>
                 </View>
               )}
+
+              <TouchableOpacity
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setShowDropdown(false);
+                  onToggleTheme?.();
+                }}
+              >
+                {isDark ? <Sun size={14} color="#fbbf24" /> : <Moon size={14} color="#6366f1" />}
+                <Text style={styles.dropdownItemText}>
+                  {isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                </Text>
+              </TouchableOpacity>
 
               <View style={styles.dropdownDivider} />
 
@@ -417,6 +471,34 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
   },
+  themeToggleBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  themeToggleBtnLight: {
+    backgroundColor: 'rgba(99, 102, 241, 0.12)',
+    borderColor: 'rgba(99, 102, 241, 0.25)',
+  },
+  themeToggleBtnMobile: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 4,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
   rightActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -425,9 +507,9 @@ const styles = StyleSheet.create({
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: THEME.colors.bgCardAlt,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: THEME.colors.border,
     borderRadius: THEME.radius.md,
     paddingHorizontal: 10,
     height: 36,

@@ -19,6 +19,8 @@ import {
   Edit2,
   FileSpreadsheet,
   UserX,
+  Sun,
+  Moon,
 } from 'lucide-react-native';
 import { UserProfile } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
@@ -33,6 +35,8 @@ interface SettingsViewProps {
   onDeleteAccount?: () => void;
   onOpenEditProfile?: () => void;
   onOpenExportModal?: () => void;
+  isDark?: boolean;
+  onToggleTheme?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -41,6 +45,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onDeleteAccount,
   onOpenEditProfile,
   onOpenExportModal,
+  isDark = true,
+  onToggleTheme,
 }) => {
   const { isPhone } = useResponsive();
   const [audioSettings, setAudioSettings] = useState(() => vocabService.getAudioSettings());
@@ -143,6 +149,60 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Apariencia y Tema Visual */}
+      {onToggleTheme && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Apariencia y Tema</Text>
+          <Text style={styles.sectionSubtitle}>
+            Personaliza el contraste de la interfaz entre modo oscuro y claro.
+          </Text>
+
+          <View style={styles.themeToggleRow}>
+            <TouchableOpacity
+              style={[
+                styles.themeOptionBtn,
+                isDark && styles.themeOptionBtnActive,
+              ]}
+              onPress={() => {
+                if (!isDark) onToggleTheme();
+              }}
+              activeOpacity={0.8}
+            >
+              <Sun size={17} color={isDark ? "#fbbf24" : THEME.colors.textMuted} style={{ marginRight: 8 }} />
+              <Text
+                style={[
+                  styles.themeOptionBtnText,
+                  isDark && styles.themeOptionBtnTextActive,
+                ]}
+              >
+                Modo Oscuro (Noche)
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.themeOptionBtn,
+                !isDark && styles.themeOptionBtnActive,
+              ]}
+              onPress={() => {
+                if (isDark) onToggleTheme();
+              }}
+              activeOpacity={0.8}
+            >
+              <Moon size={17} color={!isDark ? "#6366f1" : THEME.colors.textMuted} style={{ marginRight: 8 }} />
+              <Text
+                style={[
+                  styles.themeOptionBtnText,
+                  !isDark && styles.themeOptionBtnTextActive,
+                ]}
+              >
+                Modo Claro (Día)
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Speech Audio Voice Settings */}
       <View style={styles.card}>
@@ -344,6 +404,36 @@ const styles = StyleSheet.create({
     color: THEME.colors.textMuted,
     lineHeight: 16,
     marginBottom: 14,
+  },
+  themeToggleRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  themeOptionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: THEME.radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  themeOptionBtnActive: {
+    backgroundColor: 'rgba(230, 46, 76, 0.12)',
+    borderColor: 'rgba(230, 46, 76, 0.45)',
+  },
+  themeOptionBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: THEME.colors.textMuted,
+  },
+  themeOptionBtnTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   profileRow: {
     flexDirection: 'row',

@@ -812,9 +812,9 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   sidebarCard: {
-    backgroundColor: '#140f22',
+    backgroundColor: THEME.colors.bgCard,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: THEME.colors.border,
     borderRadius: THEME.radius.xl,
     padding: 16,
     shadowColor: '#000',
