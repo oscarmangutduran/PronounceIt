@@ -192,6 +192,19 @@ class BackendApiClient {
     return res.json();
   }
 
+  public async deleteAccount(userId?: string, email?: string): Promise<ApiResponse> {
+    try {
+      const res = await fetch(`${BASE_URL}/auth/delete-account`, {
+        method: 'DELETE',
+        headers: this.buildHeaders(),
+        body: JSON.stringify({ userId, email }),
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Error de conexión' };
+    }
+  }
+
   // ─── Words Endpoints ─────────────────────────────────────────────
   public async getWords(userId?: string): Promise<WordItem[] | null> {
     try {

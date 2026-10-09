@@ -161,6 +161,20 @@ function MainApp() {
     setActiveTab('vocabulary');
   };
 
+  const handleDeleteAccount = async () => {
+    try {
+      await firebaseService.deleteAccount();
+      vocabService.clearAll();
+      testHistoryService.clearHistory();
+    } catch (e) {
+      console.error('Error al dar de baja la cuenta:', e);
+    } finally {
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+      setActiveTab('vocabulary');
+    }
+  };
+
   const handleSaveWord = (wordData: Omit<WordItem, 'id'>) => {
     if (editingWord) {
       vocabService.updateWord(editingWord.id, wordData);
@@ -253,6 +267,7 @@ function MainApp() {
         onTabChange={setActiveTab}
         currentUser={currentUser}
         onLogout={handleLogout}
+        onDeleteAccount={handleDeleteAccount}
         searchTerm={globalSearch}
         onSearchChange={setGlobalSearch}
         onOpenEditProfile={() => setIsEditProfileOpen(true)}
@@ -324,6 +339,7 @@ function MainApp() {
               <SettingsView
                 currentUser={currentUser}
                 onLogout={handleLogout}
+                onDeleteAccount={handleDeleteAccount}
                 onOpenEditProfile={() => setIsEditProfileOpen(true)}
                 onOpenExportModal={() => setIsExportModalOpen(true)}
               />

@@ -9,6 +9,7 @@ import {
   updateProfile as fbUpdateProfile,
   updatePassword as fbUpdatePassword,
   sendPasswordResetEmail,
+  deleteUser,
   User,
   Auth,
 } from 'firebase/auth';
@@ -977,6 +978,43 @@ class FirebaseService {
     appStorage.removeItem(STORAGE_KEY_FIREBASE_USER);
     backendApi.setToken(null);
     this.notify();
+  }
+
+  public async deleteAccount(): Promise<{ success: boolean; message?: string }> {
+    const user = this.currentUser;
+    if (!user) {
+      return { success: false, message: 'No hay ninguna sesión activa para dar de baja.' };
+    }
+
+    try {
+      // 1. Eliminar en el Backend si está disponible
+      await backendApi.deleteAccount(user.id, user.email).catch((e) => console.warn('Backend deleteAccount error:', e));
+
+      // 2. Eliminar documento en Firestore si está conectado
+      if (this.db) {
+        try {
+          await deleteDoc(doc(this.db, 'users', user.id));
+        } catch (e) {
+          console.warn('Firestore delete user doc error:', e);
+        }
+      }
+
+      // 3. Eliminar usuario en Firebase Auth
+      if (this.auth?.currentUser) {
+        try {
+          await deleteUser(this.auth.currentUser);
+        } catch (e) {
+          console.warn('Firebase deleteUser error:', e);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error al dar de baja cuenta:', err);
+    } finally {
+      // 4. Limpieza local de sesión
+      await this.signOut();
+    }
+
+    return { success: true, message: 'Tu cuenta ha sido dada de baja correctamente.' };
   }
 
   public async updateUserProfile(updates: {

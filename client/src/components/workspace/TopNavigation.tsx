@@ -22,18 +22,21 @@ import {
   LogOut,
   UserPen,
   WifiOff,
+  UserX,
 } from 'lucide-react-native';
 import { UserProfile, MainNavTab } from '../../types';
 import { THEME } from '../../theme';
 import { PronounceItLogo } from '../common/PronounceItLogo';
 import { useResponsive } from '../../lib/useResponsive';
 import { networkService } from '../../lib/networkService';
+import { ConfirmModal } from '../common/ConfirmModal';
 
 interface TopNavigationProps {
   activeTab: MainNavTab;
   onTabChange: (tab: MainNavTab) => void;
   currentUser: UserProfile | null;
   onLogout: () => void;
+  onDeleteAccount?: () => void;
   searchTerm: string;
   onSearchChange: (val: string) => void;
   onOpenEditProfile: () => void;
@@ -44,6 +47,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   onTabChange,
   currentUser,
   onLogout,
+  onDeleteAccount,
   searchTerm,
   onSearchChange,
   onOpenEditProfile,
@@ -51,6 +55,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   const { width, showTopNavTabs, isPhone } = useResponsive();
   const showSearch = !isPhone && width >= 800;
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isOnline, setIsOnline] = useState(networkService.isOnline());
 
   useEffect(() => {
@@ -305,6 +310,19 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                 style={[styles.dropdownItem, { paddingVertical: 8 }]}
                 onPress={() => {
                   setShowDropdown(false);
+                  setShowDeleteModal(true);
+                }}
+              >
+                <UserX size={14} color="#f87171" />
+                <Text style={[styles.dropdownItemText, { color: '#f87171', fontWeight: '600' }]}>
+                  Darme de baja
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.dropdownItem, { paddingVertical: 8 }]}
+                onPress={() => {
+                  setShowDropdown(false);
                   onLogout();
                 }}
               >
@@ -317,6 +335,20 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
           )}
         </View>
       </View>
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Darme de baja"
+        message="¿Estás seguro de que deseas darte de baja? Esta acción eliminará permanentemente tu cuenta, todas tus palabras y tu progreso de aprendizaje. Esta acción no se puede deshacer."
+        confirmText="Sí, darme de baja"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={() => {
+          setShowDeleteModal(false);
+          onDeleteAccount?.();
+        }}
+        onCancel={() => setShowDeleteModal(false)}
+      />
     </View>
   );
 };

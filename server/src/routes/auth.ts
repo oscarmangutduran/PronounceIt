@@ -2,10 +2,12 @@ import { Router, Request, Response } from 'express';
 import { getDb, saveDb, UserRecord } from '../db.js';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { signToken } from '../middleware/auth.js';
 
 const router = Router();
 const SALT_ROUNDS = 12;
+const JWT_SECRET = process.env.JWT_SECRET || 'pronounceit_fallback_secret_dev_only';
 
 function sanitizeUser(user: UserRecord) {
   const { password, ...safeUser } = user;
@@ -281,6 +283,63 @@ router.put('/profile', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error en /api/auth/profile:', error);
     return res.status(500).json({ error: 'Error interno al actualizar perfil.' });
+  }
+});
+
+// ─────────────────────────────────────────────
+// DELETE /api/auth/delete-account
+// ─────────────────────────────────────────────
+router.delete('/delete-account', async (req: Request, res: Response) => {
+  try {
+    let userId = req.body?.userId;
+    let email = req.body?.email;
+
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        if (decoded?.userId) userId = decoded.userId;
+        if (decoded?.email) email = decoded.email;
+      } catch {}
+    }
+
+    if (!userId && !email) {
+      return res.status(400).json({ error: 'userId o email es requerido para dar de baja la cuenta.' });
+    }
+
+    const db = await getDb();
+    const cleanEmail = email ? email.trim().toLowerCase() : '';
+
+    const userIndex = db.users.findIndex(
+      (u) => (userId && u.id === userId) || (cleanEmail && u.email.toLowerCase() === cleanEmail)
+    );
+
+    if (userIndex === -1) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    const targetUser = db.users[userIndex];
+    const targetUserId = targetUser.id;
+
+    // Eliminar el usuario de la base de datos
+    db.users.splice(userIndex, 1);
+
+    // Eliminar palabras y tests asociados
+    db.words = db.words.filter((w) => w.userId !== targetUserId);
+    db.tests = db.tests.filter((t) => t.userId !== targetUserId);
+
+    await saveDb();
+
+    console.log(`🗑️ [AUTH] Cuenta dada de baja exitosamente: ${targetUser.username} (${targetUser.email})`);
+
+    return res.json({
+      success: true,
+      message: 'Cuenta dada de baja exitosamente.',
+    });
+  } catch (error) {
+    console.error('Error en /api/auth/delete-account:', error);
+    return res.status(500).json({ error: 'Error interno al dar de baja la cuenta.' });
   }
 });
 

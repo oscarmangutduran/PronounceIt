@@ -555,6 +555,16 @@ class VocabularyService {
     } catch {}
     this.notify();
   }
+
+  public clearAll(): void {
+    this.words = [];
+    this.customCategories = [];
+    try {
+      appStorage.removeItem(STORAGE_KEY_WORDS);
+      appStorage.removeItem(STORAGE_KEY_CATEGORIES);
+    } catch {}
+    this.notify();
+  }
 }
 
 export const vocabService = new VocabularyService();

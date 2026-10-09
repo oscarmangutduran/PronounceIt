@@ -18,6 +18,7 @@ import {
   Check,
   Edit2,
   FileSpreadsheet,
+  UserX,
 } from 'lucide-react-native';
 import { UserProfile } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
@@ -29,6 +30,7 @@ import { useResponsive } from '../../lib/useResponsive';
 interface SettingsViewProps {
   currentUser: UserProfile | null;
   onLogout: () => void;
+  onDeleteAccount?: () => void;
   onOpenEditProfile?: () => void;
   onOpenExportModal?: () => void;
 }
@@ -36,6 +38,7 @@ interface SettingsViewProps {
 export const SettingsView: React.FC<SettingsViewProps> = ({
   currentUser,
   onLogout,
+  onDeleteAccount,
   onOpenEditProfile,
   onOpenExportModal,
 }) => {
@@ -44,6 +47,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [apiKey, setApiKey] = useState(() => getGeminiApiKey());
   const [isSavedKey, setIsSavedKey] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const handleUpdateRate = (rate: number) => {
     const updated = { ...audioSettings, rate };
@@ -203,6 +207,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </View>
       )}
 
+      {/* Delete account button (Darme de baja) */}
+      <TouchableOpacity
+        style={styles.deleteAccountBtn}
+        onPress={() => setShowDeleteModal(true)}
+        activeOpacity={0.85}
+      >
+        <UserX size={16} color="#f87171" style={{ marginRight: 8 }} />
+        <Text style={styles.deleteAccountBtnText}>Darme de baja</Text>
+      </TouchableOpacity>
+
       {/* Logout button */}
       <TouchableOpacity
         style={styles.logoutBtn}
@@ -226,6 +240,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           onLogout();
         }}
         onCancel={() => setShowLogoutModal(false)}
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Darme de baja"
+        message="¿Estás seguro de que deseas darte de baja? Esta acción eliminará permanentemente tu cuenta, todas tus palabras y tu progreso de aprendizaje. Esta acción no se puede deshacer."
+        confirmText="Sí, darme de baja"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={() => {
+          setShowDeleteModal(false);
+          onDeleteAccount?.();
+        }}
+        onCancel={() => setShowDeleteModal(false)}
       />
     </ScrollView>
   );
@@ -436,6 +464,22 @@ const styles = StyleSheet.create({
   exportDataBtnText: {
     color: '#ffffff',
     fontSize: 13,
+    fontWeight: '700',
+  },
+  deleteAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    paddingVertical: 13,
+    borderRadius: THEME.radius.md,
+    marginBottom: 10,
+  },
+  deleteAccountBtnText: {
+    color: '#f87171',
+    fontSize: 14,
     fontWeight: '700',
   },
   logoutBtn: {
