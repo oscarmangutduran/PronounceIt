@@ -171,7 +171,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
   // MOBILE / TABLET PORTRAIT: Compact Horizontal Scroll
   if (!showSidebarSplit) {
     return (
-      <View style={styles.mobileContainer}>
+      <View style={[styles.mobileContainer, !isDark && styles.mobileContainerLight]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -254,13 +254,13 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
 
           {/* + Nueva Categoría button */}
           <TouchableOpacity
-            style={[styles.chip, styles.chipNew]}
+            style={[styles.chip, !isDark && styles.chipLight, styles.chipNew, !isDark && styles.chipNewLight]}
             onPress={handleOpenCreateCategory}
             activeOpacity={0.75}
           >
             <Plus size={13} color="#e62e4c" />
             <Text style={[styles.chipText, { color: '#e62e4c', fontWeight: '700' }]}>
-              + Categoría
+              Categoría
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -282,10 +282,10 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
   // ── COLLAPSED STATE ──────────────────────────────────────────
   if (isCollapsed) {
     return (
-      <View style={styles.collapsedContainer}>
+      <View style={[styles.collapsedContainer, !isDark && styles.collapsedContainerLight]}>
         {/* Expand button */}
         <TouchableOpacity
-          style={styles.collapsedToggleBtn}
+          style={[styles.collapsedToggleBtn, !isDark && styles.collapsedToggleBtnLight]}
           onPress={() => setIsCollapsed(false)}
           activeOpacity={0.8}
           accessibilityLabel="Expandir menú lateral"
@@ -295,15 +295,15 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
 
         {/* Quick filter icons */}
         <TouchableOpacity
-          style={[styles.collapsedIconBtn, isSelected('all') && styles.collapsedIconBtnActive]}
+          style={[styles.collapsedIconBtn, !isDark && styles.collapsedIconBtnLight, isSelected('all') && styles.collapsedIconBtnActive]}
           onPress={() => onSelectFilter({ type: 'all' })}
           activeOpacity={0.8}
         >
-          <BookOpen size={15} color={isSelected('all') ? '#ffffff' : THEME.colors.textMuted} />
+          <BookOpen size={15} color={isSelected('all') ? '#ffffff' : (!isDark ? '#64748b' : THEME.colors.textMuted)} />
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.collapsedIconBtn, isSelected('favorites') && styles.collapsedIconBtnActive]}
+          style={[styles.collapsedIconBtn, !isDark && styles.collapsedIconBtnLight, isSelected('favorites') && styles.collapsedIconBtnActive]}
           onPress={() => onSelectFilter({ type: 'favorites' })}
           activeOpacity={0.8}
         >
@@ -311,20 +311,21 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.collapsedIconBtn, isSelected('review') && styles.collapsedIconBtnActive]}
+          style={[styles.collapsedIconBtn, !isDark && styles.collapsedIconBtnLight, isSelected('review') && styles.collapsedIconBtnActive]}
           onPress={() => onSelectFilter({ type: 'review' })}
           activeOpacity={0.8}
         >
           <Clock size={15} color={isSelected('review') ? '#ffffff' : '#fb7185'} />
         </TouchableOpacity>
 
-        <View style={styles.collapsedDivider} />
+        <View style={[styles.collapsedDivider, !isDark && styles.collapsedDividerLight]} />
 
         {categories.slice(0, 5).map((cat) => (
           <TouchableOpacity
             key={cat.id}
             style={[
               styles.collapsedIconBtn,
+              !isDark && styles.collapsedIconBtnLight,
               isSelected('category', cat.name) && styles.collapsedIconBtnActive,
             ]}
             onPress={() => onSelectFilter({ type: 'category', group: cat.name })}
@@ -1223,6 +1224,28 @@ const styles = StyleSheet.create({
   },
 
   // Light Mode Overrides
+  mobileContainerLight: {
+    backgroundColor: '#ffffff',
+    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  chipNewLight: {
+    borderColor: 'rgba(230, 46, 76, 0.35)',
+    backgroundColor: 'rgba(230, 46, 76, 0.06)',
+  },
+  collapsedContainerLight: {
+    backgroundColor: 'transparent',
+  },
+  collapsedToggleBtnLight: {
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
+    borderColor: 'rgba(230, 46, 76, 0.25)',
+  },
+  collapsedIconBtnLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  collapsedDividerLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+  },
   chipLight: {
     backgroundColor: '#ffffff',
     borderColor: 'rgba(0, 0, 0, 0.1)',

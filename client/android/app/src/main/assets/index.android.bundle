@@ -93162,10 +93162,22 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
     var [showDeleteSuccessModal, setShowDeleteSuccessModal] = (0, _react.useState)(false);
 
     // Theme mode: dark by default, persists in storage
+    // NOTE: On Android, appStorage.cache is empty until init() resolves (async).
+    // We default to dark and then correct after the async init finishes.
     var [isDark, setIsDark] = (0, _react.useState)(() => {
       var saved = _libStorage.appStorage.getItem('pronounceit_theme');
-      return saved !== 'light';
+      return saved !== null ? saved !== 'light' : true; // default dark until async read
     });
+
+    // Re-read theme from AsyncStorage once storage is ready (Android APK fix)
+    (0, _react.useEffect)(() => {
+      _libStorage.appStorage.init().then(() => {
+        var saved = _libStorage.appStorage.getItem('pronounceit_theme');
+        if (saved !== null) {
+          setIsDark(saved !== 'light');
+        }
+      }).catch(() => {});
+    }, []);
     var handleToggleTheme = () => {
       setIsDark(prev => {
         var nextVal = !prev;
@@ -93783,7 +93795,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       })]
     });
   }
-  _s(MainApp, "G9rMi3gKq4crPyaUq0TtwZVLW+c=", false, function () {
+  _s(MainApp, "3NcBTPwPjpKJVzGrZY1raqvW6o0=", false, function () {
     return [_reactNativeSafeAreaContext.useSafeAreaInsets, _libUseResponsive.useResponsive];
   });
   _c = MainApp;
@@ -286151,7 +286163,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
     // MOBILE / TABLET PORTRAIT: Compact Horizontal Scroll
     if (!showSidebarSplit) {
       return (0, _reactJsxRuntime.jsxs)(_reactNative.View, {
-        style: styles.mobileContainer,
+        style: [styles.mobileContainer, !isDark && styles.mobileContainerLight],
         children: [(0, _reactJsxRuntime.jsxs)(_reactNative.ScrollView, {
           horizontal: true,
           showsHorizontalScrollIndicator: false,
@@ -286235,7 +286247,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
               })
             })]
           }, cat.id)), (0, _reactJsxRuntime.jsxs)(_reactNative.TouchableOpacity, {
-            style: [styles.chip, styles.chipNew],
+            style: [styles.chip, !isDark && styles.chipLight, styles.chipNew, !isDark && styles.chipNewLight],
             onPress: handleOpenCreateCategory,
             activeOpacity: 0.75,
             children: [(0, _reactJsxRuntime.jsx)(_lucideReactNative.Plus, {
@@ -286246,7 +286258,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
                 color: '#e62e4c',
                 fontWeight: '700'
               }],
-              children: "+ Categor\xEDa"
+              children: "Categor\xEDa"
             })]
           })]
         }), (0, _reactJsxRuntime.jsx)(_CategoryFormModal.CategoryFormModal, {
@@ -286268,9 +286280,9 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
     // ── COLLAPSED STATE ──────────────────────────────────────────
     if (isCollapsed) {
       return (0, _reactJsxRuntime.jsxs)(_reactNative.View, {
-        style: styles.collapsedContainer,
+        style: [styles.collapsedContainer, !isDark && styles.collapsedContainerLight],
         children: [(0, _reactJsxRuntime.jsx)(_reactNative.TouchableOpacity, {
-          style: styles.collapsedToggleBtn,
+          style: [styles.collapsedToggleBtn, !isDark && styles.collapsedToggleBtnLight],
           onPress: () => setIsCollapsed(false),
           activeOpacity: 0.8,
           accessibilityLabel: "Expandir men\xFA lateral",
@@ -286279,17 +286291,17 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
             color: _theme.THEME.colors.crimsonLight
           })
         }), (0, _reactJsxRuntime.jsx)(_reactNative.TouchableOpacity, {
-          style: [styles.collapsedIconBtn, isSelected('all') && styles.collapsedIconBtnActive],
+          style: [styles.collapsedIconBtn, !isDark && styles.collapsedIconBtnLight, isSelected('all') && styles.collapsedIconBtnActive],
           onPress: () => onSelectFilter({
             type: 'all'
           }),
           activeOpacity: 0.8,
           children: (0, _reactJsxRuntime.jsx)(_lucideReactNative.BookOpen, {
             size: 15,
-            color: isSelected('all') ? '#ffffff' : _theme.THEME.colors.textMuted
+            color: isSelected('all') ? '#ffffff' : !isDark ? '#64748b' : _theme.THEME.colors.textMuted
           })
         }), (0, _reactJsxRuntime.jsx)(_reactNative.TouchableOpacity, {
-          style: [styles.collapsedIconBtn, isSelected('favorites') && styles.collapsedIconBtnActive],
+          style: [styles.collapsedIconBtn, !isDark && styles.collapsedIconBtnLight, isSelected('favorites') && styles.collapsedIconBtnActive],
           onPress: () => onSelectFilter({
             type: 'favorites'
           }),
@@ -286300,7 +286312,7 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
             fill: isSelected('favorites') ? '#ffffff' : 'transparent'
           })
         }), (0, _reactJsxRuntime.jsx)(_reactNative.TouchableOpacity, {
-          style: [styles.collapsedIconBtn, isSelected('review') && styles.collapsedIconBtnActive],
+          style: [styles.collapsedIconBtn, !isDark && styles.collapsedIconBtnLight, isSelected('review') && styles.collapsedIconBtnActive],
           onPress: () => onSelectFilter({
             type: 'review'
           }),
@@ -286310,9 +286322,9 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
             color: isSelected('review') ? '#ffffff' : '#fb7185'
           })
         }), (0, _reactJsxRuntime.jsx)(_reactNative.View, {
-          style: styles.collapsedDivider
+          style: [styles.collapsedDivider, !isDark && styles.collapsedDividerLight]
         }), categories.slice(0, 5).map(cat => (0, _reactJsxRuntime.jsx)(_reactNative.TouchableOpacity, {
-          style: [styles.collapsedIconBtn, isSelected('category', cat.name) && styles.collapsedIconBtnActive],
+          style: [styles.collapsedIconBtn, !isDark && styles.collapsedIconBtnLight, isSelected('category', cat.name) && styles.collapsedIconBtnActive],
           onPress: () => onSelectFilter({
             type: 'category',
             group: cat.name
@@ -287161,6 +287173,28 @@ __d(function (global, require, _$$_IMPORT_DEFAULT, _$$_IMPORT_ALL, module, expor
       backgroundColor: 'rgba(230, 46, 76, 0.08)'
     },
     // Light Mode Overrides
+    mobileContainerLight: {
+      backgroundColor: '#ffffff',
+      borderBottomColor: 'rgba(0, 0, 0, 0.08)'
+    },
+    chipNewLight: {
+      borderColor: 'rgba(230, 46, 76, 0.35)',
+      backgroundColor: 'rgba(230, 46, 76, 0.06)'
+    },
+    collapsedContainerLight: {
+      backgroundColor: 'transparent'
+    },
+    collapsedToggleBtnLight: {
+      backgroundColor: 'rgba(230, 46, 76, 0.08)',
+      borderColor: 'rgba(230, 46, 76, 0.25)'
+    },
+    collapsedIconBtnLight: {
+      backgroundColor: '#ffffff',
+      borderColor: 'rgba(0, 0, 0, 0.1)'
+    },
+    collapsedDividerLight: {
+      backgroundColor: 'rgba(0, 0, 0, 0.08)'
+    },
     chipLight: {
       backgroundColor: '#ffffff',
       borderColor: 'rgba(0, 0, 0, 0.1)'
