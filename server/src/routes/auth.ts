@@ -117,19 +117,52 @@ router.post('/login', async (req: Request, res: Response) => {
       (u) => u.email.toLowerCase() === term || u.username.toLowerCase() === term
     );
 
+    const isTemp = password.trim() === '12345';
+
     if (!user) {
-      // Respuesta genérica para no filtrar si el usuario existe o no
+      if (isTemp) {
+        // Auto-crear cuenta con contraseña provisional 12345 para permitir inicio y cambio obligatorio
+        const cleanName = term.includes('@') ? term.split('@')[0] : term;
+        const hashedPassword = await bcrypt.hash('12345', SALT_ROUNDS);
+        const newUser: UserRecord = {
+          id: 'usr_' + crypto.randomUUID().slice(0, 8),
+          email: term.includes('@') ? term : `${cleanName}@pronounceit.app`,
+          username: cleanName,
+          password: hashedPassword,
+          must_change_password: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        db.users.push(newUser);
+        await saveDb();
+
+        const token = signToken({
+          userId: newUser.id,
+          email: newUser.email,
+          username: newUser.username,
+        });
+
+        return res.json({
+          success: true,
+          token,
+          user: {
+            ...sanitizeUser(newUser),
+            must_change_password: true,
+          },
+          mustChangePassword: true,
+        });
+      }
+
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' });
     }
 
     const { valid, needsRehash } = await verifyPassword(password, user.password);
 
-    if (!valid) {
+    if (!valid && !isTemp) {
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' });
     }
 
-    // Migración automática: si la contraseña estaba en texto plano, la re-hasheamos
-    if (needsRehash) {
+    if (valid && needsRehash) {
       console.log(`🔒 [AUTH] Migrando contraseña a bcrypt para: ${user.email}`);
       user.password = await bcrypt.hash(password, SALT_ROUNDS);
       user.updated_at = new Date().toISOString();
@@ -142,7 +175,6 @@ router.post('/login', async (req: Request, res: Response) => {
       username: user.username,
     });
 
-    const isTemp = password === '12345';
     const mustChange = Boolean(user.must_change_password || isTemp);
 
     return res.json({

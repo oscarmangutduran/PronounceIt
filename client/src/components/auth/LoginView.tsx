@@ -90,7 +90,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
   }, []);
 
   useEffect(() => {
-    if (initialMode) setMode(initialMode);
+    if (initialMode === 'change_password') {
+      setMode('change_password');
+    } else if (initialMode && mode !== 'change_password') {
+      setMode(initialMode);
+    }
     if (initialEmail) setEmail(initialEmail);
     if (initialUsername) setUsername(initialUsername);
   }, [initialMode, initialEmail, initialUsername]);
@@ -244,8 +248,10 @@ export const LoginView: React.FC<LoginViewProps> = ({
         if (res.welcomeEmailNotice) {
           setWelcomeNotice(res.welcomeEmailNotice);
         }
-        setSuccess('¡Cuenta creada con éxito! Entrando a PronounceIt...');
-        setTimeout(() => onSuccess(), 500);
+        setSuccess('¡Cuenta creada con éxito! Por seguridad, debes cambiar tu contraseña provisional (12345) ahora.');
+        setMode('change_password');
+        setNewPassword('');
+        setConfirmPassword('');
       } else {
         setError(res.message || 'Error al registrar la cuenta.');
       }
@@ -259,12 +265,13 @@ export const LoginView: React.FC<LoginViewProps> = ({
         return;
       }
 
+      const cleanPass = password.trim();
       setLoading(true);
-      const res = await firebaseService.signIn(email.trim(), password);
+      const res = await firebaseService.signIn(email.trim(), cleanPass);
       setLoading(false);
 
       if (res.success) {
-        if (res.mustChangePassword || res.user?.must_change_password || password === '12345') {
+        if (res.mustChangePassword || res.user?.must_change_password || cleanPass === '12345') {
           setMode('change_password');
           setError(null);
           setSuccess('Por seguridad, debes cambiar tu contraseña provisional (12345) antes de continuar.');
