@@ -479,12 +479,15 @@ function MainApp() {
     );
   }
 
-  // Gatekeeper: Login View
-  if (!isAuthenticated || !currentUser) {
+  // Gatekeeper: Login View or Mandatory Password Change
+  if (!isAuthenticated || !currentUser || currentUser.must_change_password) {
     return (
       <View style={styles.appContainer}>
         <StatusBar style="light" />
         <LoginView
+          initialMode={currentUser?.must_change_password ? 'change_password' : 'signin'}
+          initialEmail={currentUser?.email || ''}
+          initialUsername={currentUser?.username || ''}
           onSuccess={() => {
             setIsAuthenticated(true);
             setCurrentUser(firebaseService.getCurrentUser());

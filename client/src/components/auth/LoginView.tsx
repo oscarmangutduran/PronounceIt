@@ -34,16 +34,25 @@ import { PronounceItLogo } from '../common/PronounceItLogo';
 
 interface LoginViewProps {
   onSuccess: () => void;
+  initialMode?: AuthMode;
+  initialEmail?: string;
+  initialUsername?: string;
 }
 
 type AuthMode = 'signup' | 'signin' | 'forgot_password' | 'change_password';
 
-export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
-  const [mode, setMode] = useState<AuthMode>('signin');
+export const LoginView: React.FC<LoginViewProps> = ({
+  onSuccess,
+  initialMode,
+  initialEmail,
+  initialUsername,
+}) => {
+  const [mode, setMode] = useState<AuthMode>(initialMode || 'signin');
   const [rememberMe, setRememberMe] = useState(() => {
     return appStorage.getItem('pronounceit_remember_me') === 'true';
   });
   const [email, setEmail] = useState(() => {
+    if (initialEmail) return initialEmail;
     const saved = appStorage.getItem('pronounceit_saved_email');
     if (saved === 'alexgorbatow@yandex.ru' || saved === 'usuario@pronounceit.com') {
       appStorage.removeItem('pronounceit_saved_email');
@@ -79,6 +88,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
   useEffect(() => {
     return networkService.subscribe(setIsOnline);
   }, []);
+
+  useEffect(() => {
+    if (initialMode) setMode(initialMode);
+    if (initialEmail) setEmail(initialEmail);
+    if (initialUsername) setUsername(initialUsername);
+  }, [initialMode, initialEmail, initialUsername]);
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -190,13 +205,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
       }
 
       setLoading(true);
-      const res = await firebaseService.updateInitialPassword(email.trim(), newPassword);
+      const targetIdentifier = (email || '').trim() || (initialEmail || '').trim() || (firebaseService.getCurrentUser()?.email) || (firebaseService.getCurrentUser()?.username) || '';
+      const res = await firebaseService.updateInitialPassword(targetIdentifier, newPassword);
       setLoading(false);
 
       if (res.success) {
         if (rememberMe) {
           appStorage.setItem('pronounceit_remember_me', 'true');
-          appStorage.setItem('pronounceit_saved_email', email.trim());
+          appStorage.setItem('pronounceit_saved_email', targetIdentifier);
           appStorage.setItem('pronounceit_saved_password', newPassword);
           if (username) appStorage.setItem('pronounceit_saved_username', username.trim());
         }
@@ -248,8 +264,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
       setLoading(false);
 
       if (res.success) {
-        if (res.user?.must_change_password) {
+        if (res.mustChangePassword || res.user?.must_change_password || password === '12345') {
           setMode('change_password');
+          setError(null);
+          setSuccess('Por seguridad, debes cambiar tu contraseña provisional (12345) antes de continuar.');
           return;
         }
 
@@ -345,9 +363,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               <TouchableOpacity
                 style={styles.backButton}
                 onPress={() => {
+                  if (mode === 'change_password') {
+                    firebaseService.signOut().catch(() => {});
+                  }
                   setMode('signin');
                   setError(null);
                   setSuccess(null);
+                  setPassword('');
+                  setNewPassword('');
+                  setConfirmPassword('');
                 }}
               >
                 <ArrowLeft size={16} color={THEME.colors.textMuted} />
@@ -365,7 +389,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               </>
             )}
             {mode === 'change_password' && (
-              <Text style={styles.cardHeaderTitle}>Actualizar Contraseña Inicial</Text>
+              <>
+                <Text style={styles.cardHeaderTitle}>Cambiar Contraseña Obligatorio</Text>
+                <Text style={styles.cardHeaderSubtitle}>
+                  Has iniciado sesión con la contraseña provisional (12345). Por seguridad, debes definir una contraseña nueva para proteger tu cuenta ({email || initialEmail || initialUsername || 'de usuario'}) antes de acceder.
+                </Text>
+              </>
             )}
 
             {/* Feedback Banners */}
@@ -623,17 +652,19 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
             </TouchableOpacity>
 
             {/* Offline Mode Button */}
-            <TouchableOpacity
-              style={styles.offlineButton}
-              onPress={() => {
-                firebaseService.continueOffline();
-                onSuccess();
-              }}
-              activeOpacity={0.8}
-            >
-              <WifiOff size={15} color={THEME.colors.textMuted} style={{ marginRight: 8 }} />
-              <Text style={styles.offlineButtonText}>Continuar sin conexión (Modo Offline)</Text>
-            </TouchableOpacity>
+            {mode !== 'change_password' && (
+              <TouchableOpacity
+                style={styles.offlineButton}
+                onPress={() => {
+                  firebaseService.continueOffline();
+                  onSuccess();
+                }}
+                activeOpacity={0.8}
+              >
+                <WifiOff size={15} color={THEME.colors.textMuted} style={{ marginRight: 8 }} />
+                <Text style={styles.offlineButtonText}>Continuar sin conexión (Modo Offline)</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Recommended Resources Footer */}

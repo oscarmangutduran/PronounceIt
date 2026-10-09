@@ -4,6 +4,11 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { signToken } from '../middleware/auth.js';
+import {
+  sendWelcomeEmail,
+  sendPasswordChangedEmail,
+  sendAccountDeletedEmail,
+} from '../services/emailService.js';
 
 const router = Router();
 const SALT_ROUNDS = 12;
@@ -78,13 +83,10 @@ router.post('/register', async (req: Request, res: Response) => {
     db.users.push(newUser);
     await saveDb();
 
-    console.log(`\n======================================================`);
-    console.log(`📧 [EMAIL SERVICE] Correo de Bienvenida Enviado`);
-    console.log(`Destinatario: ${newUser.email}`);
-    console.log(`Usuario: ${newUser.username}`);
-    console.log(`Contraseña provisional: 12345 (almacenada con hash bcrypt)`);
-    console.log(`Nota: Debe cambiar su contraseña en el primer inicio de sesión.`);
-    console.log(`======================================================\n`);
+    // Envío de correo de bienvenida desde hola@oscarmangutdev.es
+    sendWelcomeEmail(newUser.email, newUser.username, '12345').catch((err) => {
+      console.error('Error enviando email de bienvenida:', err);
+    });
 
     return res.status(201).json({
       success: true,
@@ -140,11 +142,17 @@ router.post('/login', async (req: Request, res: Response) => {
       username: user.username,
     });
 
+    const isTemp = password === '12345';
+    const mustChange = Boolean(user.must_change_password || isTemp);
+
     return res.json({
       success: true,
       token,
-      user: sanitizeUser(user),
-      mustChangePassword: user.must_change_password,
+      user: {
+        ...sanitizeUser(user),
+        must_change_password: mustChange,
+      },
+      mustChangePassword: mustChange,
     });
   } catch (error) {
     console.error('Error en /api/auth/login:', error);
@@ -163,8 +171,11 @@ router.post('/change-password', async (req: Request, res: Response) => {
     }
 
     const db = await getDb();
+    const term = (email || '').trim().toLowerCase();
     const user = db.users.find(
-      (u) => (userId && u.id === userId) || (email && u.email.toLowerCase() === email.trim().toLowerCase())
+      (u) =>
+        (userId && u.id === userId) ||
+        (term && (u.email.toLowerCase() === term || u.username.toLowerCase() === term))
     );
 
     if (!user) {
@@ -186,6 +197,11 @@ router.post('/change-password', async (req: Request, res: Response) => {
     await saveDb();
 
     console.log(`🔒 [AUTH] Contraseña actualizada (bcrypt) para el usuario ${user.email}`);
+
+    // Envío de correo de confirmación de cambio de contraseña desde hola@oscarmangutdev.es
+    sendPasswordChangedEmail(user.email, user.username).catch((err) => {
+      console.error('Error enviando email de cambio de contraseña:', err);
+    });
 
     return res.json({
       success: true,
@@ -228,6 +244,11 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 
     console.log(`🔑 [AUTH] Contraseña restablecida para ${user.email} -> ${passwordToSet === '12345' ? '12345 (temporal)' : 'nueva contraseña personalizada'}`);
 
+    // Envío de correo de confirmación de restablecimiento de contraseña desde hola@oscarmangutdev.es
+    sendPasswordChangedEmail(user.email, user.username).catch((err) => {
+      console.error('Error enviando email de restablecimiento de contraseña:', err);
+    });
+
     return res.json({
       success: true,
       message: passwordToSet === '12345'
@@ -269,6 +290,11 @@ router.put('/profile', async (req: Request, res: Response) => {
       // Hash de la nueva contraseña al actualizar perfil
       user.password = await bcrypt.hash(password.trim(), SALT_ROUNDS);
       user.must_change_password = false;
+
+      // Envío de correo de confirmación de cambio de contraseña desde hola@oscarmangutdev.es
+      sendPasswordChangedEmail(user.email, user.username).catch((err) => {
+        console.error('Error enviando email de cambio de contraseña desde perfil:', err);
+      });
     }
     user.updated_at = new Date().toISOString();
 
@@ -321,9 +347,14 @@ router.delete('/delete-account', async (req: Request, res: Response) => {
         (cleanUsername && u.username.toLowerCase() === cleanUsername)
     );
 
+    let userEmailToSend = cleanEmail;
+    let userNameToSend = cleanUsername || 'Usuario';
+
     if (userIndex !== -1) {
       const targetUser = db.users[userIndex];
       const targetUserId = targetUser.id;
+      userEmailToSend = targetUser.email || cleanEmail;
+      userNameToSend = targetUser.username || cleanUsername || 'Usuario';
 
       // Eliminar el usuario de la base de datos
       db.users.splice(userIndex, 1);
@@ -336,6 +367,13 @@ router.delete('/delete-account', async (req: Request, res: Response) => {
       console.log(`🗑️ [AUTH] Cuenta eliminada (baja) exitosamente: ${targetUser.username} (${targetUser.email})`);
     } else {
       console.log(`ℹ️ [AUTH] delete-account: usuario no encontrado en db.json (o ya purgado), completado.`);
+    }
+
+    // Envío de correo de confirmación de baja desde hola@oscarmangutdev.es
+    if (userEmailToSend) {
+      sendAccountDeletedEmail(userEmailToSend, userNameToSend).catch((err) => {
+        console.error('Error enviando email de confirmación de baja:', err);
+      });
     }
 
     return res.json({

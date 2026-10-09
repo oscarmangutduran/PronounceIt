@@ -598,22 +598,36 @@ class FirebaseService {
         const serverAuth = await backendApi.login(input, cleanPass);
         if (serverAuth && serverAuth.success && serverAuth.user) {
           const sUser = serverAuth.user;
+          const isTempPass = cleanPass === '12345';
+          const mustChange = Boolean(serverAuth.mustChangePassword || sUser.must_change_password || isTempPass);
+
           const profile: UserProfile = {
             id: sUser.id,
             email: sUser.email,
             full_name: sUser.username,
             username: sUser.username,
-            must_change_password: Boolean(serverAuth.mustChangePassword || sUser.must_change_password),
+            must_change_password: mustChange,
             avatar_url: sUser.avatar_url || this.getSavedAvatar(sUser.id, sUser.username, sUser.email),
             role: 'user',
             created_at: sUser.created_at,
           };
+
+          if (mustChange) {
+            // Guardamos el usuario pero NO notificamos a App.tsx para no desmontar LoginView
+            this.currentUser = profile;
+            return {
+              success: true,
+              mustChangePassword: true,
+              user: profile,
+            };
+          }
+
           this.currentUser = profile;
           appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
           this.notify();
           return {
             success: true,
-            mustChangePassword: profile.must_change_password,
+            mustChangePassword: false,
             user: profile,
           };
         }
@@ -651,23 +665,36 @@ class FirebaseService {
         this.saveAvatar(foundAccount.id, avatarUrl, foundAccount.username, foundAccount.email);
       }
 
+      const isTempPass = cleanPass === '12345';
+      const mustChange = Boolean(foundAccount.mustChangePassword || isTempPass);
+
       const profile: UserProfile = {
         id: foundAccount.id,
         email: foundAccount.email,
         full_name: foundAccount.fullName || foundAccount.username,
         username: foundAccount.username,
-        must_change_password: Boolean(foundAccount.mustChangePassword),
+        must_change_password: mustChange,
         avatar_url: avatarUrl,
         role: 'user',
         created_at: foundAccount.createdAt,
       };
+
+      if (mustChange) {
+        // Guardamos el usuario pero NO notificamos a App.tsx para no desmontar LoginView
+        this.currentUser = profile;
+        return {
+          success: true,
+          mustChangePassword: true,
+          user: profile,
+        };
+      }
 
       this.currentUser = profile;
       appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
       this.notify();
       return {
         success: true,
-        mustChangePassword: Boolean(foundAccount.mustChangePassword),
+        mustChangePassword: false,
         user: profile,
       };
     }
@@ -835,11 +862,56 @@ class FirebaseService {
       this.saveStoredAccounts(accounts);
     }
 
+    const targetUserId = this.currentUser?.id || account?.id;
+    const targetEmail = this.currentUser?.email || account?.email || input;
+
+    try {
+      await backendApi.changePassword({
+        userId: targetUserId,
+        email: targetEmail,
+        newPassword,
+      });
+    } catch (e) {
+      console.warn('backendApi.changePassword error:', e);
+    }
+
     if (this.currentUser) {
       this.currentUser.must_change_password = false;
       appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(this.currentUser));
-      backendApi.changePassword({ email: this.currentUser.email, newPassword }).catch(() => {});
       this.notify();
+    } else if (account) {
+      const profile: UserProfile = {
+        id: account.id,
+        email: account.email,
+        full_name: account.fullName || account.username,
+        username: account.username,
+        must_change_password: false,
+        avatar_url: account.avatarUrl || this.getSavedAvatar(account.id, account.username, account.email),
+        role: 'user',
+        created_at: account.createdAt,
+      };
+      this.currentUser = profile;
+      appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
+      this.notify();
+    } else {
+      try {
+        const sLogin = await backendApi.login(input, newPassword);
+        if (sLogin?.user) {
+          const profile: UserProfile = {
+            id: sLogin.user.id,
+            email: sLogin.user.email,
+            full_name: sLogin.user.username,
+            username: sLogin.user.username,
+            must_change_password: false,
+            avatar_url: sLogin.user.avatar_url || this.getSavedAvatar(sLogin.user.id, sLogin.user.username, sLogin.user.email),
+            role: 'user',
+            created_at: sLogin.user.created_at,
+          };
+          this.currentUser = profile;
+          appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
+          this.notify();
+        }
+      } catch {}
     }
 
     return { success: true, message: 'Contraseña actualizada correctamente.' };
