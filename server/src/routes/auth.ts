@@ -84,9 +84,11 @@ router.post('/register', async (req: Request, res: Response) => {
     await saveDb();
 
     // Envío de correo de bienvenida desde hola@oscarmangutdev.es
-    sendWelcomeEmail(newUser.email, newUser.username, '12345').catch((err) => {
+    try {
+      await sendWelcomeEmail(newUser.email, newUser.username, '12345');
+    } catch (err) {
       console.error('Error enviando email de bienvenida:', err);
-    });
+    }
 
     return res.status(201).json({
       success: true,
@@ -231,9 +233,11 @@ router.post('/change-password', async (req: Request, res: Response) => {
     console.log(`🔒 [AUTH] Contraseña actualizada (bcrypt) para el usuario ${user.email}`);
 
     // Envío de correo de confirmación de cambio de contraseña desde hola@oscarmangutdev.es
-    sendPasswordChangedEmail(user.email, user.username).catch((err) => {
+    try {
+      await sendPasswordChangedEmail(user.email, user.username);
+    } catch (err) {
       console.error('Error enviando email de cambio de contraseña:', err);
-    });
+    }
 
     return res.json({
       success: true,
@@ -277,9 +281,11 @@ router.post('/reset-password', async (req: Request, res: Response) => {
     console.log(`🔑 [AUTH] Contraseña restablecida para ${user.email} -> ${passwordToSet === '12345' ? '12345 (temporal)' : 'nueva contraseña personalizada'}`);
 
     // Envío de correo de confirmación de restablecimiento de contraseña desde hola@oscarmangutdev.es
-    sendPasswordChangedEmail(user.email, user.username).catch((err) => {
+    try {
+      await sendPasswordChangedEmail(user.email, user.username);
+    } catch (err) {
       console.error('Error enviando email de restablecimiento de contraseña:', err);
-    });
+    }
 
     return res.json({
       success: true,
@@ -324,9 +330,11 @@ router.put('/profile', async (req: Request, res: Response) => {
       user.must_change_password = false;
 
       // Envío de correo de confirmación de cambio de contraseña desde hola@oscarmangutdev.es
-      sendPasswordChangedEmail(user.email, user.username).catch((err) => {
+      try {
+        await sendPasswordChangedEmail(user.email, user.username);
+      } catch (err) {
         console.error('Error enviando email de cambio de contraseña desde perfil:', err);
-      });
+      }
     }
     user.updated_at = new Date().toISOString();
 
@@ -403,9 +411,11 @@ router.delete('/delete-account', async (req: Request, res: Response) => {
 
     // Envío de correo de confirmación de baja desde hola@oscarmangutdev.es
     if (userEmailToSend) {
-      sendAccountDeletedEmail(userEmailToSend, userNameToSend).catch((err) => {
+      try {
+        await sendAccountDeletedEmail(userEmailToSend, userNameToSend);
+      } catch (err) {
         console.error('Error enviando email de confirmación de baja:', err);
-      });
+      }
     }
 
     return res.json({

@@ -13,7 +13,7 @@ function getTransporter(): Transporter | null {
   const port = Number(process.env.SMTP_PORT || 465);
   const secure = process.env.SMTP_SECURE !== undefined ? process.env.SMTP_SECURE === 'true' : port === 465;
   const user = process.env.SMTP_USER || 'hola@oscarmangutdev.es';
-  const pass = process.env.SMTP_PASS;
+  const pass = process.env.SMTP_PASS || 'Londres2025';
 
   if (pass && pass.trim()) {
     transporter = nodemailer.createTransport({
