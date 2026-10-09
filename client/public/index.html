@@ -30,14 +30,32 @@
         height: 100%;
         flex: 1;
       }
-      /* Remove browser default white focus outlines on inputs */
+      /* Remove browser default white focus outlines and backgrounds on inputs */
       input, textarea, select {
         outline: none !important;
         box-shadow: none !important;
+        background-color: transparent !important;
       }
       input:focus, textarea:focus, select:focus, input:focus-visible, textarea:focus-visible {
         outline: none !important;
         box-shadow: none !important;
+        background-color: transparent !important;
+      }
+      /* Prevent browser autofill from creating an ugly white/light-blue background */
+      input:-webkit-autofill,
+      input:-webkit-autofill:hover,
+      input:-webkit-autofill:focus,
+      input:-webkit-autofill:active,
+      input:autofill {
+        -webkit-text-fill-color: #ffffff !important;
+        caret-color: #ffffff !important;
+        -webkit-box-shadow: 0 0 0px 1000px #1a142b inset !important;
+        box-shadow: 0 0 0px 1000px #1a142b inset !important;
+        transition: background-color 5000000s ease-in-out 0s !important;
+      }
+      input:-webkit-autofill:focus {
+        -webkit-box-shadow: 0 0 0px 1000px #21142b inset !important;
+        box-shadow: 0 0 0px 1000px #21142b inset !important;
       }
     </style>
   </head>

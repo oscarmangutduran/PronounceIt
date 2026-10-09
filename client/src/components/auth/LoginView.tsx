@@ -80,6 +80,41 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
     return networkService.subscribe(setIsOnline);
   }, []);
 
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const styleId = 'pronounceit-login-autofill-fix';
+      let styleEl = document.getElementById(styleId);
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = styleId;
+        document.head.appendChild(styleEl);
+      }
+      styleEl.textContent = `
+        input, textarea, select {
+          outline: none !important;
+          box-shadow: none !important;
+          background-color: transparent !important;
+          color: #ffffff !important;
+        }
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus,
+        input:-webkit-autofill:active,
+        input:autofill {
+          -webkit-text-fill-color: #ffffff !important;
+          caret-color: #ffffff !important;
+          -webkit-box-shadow: 0 0 0px 1000px #1a142b inset !important;
+          box-shadow: 0 0 0px 1000px #1a142b inset !important;
+          transition: background-color 5000000s ease-in-out 0s !important;
+        }
+        input:-webkit-autofill:focus {
+          -webkit-box-shadow: 0 0 0px 1000px #21142b inset !important;
+          box-shadow: 0 0 0px 1000px #21142b inset !important;
+        }
+      `;
+    }
+  }, []);
+
   const handleToggleRemember = () => {
     const nextVal = !rememberMe;
     setRememberMe(nextVal);
@@ -852,7 +887,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     height: '100%',
     paddingVertical: 0,
-    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as any) : {}),
+    backgroundColor: 'transparent',
+    ...(Platform.OS === 'web'
+      ? ({
+          outlineStyle: 'none',
+          outlineWidth: 0,
+          backgroundColor: 'transparent',
+        } as any)
+      : {}),
   },
   eyeIcon: {
     padding: 4,
