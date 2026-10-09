@@ -88,10 +88,22 @@ function MainApp() {
   const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
 
   // Theme mode: dark by default, persists in storage
+  // NOTE: On Android, appStorage.cache is empty until init() resolves (async).
+  // We default to dark and then correct after the async init finishes.
   const [isDark, setIsDark] = useState<boolean>(() => {
     const saved = appStorage.getItem('pronounceit_theme');
-    return saved !== 'light';
+    return saved !== null ? saved !== 'light' : true; // default dark until async read
   });
+
+  // Re-read theme from AsyncStorage once storage is ready (Android APK fix)
+  useEffect(() => {
+    appStorage.init().then(() => {
+      const saved = appStorage.getItem('pronounceit_theme');
+      if (saved !== null) {
+        setIsDark(saved !== 'light');
+      }
+    }).catch(() => {});
+  }, []);
 
   const handleToggleTheme = () => {
     setIsDark((prev) => {
