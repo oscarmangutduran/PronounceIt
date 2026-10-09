@@ -1,0 +1,15 @@
+node_modules
+.expo
+.git
+*.apk
+*.aab
+.gradle
+client/android
+client/node_modules
+server/node_modules
+dist
+build
+.env*
+!.env.example
+*.log
+coverage

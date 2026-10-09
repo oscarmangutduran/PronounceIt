@@ -14,3 +14,4 @@ coverage/
 .gradle/
 client/android/app/build/
 client/android/.gradle/
+.vercel
