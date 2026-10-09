@@ -76,19 +76,23 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   const initial = (currentUser?.full_name || currentUser?.username || 'U')[0].toUpperCase();
 
   return (
-    <View style={[styles.container, { paddingTop: topPadding }]}>
+    <View style={[styles.container, !isDark && styles.containerLight, { paddingTop: topPadding }]}>
       {/* LEFT: Brand Logo & Title */}
       <View style={styles.brandRow}>
         <PronounceItLogo size={36} />
         <View>
-          <Text style={styles.brandTitle}>PronounceIt</Text>
-          {!isPhone && <Text style={styles.brandSubtitle}>Inglés & Fonética</Text>}
+          <Text style={[styles.brandTitle, !isDark && styles.brandTitleLight]}>PronounceIt</Text>
+          {!isPhone && (
+            <Text style={[styles.brandSubtitle, !isDark && styles.brandSubtitleLight]}>
+              Inglés & Fonética
+            </Text>
+          )}
         </View>
       </View>
 
       {/* CENTER: Navigation Tabs (Tablet & Desktop) */}
       {showTopNavTabs && (
-        <View style={styles.navTabs}>
+        <View style={[styles.navTabs, !isDark && styles.navTabsLight]}>
           {/* Vocabulario / Biblioteca */}
           <TouchableOpacity
             style={[
@@ -100,11 +104,12 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
           >
             <BookOpen
               size={15}
-              color={activeTab === 'vocabulary' ? THEME.colors.crimson : THEME.colors.textMuted}
+              color={activeTab === 'vocabulary' ? THEME.colors.crimson : (!isDark ? '#64748b' : THEME.colors.textMuted)}
             />
             <Text
               style={[
                 styles.navTabText,
+                !isDark && styles.navTabTextLight,
                 activeTab === 'vocabulary' && styles.navTabTextActive,
               ]}
             >
@@ -123,11 +128,12 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
           >
             <Layers
               size={15}
-              color={activeTab === 'flashcards' ? THEME.colors.crimson : THEME.colors.textMuted}
+              color={activeTab === 'flashcards' ? THEME.colors.crimson : (!isDark ? '#64748b' : THEME.colors.textMuted)}
             />
             <Text
               style={[
                 styles.navTabText,
+                !isDark && styles.navTabTextLight,
                 activeTab === 'flashcards' && styles.navTabTextActive,
               ]}
             >
@@ -146,11 +152,12 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
           >
             <ClipboardCheck
               size={15}
-              color={activeTab === 'test' ? THEME.colors.crimson : THEME.colors.textMuted}
+              color={activeTab === 'test' ? THEME.colors.crimson : (!isDark ? '#64748b' : THEME.colors.textMuted)}
             />
             <Text
               style={[
                 styles.navTabText,
+                !isDark && styles.navTabTextLight,
                 activeTab === 'test' && styles.navTabTextActive,
               ]}
             >
@@ -169,11 +176,12 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
           >
             <BarChart3
               size={15}
-              color={activeTab === 'stats' ? THEME.colors.crimson : THEME.colors.textMuted}
+              color={activeTab === 'stats' ? THEME.colors.crimson : (!isDark ? '#64748b' : THEME.colors.textMuted)}
             />
             <Text
               style={[
                 styles.navTabText,
+                !isDark && styles.navTabTextLight,
                 activeTab === 'stats' && styles.navTabTextActive,
               ]}
             >
@@ -192,11 +200,12 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
           >
             <Settings
               size={15}
-              color={activeTab === 'settings' ? THEME.colors.crimson : THEME.colors.textMuted}
+              color={activeTab === 'settings' ? THEME.colors.crimson : (!isDark ? '#64748b' : THEME.colors.textMuted)}
             />
             <Text
               style={[
                 styles.navTabText,
+                !isDark && styles.navTabTextLight,
                 activeTab === 'settings' && styles.navTabTextActive,
               ]}
             >
@@ -245,17 +254,17 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
         )}
         {/* Quick Search */}
         {showSearch && (
-          <View style={styles.searchBox}>
-            <Search size={14} color={THEME.colors.textSubtle} style={styles.searchIcon} />
+          <View style={[styles.searchBox, !isDark && styles.searchBoxLight]}>
+            <Search size={14} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} style={styles.searchIcon} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, !isDark && styles.searchInputLight]}
               placeholder="Buscar término o IPA..."
-              placeholderTextColor={THEME.colors.textSubtle}
+              placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
               value={searchTerm}
               onChangeText={onSearchChange}
             />
-            <View style={styles.kbdBadge}>
-              <Text style={styles.kbdText}>⌘K</Text>
+            <View style={[styles.kbdBadge, !isDark && styles.kbdBadgeLight]}>
+              <Text style={[styles.kbdText, !isDark && styles.kbdTextLight]}>⌘K</Text>
             </View>
           </View>
         )}
@@ -284,8 +293,8 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
 
           {/* Dropdown Menu */}
           {showDropdown && (
-            <View style={styles.dropdownMenu}>
-              <View style={styles.dropdownHeader}>
+            <View style={[styles.dropdownMenu, !isDark && styles.dropdownMenuLight]}>
+              <View style={[styles.dropdownHeader, !isDark && styles.dropdownHeaderLight]}>
                 <View style={styles.dropdownAvatar}>
                   {currentUser?.avatar_url ? (
                     <Image source={{ uri: currentUser.avatar_url }} style={styles.avatarImg} />
@@ -294,10 +303,10 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                   )}
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.dropdownName} numberOfLines={1}>
+                  <Text style={[styles.dropdownName, !isDark && styles.dropdownNameLight]} numberOfLines={1}>
                     {currentUser?.full_name || currentUser?.username || 'Usuario PronounceIt'}
                   </Text>
-                  <Text style={styles.dropdownEmail} numberOfLines={1}>
+                  <Text style={[styles.dropdownEmail, !isDark && styles.dropdownEmailLight]} numberOfLines={1}>
                     {currentUser?.email || 'estudiante@pronounceit.com'}
                   </Text>
                 </View>
@@ -311,7 +320,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                 }}
               >
                 <User size={14} color={THEME.colors.crimsonLight} />
-                <Text style={styles.dropdownItemText}>Editar perfil</Text>
+                <Text style={[styles.dropdownItemText, !isDark && styles.dropdownItemTextLight]}>Editar perfil</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -321,8 +330,8 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                   onTabChange('settings');
                 }}
               >
-                <Settings size={14} color={THEME.colors.textMuted} />
-                <Text style={styles.dropdownItemText}>Ajustes de pronunciación</Text>
+                <Settings size={14} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
+                <Text style={[styles.dropdownItemText, !isDark && styles.dropdownItemTextLight]}>Ajustes de pronunciación</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -332,8 +341,8 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                   onTabChange('stats');
                 }}
               >
-                <BarChart3 size={14} color={THEME.colors.textMuted} />
-                <Text style={styles.dropdownItemText}>Mi progreso léxico</Text>
+                <BarChart3 size={14} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
+                <Text style={[styles.dropdownItemText, !isDark && styles.dropdownItemTextLight]}>Mi progreso léxico</Text>
               </TouchableOpacity>
 
               {!isOnline && (
@@ -353,12 +362,12 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                 }}
               >
                 {isDark ? <Sun size={14} color="#fbbf24" /> : <Moon size={14} color="#6366f1" />}
-                <Text style={styles.dropdownItemText}>
+                <Text style={[styles.dropdownItemText, !isDark && styles.dropdownItemTextLight]}>
                   {isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
                 </Text>
               </TouchableOpacity>
 
-              <View style={styles.dropdownDivider} />
+              <View style={[styles.dropdownDivider, !isDark && styles.dropdownDividerLight]} />
 
               <TouchableOpacity
                 style={[styles.dropdownItem, { paddingVertical: 8 }]}
@@ -651,5 +660,57 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '500',
     flex: 1,
+  },
+
+  // Light Mode Overrides
+  containerLight: {
+    backgroundColor: '#ffffff',
+    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  brandTitleLight: {
+    color: '#0f172a',
+  },
+  brandSubtitleLight: {
+    color: '#64748b',
+  },
+  navTabsLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  navTabTextLight: {
+    color: '#64748b',
+  },
+  searchBoxLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  searchInputLight: {
+    color: '#0f172a',
+  },
+  kbdBadgeLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  kbdTextLight: {
+    color: '#64748b',
+  },
+  dropdownMenuLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.1,
+  },
+  dropdownHeaderLight: {
+    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  dropdownNameLight: {
+    color: '#0f172a',
+  },
+  dropdownEmailLight: {
+    color: '#64748b',
+  },
+  dropdownItemTextLight: {
+    color: '#334155',
+  },
+  dropdownDividerLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
   },
 });

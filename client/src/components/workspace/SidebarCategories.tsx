@@ -50,6 +50,7 @@ interface SidebarCategoriesProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   onAddNewCategory?: () => void;
+  isDark?: boolean;
 }
 
 export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
@@ -61,6 +62,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
   reviewCount,
   masteredCount,
   onAddNewCategory,
+  isDark = true,
 }) => {
   const { showSidebarSplit } = useResponsive();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -177,16 +179,16 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
         >
           {/* Todas */}
           <TouchableOpacity
-            style={[styles.chip, isSelected('all') && styles.chipActive]}
+            style={[styles.chip, !isDark && styles.chipLight, isSelected('all') && styles.chipActive]}
             onPress={() => onSelectFilter({ type: 'all' })}
             activeOpacity={0.75}
           >
-            <BookOpen size={14} color={isSelected('all') ? '#ffffff' : THEME.colors.textMuted} />
-            <Text style={[styles.chipText, isSelected('all') && styles.chipTextActive]}>
+            <BookOpen size={14} color={isSelected('all') ? '#ffffff' : (!isDark ? '#64748b' : THEME.colors.textMuted)} />
+            <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('all') && styles.chipTextActive]}>
               Todas
             </Text>
-            <View style={[styles.badge, isSelected('all') && styles.badgeActive]}>
-              <Text style={[styles.badgeText, isSelected('all') && styles.badgeTextActive]}>
+            <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('all') && styles.badgeActive]}>
+              <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('all') && styles.badgeTextActive]}>
                 {totalWords}
               </Text>
             </View>
@@ -194,7 +196,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
 
           {/* Favoritas */}
           <TouchableOpacity
-            style={[styles.chip, isSelected('favorites') && styles.chipActive]}
+            style={[styles.chip, !isDark && styles.chipLight, isSelected('favorites') && styles.chipActive]}
             onPress={() => onSelectFilter({ type: 'favorites' })}
             activeOpacity={0.75}
           >
@@ -203,11 +205,11 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
               color={isSelected('favorites') ? '#ffffff' : '#eab308'}
               fill={isSelected('favorites') ? '#ffffff' : 'transparent'}
             />
-            <Text style={[styles.chipText, isSelected('favorites') && styles.chipTextActive]}>
+            <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('favorites') && styles.chipTextActive]}>
               Favoritas
             </Text>
-            <View style={[styles.badge, isSelected('favorites') && styles.badgeActive]}>
-              <Text style={[styles.badgeText, isSelected('favorites') && styles.badgeTextActive]}>
+            <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('favorites') && styles.badgeActive]}>
+              <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('favorites') && styles.badgeTextActive]}>
                 {favoritesCount}
               </Text>
             </View>
@@ -215,16 +217,16 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
 
           {/* Por repasar */}
           <TouchableOpacity
-            style={[styles.chip, isSelected('review') && styles.chipActive]}
+            style={[styles.chip, !isDark && styles.chipLight, isSelected('review') && styles.chipActive]}
             onPress={() => onSelectFilter({ type: 'review' })}
             activeOpacity={0.75}
           >
             <Clock size={14} color={isSelected('review') ? '#ffffff' : '#f87171'} />
-            <Text style={[styles.chipText, isSelected('review') && styles.chipTextActive]}>
+            <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('review') && styles.chipTextActive]}>
               Por repasar
             </Text>
-            <View style={[styles.badge, isSelected('review') && styles.badgeActive]}>
-              <Text style={[styles.badgeText, isSelected('review') && styles.badgeTextActive]}>
+            <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('review') && styles.badgeActive]}>
+              <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('review') && styles.badgeTextActive]}>
                 {reviewCount}
               </Text>
             </View>
@@ -234,16 +236,16 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
           {categories.map((cat) => (
             <TouchableOpacity
               key={cat.id}
-              style={[styles.chip, isSelected('category', cat.name) && styles.chipActive]}
+              style={[styles.chip, !isDark && styles.chipLight, isSelected('category', cat.name) && styles.chipActive]}
               onPress={() => onSelectFilter({ type: 'category', group: cat.name })}
               activeOpacity={0.75}
             >
               <Folder size={14} color={isSelected('category', cat.name) ? '#ffffff' : '#38bdf8'} />
-              <Text style={[styles.chipText, isSelected('category', cat.name) && styles.chipTextActive]}>
+              <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('category', cat.name) && styles.chipTextActive]}>
                 {cat.name}
               </Text>
-              <View style={[styles.badge, isSelected('category', cat.name) && styles.badgeActive]}>
-                <Text style={[styles.badgeText, isSelected('category', cat.name) && styles.badgeTextActive]}>
+              <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('category', cat.name) && styles.badgeActive]}>
+                <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('category', cat.name) && styles.badgeTextActive]}>
                   {cat.count}
                 </Text>
               </View>
@@ -339,16 +341,16 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
   return (
     <View style={styles.desktopContainer}>
       {/* CARD 1: Categorías */}
-      <View style={styles.sidebarCard}>
+      <View style={[styles.sidebarCard, !isDark && styles.sidebarCardLight]}>
         {/* Header */}
         <View style={styles.cardHeader}>
           <View style={styles.cardHeaderLeft}>
             <Folder size={16} color="#ff4d6d" />
-            <Text style={styles.cardTitle}>Categorías</Text>
+            <Text style={[styles.cardTitle, !isDark && styles.cardTitleLight]}>Categorías</Text>
           </View>
           <View style={styles.cardHeaderRight}>
-            <View style={styles.totalBadge}>
-              <Text style={styles.totalBadgeText}>{totalWords} total</Text>
+            <View style={[styles.totalBadge, !isDark && styles.totalBadgeLight]}>
+              <Text style={[styles.totalBadgeText, !isDark && styles.totalBadgeTextLight]}>{totalWords} total</Text>
             </View>
             <TouchableOpacity
               style={styles.collapseBtn}
@@ -356,14 +358,14 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
               activeOpacity={0.8}
               accessibilityLabel="Ocultar menú lateral"
             >
-              <PanelLeftClose size={14} color={THEME.colors.textSubtle} />
+              <PanelLeftClose size={14} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Button: + Nueva Categoría */}
         <TouchableOpacity
-          style={styles.newCategoryBtn}
+          style={[styles.newCategoryBtn, !isDark && styles.newCategoryBtnLight]}
           onPress={handleOpenCreateCategory}
           activeOpacity={0.8}
         >
@@ -375,21 +377,42 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
         <View style={styles.categoryList}>
           {/* Todas las palabras */}
           <TouchableOpacity
-            style={[styles.categoryItem, isSelected('all') && styles.categoryItemActive]}
+            style={[
+              styles.categoryItem,
+              isSelected('all') && (isDark ? styles.categoryItemActive : styles.categoryItemActiveLight),
+            ]}
             onPress={() => onSelectFilter({ type: 'all' })}
             activeOpacity={0.8}
           >
             <View style={styles.itemLeft}>
               <BookOpen
                 size={15}
-                color={isSelected('all') ? '#ffffff' : THEME.colors.crimsonLight}
+                color={isSelected('all') ? THEME.colors.crimson : (!isDark ? '#64748b' : THEME.colors.crimsonLight)}
               />
-              <Text style={[styles.itemText, isSelected('all') && styles.itemTextActive]}>
+              <Text
+                style={[
+                  styles.itemText,
+                  !isDark && styles.itemTextLight,
+                  isSelected('all') && styles.itemTextActive,
+                ]}
+              >
                 Todas las palabras
               </Text>
             </View>
-            <View style={[styles.countBadge, isSelected('all') && styles.countBadgeActive]}>
-              <Text style={[styles.countBadgeText, isSelected('all') && styles.countBadgeTextActive]}>
+            <View
+              style={[
+                styles.countBadge,
+                !isDark && styles.countBadgeLight,
+                isSelected('all') && styles.countBadgeActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.countBadgeText,
+                  !isDark && styles.countBadgeTextLight,
+                  isSelected('all') && styles.countBadgeTextActive,
+                ]}
+              >
                 {totalWords}
               </Text>
             </View>
@@ -397,7 +420,10 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
 
           {/* Favoritas */}
           <TouchableOpacity
-            style={[styles.categoryItem, isSelected('favorites') && styles.categoryItemActive]}
+            style={[
+              styles.categoryItem,
+              isSelected('favorites') && (isDark ? styles.categoryItemActive : styles.categoryItemActiveLight),
+            ]}
             onPress={() => onSelectFilter({ type: 'favorites' })}
             activeOpacity={0.8}
           >
@@ -405,14 +431,32 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
               <Star
                 size={15}
                 color="#f59e0b"
-                fill={isSelected('favorites') ? '#f59e0b' : '#f59e0b'}
+                fill="#f59e0b"
               />
-              <Text style={[styles.itemText, isSelected('favorites') && styles.itemTextActive]}>
+              <Text
+                style={[
+                  styles.itemText,
+                  !isDark && styles.itemTextLight,
+                  isSelected('favorites') && styles.itemTextActive,
+                ]}
+              >
                 Favoritas
               </Text>
             </View>
-            <View style={[styles.countBadge, isSelected('favorites') && styles.countBadgeActive]}>
-              <Text style={[styles.countBadgeText, isSelected('favorites') && styles.countBadgeTextActive]}>
+            <View
+              style={[
+                styles.countBadge,
+                !isDark && styles.countBadgeLight,
+                isSelected('favorites') && styles.countBadgeActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.countBadgeText,
+                  !isDark && styles.countBadgeTextLight,
+                  isSelected('favorites') && styles.countBadgeTextActive,
+                ]}
+              >
                 {favoritesCount}
               </Text>
             </View>
@@ -420,18 +464,39 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
 
           {/* Por repasar hoy */}
           <TouchableOpacity
-            style={[styles.categoryItem, isSelected('review') && styles.categoryItemActive]}
+            style={[
+              styles.categoryItem,
+              isSelected('review') && (isDark ? styles.categoryItemActive : styles.categoryItemActiveLight),
+            ]}
             onPress={() => onSelectFilter({ type: 'review' })}
             activeOpacity={0.8}
           >
             <View style={styles.itemLeft}>
               <Clock size={15} color="#fb7185" />
-              <Text style={[styles.itemText, isSelected('review') && styles.itemTextActive]}>
+              <Text
+                style={[
+                  styles.itemText,
+                  !isDark && styles.itemTextLight,
+                  isSelected('review') && styles.itemTextActive,
+                ]}
+              >
                 Por repasar hoy
               </Text>
             </View>
-            <View style={[styles.countBadge, isSelected('review') && styles.countBadgeActive]}>
-              <Text style={[styles.countBadgeText, isSelected('review') && styles.countBadgeTextActive]}>
+            <View
+              style={[
+                styles.countBadge,
+                !isDark && styles.countBadgeLight,
+                isSelected('review') && styles.countBadgeActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.countBadgeText,
+                  !isDark && styles.countBadgeTextLight,
+                  isSelected('review') && styles.countBadgeTextActive,
+                ]}
+              >
                 {reviewCount}
               </Text>
             </View>
@@ -439,8 +504,10 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
         </View>
 
         {/* Section Divider: TEMARIOS DE ESTUDIO */}
-        <View style={styles.sectionDivider}>
-          <Text style={styles.sectionDividerText}>TEMARIOS DE ESTUDIO</Text>
+        <View style={[styles.sectionDivider, !isDark && styles.sectionDividerLight]}>
+          <Text style={[styles.sectionDividerText, !isDark && styles.sectionDividerTextLight]}>
+            TEMARIOS DE ESTUDIO
+          </Text>
         </View>
 
         {/* Categories Tree or Empty State */}
@@ -470,7 +537,10 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
                 <View key={cat.id} style={styles.treeNode}>
                   {/* Group Header */}
                   <TouchableOpacity
-                    style={[styles.treeHeader, groupActive && styles.treeHeaderActive]}
+                    style={[
+                      styles.treeHeader,
+                      groupActive && (isDark ? styles.treeHeaderActive : styles.treeHeaderActiveLight),
+                    ]}
                     onPress={() => onSelectFilter({ type: 'category', group: cat.name })}
                     activeOpacity={0.8}
                   >
@@ -483,13 +553,13 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
                         style={{ padding: 2 }}
                       >
                         {isExpanded ? (
-                          <ChevronDown size={14} color={THEME.colors.textSubtle} />
+                          <ChevronDown size={14} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} />
                         ) : (
-                          <ChevronRight size={14} color={THEME.colors.textSubtle} />
+                          <ChevronRight size={14} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} />
                         )}
                       </TouchableOpacity>
                       <Folder size={14} color="#ff4d6d" />
-                      <Text style={styles.treeHeaderText}>{cat.name}</Text>
+                      <Text style={[styles.treeHeaderText, !isDark && styles.treeHeaderTextLight]}>{cat.name}</Text>
                     </View>
 
                     <View style={styles.actionsContainer}>
@@ -502,7 +572,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
                         }}
                         accessibilityLabel="Añadir subcategoría"
                       >
-                        <Plus size={12} color={THEME.colors.textMuted} />
+                        <Plus size={12} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
                       </TouchableOpacity>
 
                       {/* Action: Edit category */}
@@ -514,7 +584,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
                         }}
                         accessibilityLabel="Editar categoría"
                       >
-                        <Edit2 size={11} color={THEME.colors.textMuted} />
+                        <Edit2 size={11} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
                       </TouchableOpacity>
 
                       {/* Action: Delete category */}
@@ -530,13 +600,13 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
                       </TouchableOpacity>
 
                       {/* Count Badge */}
-                      <Text style={styles.treeCountText}>{cat.count}</Text>
+                      <Text style={[styles.treeCountText, !isDark && styles.treeCountTextLight]}>{cat.count}</Text>
                     </View>
                   </TouchableOpacity>
 
                   {/* Subcategories */}
                   {isExpanded && cat.subcategories && cat.subcategories.length > 0 && (
-                    <View style={styles.subList}>
+                    <View style={[styles.subList, !isDark && styles.subListLight]}>
                       {cat.subcategories.map((sub) => {
                         const subActive = isSelected('category', cat.name, sub.name);
                         return (
@@ -553,9 +623,13 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
                             activeOpacity={0.8}
                           >
                             <View style={styles.subItemLeft}>
-                              <Pin size={11} color={subActive ? '#ffffff' : THEME.colors.textSubtle} />
+                              <Pin size={11} color={subActive ? '#ffffff' : (!isDark ? '#94a3b8' : THEME.colors.textSubtle)} />
                               <Text
-                                style={[styles.subItemText, subActive && styles.subItemTextActive]}
+                                style={[
+                                  styles.subItemText,
+                                  !isDark && styles.subItemTextLight,
+                                  subActive && styles.subItemTextActive,
+                                ]}
                                 numberOfLines={1}
                               >
                                 {sub.name}
@@ -571,7 +645,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
                                   handleOpenEditSubcategory(cat, sub);
                                 }}
                               >
-                                <Edit2 size={10} color={subActive ? '#ffffff' : THEME.colors.textMuted} />
+                                <Edit2 size={10} color={subActive ? '#ffffff' : (!isDark ? '#64748b' : THEME.colors.textMuted)} />
                               </TouchableOpacity>
 
                               {/* Delete subcategory */}
@@ -585,7 +659,13 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
                                 <Trash2 size={10} color="#f87171" />
                               </TouchableOpacity>
 
-                              <Text style={[styles.subCountText, subActive && styles.subCountTextActive]}>
+                              <Text
+                                style={[
+                                  styles.subCountText,
+                                  !isDark && styles.subCountTextLight,
+                                  subActive && styles.subCountTextActive,
+                                ]}
+                              >
                                 {sub.count}
                               </Text>
                             </View>
@@ -602,17 +682,17 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
       </View>
 
       {/* CARD 2: Retención Lexical */}
-      <View style={styles.sidebarCard}>
+      <View style={[styles.sidebarCard, !isDark && styles.sidebarCardLight]}>
         <View style={styles.retentionHeader}>
           <View style={styles.cardHeaderLeft}>
             <CheckCircle2 size={16} color="#34d399" />
-            <Text style={styles.retentionTitle}>Retención Lexical</Text>
+            <Text style={[styles.retentionTitle, !isDark && styles.retentionTitleLight]}>Retención Lexical</Text>
           </View>
           <Text style={styles.retentionPercentText}>{retentionPercent}%</Text>
         </View>
 
         {/* Progress Bar */}
-        <View style={styles.progressBarBg}>
+        <View style={[styles.progressBarBg, !isDark && styles.progressBarBgLight]}>
           <View
             style={[
               styles.progressBarFill,
@@ -625,7 +705,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
         <View style={styles.statsRow}>
           <View>
             <Text style={styles.statLabel}>Dominadas</Text>
-            <Text style={styles.statValueWhite}>{masteredCount} términos</Text>
+            <Text style={[styles.statValueWhite, !isDark && styles.statValueDark]}>{masteredCount} términos</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={styles.statLabel}>Meta semanal</Text>
@@ -634,7 +714,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
         </View>
 
         {/* Bottom divider and SRS badge */}
-        <View style={styles.srsRow}>
+        <View style={[styles.srsRow, !isDark && styles.srsRowLight]}>
           <Text style={styles.srsLabel}>Repetición espaciada</Text>
           <View style={styles.srsBadge}>
             <View style={styles.srsDot} />
@@ -1140,6 +1220,88 @@ const styles = StyleSheet.create({
   chipNew: {
     borderColor: 'rgba(230, 46, 76, 0.4)',
     backgroundColor: 'rgba(230, 46, 76, 0.08)',
+  },
+
+  // Light Mode Overrides
+  chipLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  chipTextLight: {
+    color: '#334155',
+  },
+  badgeLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  badgeTextLight: {
+    color: '#64748b',
+  },
+  sidebarCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.04,
+  },
+  cardTitleLight: {
+    color: '#0f172a',
+  },
+  totalBadgeLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  totalBadgeTextLight: {
+    color: '#64748b',
+  },
+  newCategoryBtnLight: {
+    backgroundColor: 'rgba(230, 46, 76, 0.06)',
+    borderColor: 'rgba(230, 46, 76, 0.3)',
+  },
+  categoryItemActiveLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  itemTextLight: {
+    color: '#334155',
+  },
+  countBadgeLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  countBadgeTextLight: {
+    color: '#64748b',
+  },
+  sectionDividerLight: {
+    borderTopColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  sectionDividerTextLight: {
+    color: '#64748b',
+  },
+  treeHeaderActiveLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  treeHeaderTextLight: {
+    color: '#0f172a',
+  },
+  treeCountTextLight: {
+    color: '#64748b',
+  },
+  subListLight: {
+    borderLeftColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  subItemTextLight: {
+    color: '#475569',
+  },
+  subCountTextLight: {
+    color: '#64748b',
+  },
+  retentionTitleLight: {
+    color: '#0f172a',
+  },
+  progressBarBgLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  statValueDark: {
+    color: '#0f172a',
+  },
+  srsRowLight: {
+    borderTopColor: 'rgba(0, 0, 0, 0.08)',
   },
 });
 

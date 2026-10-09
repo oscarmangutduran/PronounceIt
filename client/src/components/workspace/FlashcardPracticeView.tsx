@@ -25,12 +25,14 @@ interface FlashcardPracticeViewProps {
   words: WordItem[];
   onBackToVocabulary: () => void;
   onUpdateStatus: (id: string, status: WordStatus) => void;
+  isDark?: boolean;
 }
 
 export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
   words,
   onBackToVocabulary,
   onUpdateStatus,
+  isDark = true,
 }) => {
   const [deck, setDeck] = useState<WordItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -102,7 +104,7 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
 
   return (
     <ScrollView
-      style={styles.scrollView}
+      style={[styles.scrollView, !isDark && styles.scrollViewLight]}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
@@ -110,21 +112,21 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
         {/* Top Header */}
         <View style={styles.header}>
         <TouchableOpacity style={styles.backIconBtn} onPress={onBackToVocabulary}>
-          <ArrowLeft size={18} color={THEME.colors.textMuted} />
-          <Text style={styles.headerBackText}>Salir</Text>
+          <ArrowLeft size={18} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
+          <Text style={[styles.headerBackText, !isDark && styles.headerBackTextLight]}>Salir</Text>
         </TouchableOpacity>
 
-        <Text style={styles.progressText}>
+        <Text style={[styles.progressText, !isDark && styles.progressTextLight]}>
           {currentIndex + 1} / {deck.length}
         </Text>
 
         <TouchableOpacity style={styles.shuffleBtn} onPress={handleRestart}>
-          <RotateCcw size={16} color={THEME.colors.textMuted} />
+          <RotateCcw size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
         </TouchableOpacity>
       </View>
 
       {/* Progress Bar */}
-      <View style={styles.progressBarTrack}>
+      <View style={[styles.progressBarTrack, !isDark && styles.progressBarTrackLight]}>
         <View
           style={[
             styles.progressBarFill,
@@ -139,11 +141,11 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
         onPress={() => setIsFlipped(!isFlipped)}
         activeOpacity={0.9}
       >
-        <View style={styles.card}>
+        <View style={[styles.card, !isDark && styles.cardLight]}>
           {/* Card Top Pill */}
           <View style={styles.cardTopBar}>
-            <View style={styles.sideBadge}>
-              <Text style={styles.sideBadgeText}>
+            <View style={[styles.sideBadge, !isDark && styles.sideBadgeLight]}>
+              <Text style={[styles.sideBadgeText, !isDark && styles.sideBadgeTextLight]}>
                 {isFlipped ? 'REVERSO (TRADUCCIÓN)' : 'FRENTE (PRONUNCIACIÓN)'}
               </Text>
             </View>
@@ -158,7 +160,7 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
           {/* Front content */}
           {!isFlipped ? (
             <View style={styles.cardBody}>
-              <Text style={styles.mainWord}>{currentWord.word}</Text>
+              <Text style={[styles.mainWord, !isDark && styles.mainWordLight]}>{currentWord.word}</Text>
 
               <TouchableOpacity
                 style={styles.audioAction}
@@ -171,8 +173,8 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
               </TouchableOpacity>
 
               {currentWord.phoneticGuide ? (
-                <View style={styles.guideBox}>
-                  <Text style={styles.guideLabel}>Cómo suena en español:</Text>
+                <View style={[styles.guideBox, !isDark && styles.guideBoxLight]}>
+                  <Text style={[styles.guideLabel, !isDark && styles.guideLabelLight]}>Cómo suena en español:</Text>
                   <Text style={styles.guideText}>
                     {currentWord.phoneticGuide.startsWith('"')
                       ? currentWord.phoneticGuide
@@ -182,10 +184,10 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
               ) : null}
 
               {currentWord.ipa ? (
-                <Text style={styles.ipaSub}>{currentWord.ipa}</Text>
+                <Text style={[styles.ipaSub, !isDark && styles.ipaSubLight]}>{currentWord.ipa}</Text>
               ) : null}
 
-              <Text style={styles.tapTip}>Toca la tarjeta para ver la traducción</Text>
+              <Text style={[styles.tapTip, !isDark && styles.tapTipLight]}>Toca la tarjeta para ver la traducción</Text>
             </View>
           ) : (
             // Back content
@@ -193,19 +195,19 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
               <Text style={styles.translationWord}>{currentWord.translation}</Text>
 
               {currentWord.definition ? (
-                <Text style={styles.definitionText}>{currentWord.definition}</Text>
+                <Text style={[styles.definitionText, !isDark && styles.definitionTextLight]}>{currentWord.definition}</Text>
               ) : null}
 
               {currentWord.exampleEn ? (
-                <View style={styles.exampleCard}>
-                  <Text style={styles.exampleEn}>{currentWord.exampleEn}</Text>
+                <View style={[styles.exampleCard, !isDark && styles.exampleCardLight]}>
+                  <Text style={[styles.exampleEn, !isDark && styles.exampleEnLight]}>{currentWord.exampleEn}</Text>
                   {currentWord.exampleEs ? (
-                    <Text style={styles.exampleEs}>{currentWord.exampleEs}</Text>
+                    <Text style={[styles.exampleEs, !isDark && styles.exampleEsLight]}>{currentWord.exampleEs}</Text>
                   ) : null}
                 </View>
               ) : null}
 
-              <Text style={styles.tapTip}>Toca para volver al frente</Text>
+              <Text style={[styles.tapTip, !isDark && styles.tapTipLight]}>Toca para volver al frente</Text>
             </View>
           )}
         </View>
@@ -547,5 +549,59 @@ const styles = StyleSheet.create({
     color: THEME.colors.textMuted,
     textAlign: 'center',
     marginBottom: 20,
+  },
+
+  // Light Mode Overrides
+  scrollViewLight: {
+    backgroundColor: '#f8fafc',
+  },
+  headerBackTextLight: {
+    color: '#64748b',
+  },
+  progressTextLight: {
+    color: '#64748b',
+  },
+  progressBarTrackLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  cardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.06,
+  },
+  sideBadgeLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  sideBadgeTextLight: {
+    color: '#64748b',
+  },
+  mainWordLight: {
+    color: '#0f172a',
+  },
+  guideBoxLight: {
+    backgroundColor: 'rgba(230, 46, 76, 0.06)',
+    borderColor: 'rgba(230, 46, 76, 0.2)',
+  },
+  guideLabelLight: {
+    color: '#64748b',
+  },
+  ipaSubLight: {
+    color: '#64748b',
+  },
+  tapTipLight: {
+    color: '#94a3b8',
+  },
+  definitionTextLight: {
+    color: '#475569',
+  },
+  exampleCardLight: {
+    backgroundColor: '#f8fafc',
+  },
+  exampleEnLight: {
+    color: '#0f172a',
+  },
+  exampleEsLight: {
+    color: '#64748b',
   },
 });

@@ -123,7 +123,7 @@ export async function initDb(): Promise<DatabaseSchema> {
     console.error('Failed to initialize database:', error);
     dbCache = { ...DEFAULT_DB };
   }
-  return dbCache;
+  return dbCache || { ...DEFAULT_DB };
 }
 
 export async function getDb(): Promise<DatabaseSchema> {

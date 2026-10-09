@@ -724,7 +724,11 @@ class FirebaseService {
         setDoc(doc(this.db, 'accounts', cleanEmail), autoAccount, { merge: true }).catch(() => {});
         setDoc(doc(this.db, 'accounts', cleanUsername.toLowerCase()), autoAccount, { merge: true }).catch(() => {});
       }
-      backendApi.register(cleanEmail, cleanUsername).catch(() => {});
+      try {
+        await backendApi.register(cleanEmail, cleanUsername);
+      } catch (err) {
+        console.warn('[FirebaseClient] Error auto-provisionando en backend:', err);
+      }
 
       const profile: UserProfile = {
         id: autoAccount.id,
@@ -834,8 +838,13 @@ class FirebaseService {
     accounts.push(newAccount);
     this.saveStoredAccounts(accounts);
 
-    // 5. Synchronize with Express backend database if reachable
-    backendApi.register(cleanEmail, cleanUsername).catch(() => {});
+    // 5. Synchronize with central backend database so user can log in on web and receives welcome email
+    try {
+      const regRes = await backendApi.register(cleanEmail, cleanUsername);
+      console.log('[FirebaseClient] Cuenta registrada exitosamente en backend central:', regRes);
+    } catch (backendErr) {
+      console.warn('[FirebaseClient] Aviso al registrar en backend central:', backendErr);
+    }
 
     const emailNotice: WelcomeEmailNotice = {
       to: cleanEmail,

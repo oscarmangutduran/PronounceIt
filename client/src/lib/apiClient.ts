@@ -3,19 +3,19 @@ import { WordItem } from '../types';
 import { StoredTestItem } from './testHistoryStore';
 import { appStorage } from './storage';
 
+export const PRODUCTION_API_URL = 'https://pronounceit-sand.vercel.app/api';
+
 export function getApiBaseUrl(): string {
-  // 1. Variable de entorno explícita (Expo o Vite)
+  // 1. Variable de entorno explícita (siempre que no apunte a localhost/10.0.2.2 en móvil nativo)
   const envUrl = process.env.EXPO_PUBLIC_API_URL || process.env.VITE_API_URL;
   if (envUrl && envUrl.trim().length > 0) {
-    return envUrl.trim().replace(/\/+$/, '');
+    const trimmed = envUrl.trim().replace(/\/+$/, '');
+    if (Platform.OS === 'web' || (!trimmed.includes('localhost') && !trimmed.includes('10.0.2.2'))) {
+      return trimmed;
+    }
   }
 
-  // 2. Android emulator
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:5000/api';
-  }
-
-  // 3. Web en navegador
+  // 2. Web en navegador local vs prod
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
@@ -24,13 +24,12 @@ export function getApiBaseUrl(): string {
       return 'http://localhost:5000/api';
     }
 
-    // Producción web (ej. Vercel en https://pronounceit.vercel.app):
-    // Usamos el origen actual con /api para evitar errores de Mixed Content y
-    // permitir redirección/proxy vía rewrites de Vercel si está configurado.
+    // Producción web (ej. Vercel en https://pronounceit-sand.vercel.app):
     return `${window.location.origin}/api`;
   }
 
-  return 'http://localhost:5000/api';
+  // 3. En aplicación móvil (APK Android / iOS): SIEMPRE usar la API en producción en Vercel
+  return PRODUCTION_API_URL;
 }
 
 const BASE_URL = getApiBaseUrl();
@@ -80,15 +79,17 @@ class BackendApiClient {
     return headers;
   }
 
-  private async fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 2500): Promise<Response> {
+  private async fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
+      console.log(`[API Request] ${options.method || 'GET'} ${url}`);
       const res = await fetch(url, { ...options, signal: controller.signal });
       clearTimeout(timer);
       return res;
     } catch (e) {
       clearTimeout(timer);
+      console.warn(`[API Request Error] ${options.method || 'GET'} ${url}:`, e);
       throw e;
     }
   }
@@ -113,7 +114,7 @@ class BackendApiClient {
       const res = await this.fetchWithTimeout(`${BASE_URL}/health`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-      }, 2000);
+      }, 5000);
 
       const contentType = res.headers.get('content-type') || '';
       if (res.ok && contentType.includes('application/json')) {
@@ -137,7 +138,7 @@ class BackendApiClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, username }),
-    }, 2500);
+    }, 15000);
     return res.json();
   }
 
@@ -149,7 +150,7 @@ class BackendApiClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ emailOrUsername, password }),
-    }, 2500);
+    }, 15000);
     const data = await res.json();
     if (data?.token) {
       this.setToken(data.token);
@@ -163,20 +164,20 @@ class BackendApiClient {
     currentPassword?: string;
     newPassword: string;
   }) {
-    const res = await fetch(`${BASE_URL}/auth/change-password`, {
+    const res = await this.fetchWithTimeout(`${BASE_URL}/auth/change-password`, {
       method: 'POST',
       headers: this.buildHeaders(),
       body: JSON.stringify(payload),
-    });
+    }, 15000);
     return res.json();
   }
 
   public async resetPassword(payload: { emailOrUsername: string; newPassword?: string }) {
-    const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+    const res = await this.fetchWithTimeout(`${BASE_URL}/auth/reset-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-    });
+    }, 15000);
     return res.json();
   }
 
@@ -184,21 +185,21 @@ class BackendApiClient {
     userId: string,
     data: { username?: string; avatar_url?: string; password?: string; email?: string }
   ) {
-    const res = await fetch(`${BASE_URL}/auth/profile`, {
+    const res = await this.fetchWithTimeout(`${BASE_URL}/auth/profile`, {
       method: 'PUT',
       headers: this.buildHeaders(),
       body: JSON.stringify({ userId, ...data }),
-    });
+    }, 15000);
     return res.json();
   }
 
   public async deleteAccount(userId?: string, email?: string, username?: string): Promise<ApiResponse> {
     try {
-      const res = await fetch(`${BASE_URL}/auth/delete-account`, {
+      const res = await this.fetchWithTimeout(`${BASE_URL}/auth/delete-account`, {
         method: 'DELETE',
         headers: this.buildHeaders(),
         body: JSON.stringify({ userId, email, username }),
-      });
+      }, 15000);
       return await res.json();
     } catch (e: any) {
       return { success: false, error: e?.message || 'Error de conexión' };

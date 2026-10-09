@@ -37,6 +37,7 @@ interface AddWordModalProps {
   categories?: CategoryItem[];
   defaultCategoryGroup?: string;
   defaultCategorySub?: string;
+  isDark?: boolean;
 }
 
 export const AddWordModal: React.FC<AddWordModalProps> = ({
@@ -47,6 +48,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   categories = [],
   defaultCategoryGroup,
   defaultCategorySub,
+  isDark = true,
 }) => {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
@@ -265,20 +267,26 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       onRequestClose={onClose}
     >
       <View style={[styles.modalOverlay, isDesktop && styles.modalOverlayDesktop]}>
-        <View style={[styles.modalCard, isDesktop && styles.modalCardDesktop]}>
+        <View
+          style={[
+            styles.modalCard,
+            isDesktop && styles.modalCardDesktop,
+            !isDark && styles.modalCardLight,
+          ]}
+        >
           {/* Header */}
-          <View style={styles.modalHeader}>
+          <View style={[styles.modalHeader, !isDark && styles.modalHeaderLight]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={styles.headerIcon}>
                 <BookOpen size={16} color={THEME.colors.crimsonLight} />
               </View>
-              <Text style={styles.headerTitle}>
+              <Text style={[styles.headerTitle, !isDark && styles.headerTitleLight]}>
                 {initialWord ? 'Editar Palabra' : 'Nueva Palabra'}
               </Text>
             </View>
 
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <X size={18} color={THEME.colors.textMuted} />
+              <X size={18} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -288,23 +296,24 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             contentContainerStyle={styles.scrollBody}
           >
             {/* Notice info banner */}
-            <View style={styles.noticeBox}>
+            <View style={[styles.noticeBox, !isDark && styles.noticeBoxLight]}>
               <Sparkles size={14} color="#ff4d6d" style={{ marginTop: 2 }} />
-              <Text style={styles.noticeText}>
+              <Text style={[styles.noticeText, !isDark && styles.noticeTextLight]}>
                 Escribe la palabra y selecciona su categoría. La traducción, fonética en inglés y las frases de ejemplo en inglés y español se autogeneran al instante.
               </Text>
             </View>
 
             {/* 1. Palabra en Inglés */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Palabra en Inglés *</Text>
+              <Text style={[styles.label, !isDark && styles.labelLight]}>Palabra en Inglés *</Text>
               <TextInput
                 style={[
                   styles.input,
+                  !isDark && styles.inputLight,
                   focusedField === 'word' && styles.inputFocused,
                 ]}
                 placeholder="Ej: breakthrough, eloquent, serendipity..."
-                placeholderTextColor={THEME.colors.textSubtle}
+                placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
                 value={word}
                 onChangeText={setWord}
                 onFocus={() => {
@@ -329,7 +338,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             )}
 
             {previewData && !loadingPreview && (
-              <View style={styles.previewCard}>
+              <View style={[styles.previewCard, !isDark && styles.previewCardLight]}>
                 <View style={styles.previewHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Sparkles size={13} color="#ff4d6d" />
@@ -349,7 +358,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 <View style={styles.previewRow}>
                   <View style={{ flex: 1.2 }}>
                     <Text style={styles.previewLabel}>Traducción (Español)</Text>
-                    <Text style={styles.previewTranslation}>{previewData.translation}</Text>
+                    <Text style={[styles.previewTranslation, !isDark && styles.previewTranslationLight]}>{previewData.translation}</Text>
                   </View>
                   <View style={{ flex: 1, alignItems: 'flex-end' }}>
                     <Text style={styles.previewLabel}>Fonéticamente (Inglés)</Text>
@@ -361,12 +370,12 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 </View>
 
                 {/* Frase en inglés y frase en español */}
-                <View style={styles.previewSentenceBox}>
+                <View style={[styles.previewSentenceBox, !isDark && styles.previewSentenceBoxLight]}>
                   <Text style={styles.previewLabel}>Frase en inglés con esta palabra</Text>
-                  <Text style={styles.previewSentenceEn}>{previewData.exampleEn}</Text>
+                  <Text style={[styles.previewSentenceEn, !isDark && styles.previewSentenceEnLight]}>{previewData.exampleEn}</Text>
 
                   <Text style={[styles.previewLabel, { marginTop: 8 }]}>Traducción en español</Text>
-                  <Text style={styles.previewSentenceEs}>{previewData.exampleEs}</Text>
+                  <Text style={[styles.previewSentenceEs, !isDark && styles.previewSentenceEsLight]}>{previewData.exampleEs}</Text>
                 </View>
               </View>
             )}
@@ -374,7 +383,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             {/* 2. Categoría (Lista Desplegable) */}
             <View style={[styles.inputGroup, { zIndex: 50 }]}>
               <View style={styles.labelRow}>
-                <Text style={styles.label}>Categoría *</Text>
+                <Text style={[styles.label, !isDark && styles.labelLight]}>Categoría *</Text>
                 {!isCustomCategory && (
                   <TouchableOpacity onPress={() => setIsCustomCategory(true)}>
                     <Text style={styles.linkText}>+ Nueva categoría</Text>
@@ -385,21 +394,21 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               {isCustomCategory ? (
                 <View style={styles.customInputRow}>
                   <TextInput
-                    style={[styles.input, { flex: 1 }]}
+                    style={[styles.input, !isDark && styles.inputLight, { flex: 1 }]}
                     placeholder="Escribe el nombre de la categoría..."
-                    placeholderTextColor={THEME.colors.textSubtle}
+                    placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
                     value={categoryGroup}
                     onChangeText={setCategoryGroup}
                     autoFocus
                   />
                   <TouchableOpacity
-                    style={styles.cancelCustomBtn}
+                    style={[styles.cancelCustomBtn, !isDark && styles.cancelCustomBtnLight]}
                     onPress={() => {
                       setIsCustomCategory(false);
                       setCategoryGroup(allCategories[0]?.name || '');
                     }}
                   >
-                    <Text style={styles.cancelCustomBtnText}>Elegir existente</Text>
+                    <Text style={[styles.cancelCustomBtnText, !isDark && styles.cancelCustomBtnTextLight]}>Elegir existente</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -408,6 +417,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   <TouchableOpacity
                     style={[
                       styles.dropdownTrigger,
+                      !isDark && styles.dropdownTriggerLight,
                       isCategoryOpen && styles.dropdownTriggerActive,
                     ]}
                     onPress={() => {
@@ -418,20 +428,20 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   >
                     <View style={styles.dropdownTriggerLeft}>
                       <Folder size={15} color={THEME.colors.crimsonLight} />
-                      <Text style={styles.dropdownTriggerText}>
+                      <Text style={[styles.dropdownTriggerText, !isDark && styles.dropdownTriggerTextLight]}>
                         {categoryGroup || 'Selecciona una categoría...'}
                       </Text>
                     </View>
                     {isCategoryOpen ? (
-                      <ChevronUp size={16} color={THEME.colors.textMuted} />
+                      <ChevronUp size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
                     ) : (
-                      <ChevronDown size={16} color={THEME.colors.textMuted} />
+                      <ChevronDown size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
                     )}
                   </TouchableOpacity>
 
                   {/* Dropdown Menu List */}
                   {isCategoryOpen && (
-                    <View style={styles.dropdownMenu}>
+                    <View style={[styles.dropdownMenu, !isDark && styles.dropdownMenuLight]}>
                       <ScrollView
                         nestedScrollEnabled
                         style={styles.dropdownScrollView}
@@ -458,6 +468,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                                 <Text
                                   style={[
                                     styles.dropdownItemText,
+                                    !isDark && styles.dropdownItemTextLight,
                                     isSelected && styles.dropdownItemTextActive,
                                   ]}
                                 >
@@ -493,7 +504,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             {/* 3. Subcategoría (Lista Desplegable) */}
             <View style={[styles.inputGroup, { zIndex: 40 }]}>
               <View style={styles.labelRow}>
-                <Text style={styles.label}>Subcategoría</Text>
+                <Text style={[styles.label, !isDark && styles.labelLight]}>Subcategoría</Text>
                 {!isCustomSubcategory && (
                   <TouchableOpacity onPress={() => setIsCustomSubcategory(true)}>
                     <Text style={styles.linkText}>+ Nueva subcategoría</Text>
@@ -504,21 +515,21 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               {isCustomSubcategory ? (
                 <View style={styles.customInputRow}>
                   <TextInput
-                    style={[styles.input, { flex: 1 }]}
+                    style={[styles.input, !isDark && styles.inputLight, { flex: 1 }]}
                     placeholder="Escribe la subcategoría..."
-                    placeholderTextColor={THEME.colors.textSubtle}
+                    placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
                     value={categorySub}
                     onChangeText={setCategorySub}
                     autoFocus
                   />
                   <TouchableOpacity
-                    style={styles.cancelCustomBtn}
+                    style={[styles.cancelCustomBtn, !isDark && styles.cancelCustomBtnLight]}
                     onPress={() => {
                       setIsCustomSubcategory(false);
                       setCategorySub(availableSubcategories[0] || '');
                     }}
                   >
-                    <Text style={styles.cancelCustomBtnText}>Elegir existente</Text>
+                    <Text style={[styles.cancelCustomBtnText, !isDark && styles.cancelCustomBtnTextLight]}>Elegir existente</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -527,6 +538,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   <TouchableOpacity
                     style={[
                       styles.dropdownTrigger,
+                      !isDark && styles.dropdownTriggerLight,
                       isSubcategoryOpen && styles.dropdownTriggerActive,
                     ]}
                     onPress={() => {
@@ -536,26 +548,27 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     activeOpacity={0.8}
                   >
                     <View style={styles.dropdownTriggerLeft}>
-                      <Pin size={14} color={categorySub ? '#ff758c' : THEME.colors.textSubtle} />
+                      <Pin size={14} color={categorySub ? '#ff758c' : (!isDark ? '#94a3b8' : THEME.colors.textSubtle)} />
                       <Text
                         style={[
                           styles.dropdownTriggerText,
-                          !categorySub && { color: THEME.colors.textSubtle },
+                          !isDark && styles.dropdownTriggerTextLight,
+                          !categorySub && { color: !isDark ? '#94a3b8' : THEME.colors.textSubtle },
                         ]}
                       >
                         {categorySub || 'Sin subcategoría (General)'}
                       </Text>
                     </View>
                     {isSubcategoryOpen ? (
-                      <ChevronUp size={16} color={THEME.colors.textMuted} />
+                      <ChevronUp size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
                     ) : (
-                      <ChevronDown size={16} color={THEME.colors.textMuted} />
+                      <ChevronDown size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
                     )}
                   </TouchableOpacity>
 
                   {/* Dropdown Menu List */}
                   {isSubcategoryOpen && (
-                    <View style={styles.dropdownMenu}>
+                    <View style={[styles.dropdownMenu, !isDark && styles.dropdownMenuLight]}>
                       <ScrollView
                         nestedScrollEnabled
                         style={styles.dropdownScrollView}
@@ -571,10 +584,11 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                           activeOpacity={0.8}
                         >
                           <View style={styles.dropdownItemLeft}>
-                            <Pin size={13} color={categorySub === '' ? '#ffffff' : THEME.colors.textSubtle} />
+                            <Pin size={13} color={categorySub === '' ? '#ffffff' : (!isDark ? '#94a3b8' : THEME.colors.textSubtle)} />
                             <Text
                               style={[
                                 styles.dropdownItemText,
+                                !isDark && styles.dropdownItemTextLight,
                                 categorySub === '' && styles.dropdownItemTextActive,
                               ]}
                             >
@@ -606,6 +620,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                                 <Text
                                   style={[
                                     styles.dropdownItemText,
+                                    !isDark && styles.dropdownItemTextLight,
                                     isSelected && styles.dropdownItemTextActive,
                                   ]}
                                 >
@@ -640,13 +655,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           </ScrollView>
 
           {/* Modal Footer Actions */}
-          <View style={styles.modalFooter}>
+          <View style={[styles.modalFooter, !isDark && styles.modalFooterLight]}>
             <TouchableOpacity
-              style={styles.cancelButton}
+              style={[styles.cancelButton, !isDark && styles.cancelButtonLight]}
               onPress={onClose}
               disabled={saving}
             >
-              <Text style={styles.cancelButtonText}>Cancelar</Text>
+              <Text style={[styles.cancelButtonText, !isDark && styles.cancelButtonTextLight]}>Cancelar</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -680,6 +695,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         cancelText={null}
         variant="warning"
         onConfirm={() => setValidationError(null)}
+        isDark={isDark}
       />
     </Modal>
   );
@@ -1045,4 +1061,79 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  modalCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+  },
+  modalHeaderLight: {
+    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  headerTitleLight: {
+    color: '#0f172a',
+  },
+  noticeBoxLight: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fecdd3',
+  },
+  noticeTextLight: {
+    color: '#9f1239',
+  },
+  labelLight: {
+    color: '#0f172a',
+  },
+  inputLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#cbd5e1',
+    color: '#0f172a',
+  },
+  cancelCustomBtnLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+  },
+  cancelCustomBtnTextLight: {
+    color: '#475569',
+  },
+  dropdownTriggerLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#cbd5e1',
+  },
+  dropdownTriggerTextLight: {
+    color: '#0f172a',
+  },
+  dropdownMenuLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  dropdownItemTextLight: {
+    color: '#334155',
+  },
+  previewCardLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#fca5a5',
+  },
+  previewTranslationLight: {
+    color: '#0f172a',
+  },
+  previewSentenceBoxLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
+  },
+  previewSentenceEnLight: {
+    color: '#1e293b',
+  },
+  previewSentenceEsLight: {
+    color: '#475569',
+  },
+  modalFooterLight: {
+    borderTopColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  cancelButtonLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  cancelButtonTextLight: {
+    color: '#475569',
+  },
 });
+

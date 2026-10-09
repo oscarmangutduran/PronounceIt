@@ -26,6 +26,7 @@ import { ConfirmModal } from '../common/ConfirmModal';
 interface TestViewProps {
   words: WordItem[];
   onBackToVocabulary: () => void;
+  isDark?: boolean;
 }
 
 interface QuizQuestion {
@@ -34,7 +35,7 @@ interface QuizQuestion {
   correctAnswer: string;
 }
 
-export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary }) => {
+export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, isDark = true }) => {
   const [testType, setTestType] = useState<'vocabulary' | 'irregular_verbs'>('vocabulary');
   const [selectedLevel, setSelectedLevel] = useState<string>('TODOS');
   const [isTestActive, setIsTestActive] = useState(false);
@@ -135,13 +136,13 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
     return (
       <View style={styles.container}>
         <View style={styles.contentWrapper}>
-          <View style={styles.modeTabBar}>
+          <View style={[styles.modeTabBar, !isDark && styles.modeTabBarLight]}>
             <TouchableOpacity
               style={styles.modeTab}
               onPress={() => setTestType('vocabulary')}
             >
-              <BookOpen size={16} color={THEME.colors.textMuted} />
-              <Text style={styles.modeTabText}>Test Vocabulario</Text>
+              <BookOpen size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
+              <Text style={[styles.modeTabText, !isDark && styles.modeTabTextLight]}>Test Vocabulario</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modeTab, styles.modeTabActive]}
@@ -154,7 +155,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
             </TouchableOpacity>
           </View>
 
-          <IrregularVerbsTestView onBackToVocabulary={onBackToVocabulary} />
+          <IrregularVerbsTestView onBackToVocabulary={onBackToVocabulary} isDark={isDark} />
         </View>
       </View>
     );
@@ -168,13 +169,13 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
     return (
       <View style={styles.centerContainer}>
         <View style={styles.contentWrapper}>
-          <View style={styles.card}>
+          <View style={[styles.card, !isDark && styles.cardLight]}>
             <View style={styles.resultsBadge}>
               <Trophy size={42} color={THEME.colors.amber} />
             </View>
-            <Text style={styles.resultTitle}>¡Test de Vocabulario Finalizado!</Text>
+            <Text style={[styles.resultTitle, !isDark && styles.resultTitleLight]}>¡Test de Vocabulario Finalizado!</Text>
             <Text style={styles.resultScore}>{score10} / 10</Text>
-            <Text style={styles.resultSub}>
+            <Text style={[styles.resultSub, !isDark && styles.resultSubLight]}>
               Has respondido correctamente {score} de {total} preguntas.
             </Text>
 
@@ -184,13 +185,13 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.secondaryBtn}
+              style={[styles.secondaryBtn, !isDark && styles.secondaryBtnLight]}
               onPress={() => {
                 setIsTestFinished(false);
                 setIsTestActive(false);
               }}
             >
-              <Text style={styles.secondaryBtnText}>Cambiar Nivel o Modo</Text>
+              <Text style={[styles.secondaryBtnText, !isDark && styles.secondaryBtnTextLight]}>Cambiar Nivel o Modo</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -207,7 +208,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
         <View style={styles.contentWrapper}>
           {/* Header Progress */}
           <View style={styles.quizHeader}>
-            <Text style={styles.quizStep}>
+            <Text style={[styles.quizStep, !isDark && styles.quizStepLight]}>
               Pregunta {currentIdx + 1} de {questions.length}
             </Text>
             <TouchableOpacity
@@ -216,12 +217,12 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
                 setIsTestFinished(false);
               }}
             >
-              <Text style={styles.cancelLink}>Salir</Text>
+              <Text style={[styles.cancelLink, !isDark && styles.cancelLinkLight]}>Salir</Text>
             </TouchableOpacity>
           </View>
 
           {/* Progress track */}
-          <View style={styles.progressBarTrack}>
+          <View style={[styles.progressBarTrack, !isDark && styles.progressBarTrackLight]}>
             <View
               style={[
                 styles.progressBarFill,
@@ -231,11 +232,11 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
           </View>
 
           {/* Question Prompt Card */}
-          <View style={styles.card}>
-            <Text style={styles.questionPrompt}>¿Cuál es la traducción correcta?</Text>
+          <View style={[styles.card, !isDark && styles.cardLight]}>
+            <Text style={[styles.questionPrompt, !isDark && styles.questionPromptLight]}>¿Cuál es la traducción correcta?</Text>
 
             <View style={styles.wordAudioRow}>
-              <Text style={styles.quizWord}>{q.targetWord.word}</Text>
+              <Text style={[styles.quizWord, !isDark && styles.quizWordLight]}>{q.targetWord.word}</Text>
               <TouchableOpacity
                 style={styles.speakerBtn}
                 onPress={() => vocabService.speak(q.targetWord.word)}
@@ -253,13 +254,14 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
             {/* 4 Options */}
             <View style={styles.optionsList}>
               {q.options.map((opt, i) => {
-                const isSelected = selectedAnswer === opt;
                 const isCorrect = opt === q.correctAnswer;
+                const isSelected = selectedAnswer === opt;
 
-                let btnStyle = styles.optionBtn;
+                const baseBtnStyle = [styles.optionBtn, !isDark && styles.optionBtnLight];
+                let btnStyle = baseBtnStyle;
                 if (selectedAnswer !== null) {
-                  if (isCorrect) btnStyle = [styles.optionBtn, styles.optionCorrect];
-                  else if (isSelected) btnStyle = [styles.optionBtn, styles.optionWrong];
+                  if (isCorrect) btnStyle = [...baseBtnStyle, styles.optionCorrect];
+                  else if (isSelected) btnStyle = [...baseBtnStyle, styles.optionWrong];
                 }
 
                 return (
@@ -272,6 +274,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
                     <Text
                       style={[
                         styles.optionText,
+                        !isDark && styles.optionTextLight,
                         selectedAnswer !== null && isCorrect && styles.optionTextCorrect,
                       ]}
                     >
@@ -312,7 +315,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
     <View style={styles.container}>
       <View style={styles.contentWrapper}>
         {/* Mode switcher tabs */}
-        <View style={styles.modeTabBar}>
+        <View style={[styles.modeTabBar, !isDark && styles.modeTabBarLight]}>
           <TouchableOpacity
             style={[styles.modeTab, styles.modeTabActive]}
             onPress={() => setTestType('vocabulary')}
@@ -324,29 +327,30 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
             style={styles.modeTab}
             onPress={() => setTestType('irregular_verbs')}
           >
-            <Zap size={16} color={THEME.colors.textMuted} />
-            <Text style={styles.modeTabText}>Verbos Irregulares</Text>
+            <Zap size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
+            <Text style={[styles.modeTabText, !isDark && styles.modeTabTextLight]}>Verbos Irregulares</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, !isDark && styles.cardLight]}>
           <View style={styles.introHeader}>
             <View style={styles.introIconCircle}>
               <Trophy size={28} color={THEME.colors.crimsonLight} />
             </View>
-            <Text style={styles.introTitle}>Evaluación de Vocabulario</Text>
-            <Text style={styles.introSubtitle}>
+            <Text style={[styles.introTitle, !isDark && styles.introTitleLight]}>Evaluación de Vocabulario</Text>
+            <Text style={[styles.introSubtitle, !isDark && styles.introSubtitleLight]}>
               Preguntas tipo test de opción múltiple para medir tu retención y reconocimiento léxico.
             </Text>
           </View>
 
-          <Text style={styles.filterTitle}>Selecciona el Nivel:</Text>
+          <Text style={[styles.filterTitle, !isDark && styles.filterTitleLight]}>Selecciona el Nivel:</Text>
           <View style={styles.levelSelector}>
             {['TODOS', 'A1', 'A2', 'B1', 'B2', 'C1'].map((lvl) => (
               <TouchableOpacity
                 key={lvl}
                 style={[
                   styles.levelChip,
+                  !isDark && styles.levelChipLight,
                   selectedLevel === lvl && styles.levelChipActive,
                 ]}
                 onPress={() => setSelectedLevel(lvl)}
@@ -354,6 +358,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
                 <Text
                   style={[
                     styles.levelChipText,
+                    !isDark && styles.levelChipTextLight,
                     selectedLevel === lvl && styles.levelChipTextActive,
                   ]}
                 >
@@ -363,10 +368,10 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
             ))}
           </View>
 
-          <View style={styles.statsSummaryBox}>
-            <Text style={styles.statsSummaryText}>
+          <View style={[styles.statsSummaryBox, !isDark && styles.statsSummaryBoxLight]}>
+            <Text style={[styles.statsSummaryText, !isDark && styles.statsSummaryTextLight]}>
               Palabras disponibles para este nivel:{' '}
-              <Text style={{ color: '#ffffff', fontWeight: '700' }}>
+              <Text style={{ color: !isDark ? '#0f172a' : '#ffffff', fontWeight: '700' }}>
                 {availableWords.length}
               </Text>
             </Text>
@@ -392,6 +397,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary })
         variant="warning"
         onConfirm={() => setInsufficientWordsModal(false)}
         onCancel={() => setInsufficientWordsModal(false)}
+        isDark={isDark}
       />
     </View>
   );
@@ -694,4 +700,76 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
   },
+  // Light mode styles
+  cardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    elevation: 2,
+  },
+  modeTabBarLight: {
+    backgroundColor: '#e2e8f0',
+  },
+  modeTabTextLight: {
+    color: '#475569',
+  },
+  introTitleLight: {
+    color: '#0f172a',
+  },
+  introSubtitleLight: {
+    color: '#475569',
+  },
+  filterTitleLight: {
+    color: '#475569',
+  },
+  levelChipLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+  },
+  levelChipTextLight: {
+    color: '#475569',
+  },
+  statsSummaryBoxLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  statsSummaryTextLight: {
+    color: '#475569',
+  },
+  secondaryBtnLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+  },
+  secondaryBtnTextLight: {
+    color: '#334155',
+  },
+  quizStepLight: {
+    color: '#0f172a',
+  },
+  cancelLinkLight: {
+    color: '#64748b',
+  },
+  progressBarTrackLight: {
+    backgroundColor: '#e2e8f0',
+  },
+  questionPromptLight: {
+    color: '#475569',
+  },
+  quizWordLight: {
+    color: '#0f172a',
+  },
+  optionBtnLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  optionTextLight: {
+    color: '#1e293b',
+  },
+  resultTitleLight: {
+    color: '#0f172a',
+  },
+  resultSubLight: {
+    color: '#475569',
+  },
 });
+

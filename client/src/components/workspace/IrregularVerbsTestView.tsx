@@ -52,10 +52,12 @@ interface IrregularVerbsTestViewProps {
   onBackToVocabulary: () => void;
   onStateChange?: (state: 'setup' | 'testing' | 'result') => void;
   onOpenResultsModal?: () => void;
+  isDark?: boolean;
 }
 
 export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
   onBackToVocabulary,
+  isDark = true,
 }) => {
   const [selectedLevel, setSelectedLevel] = useState<string>('TODOS');
   const [questionCount, setQuestionCount] = useState<number>(10);
@@ -169,29 +171,34 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
     return (
       <View style={styles.scrollContainer}>
         <View style={styles.contentWrapper}>
-          <View style={styles.setupCard}>
+          <View style={[styles.setupCard, !isDark && styles.cardLight]}>
             <View style={styles.setupHeader}>
               <View style={styles.setupIconBadge}>
                 <Zap size={24} color={THEME.colors.crimsonLight} />
               </View>
-              <Text style={styles.setupTitle}>Test de Verbos Irregulares</Text>
-              <Text style={styles.setupSubtitle}>
+              <Text style={[styles.setupTitle, !isDark && styles.titleLight]}>Test de Verbos Irregulares</Text>
+              <Text style={[styles.setupSubtitle, !isDark && styles.subtitleLight]}>
                 Pon a prueba tu dominio de las 3 formas: Infinitivo, Pasado Simple y Participio.
               </Text>
             </View>
 
             {/* Level selector */}
-            <Text style={styles.sectionLabel}>Selecciona el Nivel:</Text>
+            <Text style={[styles.sectionLabel, !isDark && styles.sectionLabelLight]}>Selecciona el Nivel:</Text>
             <View style={styles.levelRow}>
               {['TODOS', 'A1', 'A2', 'B1', 'B2'].map((lvl) => (
                 <TouchableOpacity
                   key={lvl}
-                  style={[styles.levelBtn, selectedLevel === lvl && styles.levelBtnActive]}
+                  style={[
+                    styles.levelBtn,
+                    !isDark && styles.levelBtnLight,
+                    selectedLevel === lvl && styles.levelBtnActive,
+                  ]}
                   onPress={() => setSelectedLevel(lvl)}
                 >
                   <Text
                     style={[
                       styles.levelBtnText,
+                      !isDark && styles.levelBtnTextLight,
                       selectedLevel === lvl && styles.levelBtnTextActive,
                     ]}
                   >
@@ -202,17 +209,22 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
             </View>
 
             {/* Questions count */}
-            <Text style={styles.sectionLabel}>Número de preguntas:</Text>
+            <Text style={[styles.sectionLabel, !isDark && styles.sectionLabelLight]}>Número de preguntas:</Text>
             <View style={styles.countRow}>
               {[5, 10, 15, 20].map((num) => (
                 <TouchableOpacity
                   key={num}
-                  style={[styles.countBtn, questionCount === num && styles.countBtnActive]}
+                  style={[
+                    styles.countBtn,
+                    !isDark && styles.levelBtnLight,
+                    questionCount === num && styles.countBtnActive,
+                  ]}
                   onPress={() => setQuestionCount(num)}
                 >
                   <Text
                     style={[
                       styles.countBtnText,
+                      !isDark && styles.levelBtnTextLight,
                       questionCount === num && styles.countBtnTextActive,
                     ]}
                   >
@@ -238,6 +250,7 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
           variant="warning"
           onConfirm={() => setNoVerbsModal(false)}
           onCancel={() => setNoVerbsModal(false)}
+          isDark={isDark}
         />
       </View>
     );
@@ -254,13 +267,13 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
     return (
       <View style={styles.scrollContainer}>
         <View style={styles.contentWrapper}>
-          <View style={styles.setupCard}>
+          <View style={[styles.setupCard, !isDark && styles.cardLight]}>
             <View style={styles.resultsBadge}>
               <Trophy size={40} color={THEME.colors.amber} />
             </View>
-            <Text style={styles.setupTitle}>¡Test Completado!</Text>
+            <Text style={[styles.setupTitle, !isDark && styles.titleLight]}>¡Test Completado!</Text>
             <Text style={styles.scoreBig}>{score10} / 10</Text>
-            <Text style={styles.scoreSub}>
+            <Text style={[styles.scoreSub, !isDark && styles.subtitleLight]}>
               Acertaste {fullyCorrect} de {total} verbos irregulares.
             </Text>
 
@@ -286,7 +299,7 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
       <View style={styles.contentWrapper}>
         {/* Header bar */}
         <View style={styles.testHeader}>
-          <Text style={styles.testProgress}>
+          <Text style={[styles.testProgress, !isDark && styles.titleLight]}>
             Pregunta {currentIndex + 1} de {activeVerbs.length}
           </Text>
           <TouchableOpacity
@@ -296,16 +309,16 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
               setTestCompleted(false);
             }}
           >
-            <Text style={styles.cancelBtnText}>Salir</Text>
+            <Text style={[styles.cancelBtnText, !isDark && styles.cancelBtnTextLight]}>Salir</Text>
           </TouchableOpacity>
         </View>
 
         {/* Verb Question Card */}
-        <View style={styles.questionCard}>
-        <View style={styles.verbPromptRow}>
+        <View style={[styles.questionCard, !isDark && styles.cardLight]}>
+        <View style={[styles.verbPromptRow, !isDark && styles.verbPromptRowLight]}>
           <View>
-            <Text style={styles.infinitiveText}>{currentVerb?.infinitive}</Text>
-            <Text style={styles.translationText}>{currentVerb?.translation}</Text>
+            <Text style={[styles.infinitiveText, !isDark && styles.titleLight]}>{currentVerb?.infinitive}</Text>
+            <Text style={[styles.translationText, !isDark && styles.subtitleLight]}>{currentVerb?.translation}</Text>
           </View>
 
           <TouchableOpacity
@@ -318,34 +331,36 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
 
         {/* Inputs */}
         <View style={styles.inputSection}>
-          <Text style={styles.inputFieldLabel}>Pasado Simple (Past Simple):</Text>
+          <Text style={[styles.inputFieldLabel, !isDark && styles.inputFieldLabelLight]}>Pasado Simple (Past Simple):</Text>
           <TextInput
             style={[
               styles.input,
+              !isDark && styles.inputLight,
               showAnswer &&
                 (evaluations[currentIndex]?.isPastSimpleCorrect
                   ? styles.inputCorrect
                   : styles.inputWrong),
             ]}
             placeholder="Ej: went / saw / did"
-            placeholderTextColor={THEME.colors.textSubtle}
+            placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
             value={inputPastSimple}
             onChangeText={setInputPastSimple}
             editable={!showAnswer}
             autoCapitalize="none"
           />
 
-          <Text style={styles.inputFieldLabel}>Participio (Past Participle):</Text>
+          <Text style={[styles.inputFieldLabel, !isDark && styles.inputFieldLabelLight]}>Participio (Past Participle):</Text>
           <TextInput
             style={[
               styles.input,
+              !isDark && styles.inputLight,
               showAnswer &&
                 (evaluations[currentIndex]?.isPastParticipleCorrect
                   ? styles.inputCorrect
                   : styles.inputWrong),
             ]}
             placeholder="Ej: gone / seen / done"
-            placeholderTextColor={THEME.colors.textSubtle}
+            placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
             value={inputPastParticiple}
             onChangeText={setInputPastParticiple}
             editable={!showAnswer}
@@ -355,13 +370,13 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
 
         {/* Show feedback if answered */}
         {showAnswer && (
-          <View style={styles.feedbackCard}>
+          <View style={[styles.feedbackCard, !isDark && styles.feedbackCardLight]}>
             <Text style={styles.feedbackTitle}>Respuestas correctas:</Text>
-            <Text style={styles.feedbackContent}>
-              Past Simple: <Text style={{ color: '#ffffff', fontWeight: '700' }}>{currentVerb.pastSimple}</Text>
+            <Text style={[styles.feedbackContent, !isDark && styles.feedbackContentLight]}>
+              Past Simple: <Text style={{ color: !isDark ? '#0f172a' : '#ffffff', fontWeight: '700' }}>{currentVerb.pastSimple}</Text>
             </Text>
-            <Text style={styles.feedbackContent}>
-              Past Participle: <Text style={{ color: '#ffffff', fontWeight: '700' }}>{currentVerb.pastParticiple}</Text>
+            <Text style={[styles.feedbackContent, !isDark && styles.feedbackContentLight]}>
+              Past Participle: <Text style={{ color: !isDark ? '#0f172a' : '#ffffff', fontWeight: '700' }}>{currentVerb.pastParticiple}</Text>
             </Text>
           </View>
         )}
@@ -668,4 +683,48 @@ const styles = StyleSheet.create({
     color: THEME.colors.textMuted,
     marginBottom: 24,
   },
+  cardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    elevation: 2,
+  },
+  titleLight: {
+    color: '#0f172a',
+  },
+  subtitleLight: {
+    color: '#475569',
+  },
+  sectionLabelLight: {
+    color: '#475569',
+  },
+  levelBtnLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+  },
+  levelBtnTextLight: {
+    color: '#475569',
+  },
+  cancelBtnTextLight: {
+    color: '#64748b',
+  },
+  verbPromptRowLight: {
+    borderBottomColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  inputFieldLabelLight: {
+    color: '#334155',
+  },
+  inputLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#cbd5e1',
+    color: '#0f172a',
+  },
+  feedbackCardLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  feedbackContentLight: {
+    color: '#475569',
+  },
 });
+

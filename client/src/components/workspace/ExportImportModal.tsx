@@ -20,6 +20,7 @@ interface ExportImportModalProps {
   onClose: () => void;
   words: WordItem[];
   onImportWords: (words: WordItem[]) => void;
+  isDark?: boolean;
 }
 
 export const ExportImportModal: React.FC<ExportImportModalProps> = ({
@@ -27,6 +28,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
   onClose,
   words,
   onImportWords,
+  isDark = true,
 }) => {
   const [activeTab, setActiveTab] = useState<'export' | 'import'>('export');
   const [delimiter, setDelimiter] = useState<';' | ','>(';');
@@ -138,10 +140,10 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
     <>
       <Modal visible={isOpen} animationType="slide" transparent onRequestClose={onClose}>
         <View style={styles.overlay}>
-          <View style={styles.card}>
+          <View style={[styles.card, !isDark && styles.cardLight]}>
             {/* Header & Tabs */}
             <View style={styles.header}>
-              <View style={styles.tabRow}>
+              <View style={[styles.tabRow, !isDark && styles.tabRowLight]}>
                 <TouchableOpacity
                   style={[styles.tab, activeTab === 'export' && styles.tabActive]}
                   onPress={() => setActiveTab('export')}
@@ -149,10 +151,14 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
                 >
                   <Download
                     size={14}
-                    color={activeTab === 'export' ? '#ffffff' : THEME.colors.textMuted}
+                    color={activeTab === 'export' ? '#ffffff' : (!isDark ? '#64748b' : THEME.colors.textMuted)}
                   />
                   <Text
-                    style={[styles.tabText, activeTab === 'export' && styles.tabTextActive]}
+                    style={[
+                      styles.tabText,
+                      !isDark && styles.tabTextLight,
+                      activeTab === 'export' && styles.tabTextActive,
+                    ]}
                   >
                     Exportar CSV ({words.length})
                   </Text>
@@ -165,10 +171,14 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
                 >
                   <Upload
                     size={14}
-                    color={activeTab === 'import' ? '#ffffff' : THEME.colors.textMuted}
+                    color={activeTab === 'import' ? '#ffffff' : (!isDark ? '#64748b' : THEME.colors.textMuted)}
                   />
                   <Text
-                    style={[styles.tabText, activeTab === 'import' && styles.tabTextActive]}
+                    style={[
+                      styles.tabText,
+                      !isDark && styles.tabTextLight,
+                      activeTab === 'import' && styles.tabTextActive,
+                    ]}
                   >
                     Importar CSV
                   </Text>
@@ -176,7 +186,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
               </View>
 
               <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.8}>
-                <X size={18} color={THEME.colors.textMuted} />
+                <X size={18} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -188,20 +198,21 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
             >
               {activeTab === 'export' ? (
                 <>
-                  <View style={styles.descriptionRow}>
+                  <View style={[styles.descriptionRow, !isDark && styles.descriptionRowLight]}>
                     <FileSpreadsheet size={18} color={THEME.colors.crimsonLight} />
-                    <Text style={styles.infoText}>
-                      Cada dato se exporta en su propia columna separada (<Text style={styles.boldText}>Columna A: palabra, B: traduccion, C: categoria...</Text>). Compatible con Excel y Google Sheets.
+                    <Text style={[styles.infoText, !isDark && styles.infoTextLight]}>
+                      Cada dato se exporta en su propia columna separada (<Text style={[styles.boldText, !isDark && styles.boldTextLight]}>Columna A: palabra, B: traduccion, C: categoria...</Text>). Compatible con Excel y Google Sheets.
                     </Text>
                   </View>
 
                   {/* Delimiter Selector */}
                   <View style={styles.delimiterContainer}>
-                    <Text style={styles.subLabel}>Separador de Columnas:</Text>
+                    <Text style={[styles.subLabel, !isDark && styles.subLabelLight]}>Separador de Columnas:</Text>
                     <View style={styles.delimiterOptions}>
                       <TouchableOpacity
                         style={[
                           styles.delimiterPill,
+                          !isDark && styles.delimiterPillLight,
                           delimiter === ';' && styles.delimiterPillActive,
                         ]}
                         onPress={() => setDelimiter(';')}
@@ -210,6 +221,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
                         <Text
                           style={[
                             styles.delimiterText,
+                            !isDark && styles.delimiterTextLight,
                             delimiter === ';' && styles.delimiterTextActive,
                           ]}
                         >
@@ -220,6 +232,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
                       <TouchableOpacity
                         style={[
                           styles.delimiterPill,
+                          !isDark && styles.delimiterPillLight,
                           delimiter === ',' && styles.delimiterPillActive,
                         ]}
                         onPress={() => setDelimiter(',')}
@@ -228,6 +241,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
                         <Text
                           style={[
                             styles.delimiterText,
+                            !isDark && styles.delimiterTextLight,
                             delimiter === ',' && styles.delimiterTextActive,
                           ]}
                         >
@@ -248,7 +262,11 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.copyBtn, isCopied && styles.copyBtnSuccess]}
+                      style={[
+                        styles.copyBtn,
+                        !isDark && styles.copyBtnLight,
+                        isCopied && styles.copyBtnSuccess,
+                      ]}
                       onPress={handleCopy}
                       activeOpacity={0.85}
                     >
@@ -259,16 +277,16 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
                         </>
                       ) : (
                         <>
-                          <Copy size={16} color="#ffffff" style={{ marginRight: 6 }} />
-                          <Text style={styles.copyBtnText}>Copiar CSV</Text>
+                          <Copy size={16} color={!isDark ? '#e62e4c' : '#ffffff'} style={{ marginRight: 6 }} />
+                          <Text style={[styles.copyBtnText, !isDark && styles.copyBtnTextLight]}>Copiar CSV</Text>
                         </>
                       )}
                     </TouchableOpacity>
                   </View>
 
-                  <Text style={styles.subLabel}>Vista previa del CSV generado:</Text>
+                  <Text style={[styles.subLabel, !isDark && styles.subLabelLight]}>Vista previa del CSV generado:</Text>
                   <TextInput
-                    style={styles.csvBox}
+                    style={[styles.csvBox, !isDark && styles.csvBoxLight]}
                     value={exportCsvString}
                     editable={false}
                     multiline
@@ -276,37 +294,37 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
                 </>
               ) : (
                 <>
-                  <View style={styles.descriptionRow}>
+                  <View style={[styles.descriptionRow, !isDark && styles.descriptionRowLight]}>
                     <FolderUp size={18} color={THEME.colors.crimsonLight} />
-                    <Text style={styles.infoText}>
-                      Selecciona un archivo <Text style={styles.boldText}>.csv</Text> de tu ordenador o pega su contenido con columnas como <Text style={styles.codeText}>palabra, traduccion, categoria</Text>.
+                    <Text style={[styles.infoText, !isDark && styles.infoTextLight]}>
+                      Selecciona un archivo <Text style={[styles.boldText, !isDark && styles.boldTextLight]}>.csv</Text> de tu ordenador o pega su contenido con columnas como <Text style={styles.codeText}>palabra, traduccion, categoria</Text>.
                     </Text>
                   </View>
 
                   {/* File Upload Selector Button */}
                   <TouchableOpacity
-                    style={styles.uploadPickerBtn}
+                    style={[styles.uploadPickerBtn, !isDark && styles.uploadPickerBtnLight]}
                     onPress={handlePickFile}
                     activeOpacity={0.85}
                   >
                     <FolderUp size={18} color={THEME.colors.crimsonLight} style={{ marginRight: 8 }} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.uploadPickerBtnText}>
+                      <Text style={[styles.uploadPickerBtnText, !isDark && styles.uploadPickerBtnTextLight]}>
                         {uploadedFileName
                           ? `Archivo cargado: ${uploadedFileName}`
                           : 'Cargar archivo .CSV desde tu equipo'}
                       </Text>
-                      <Text style={styles.uploadPickerBtnSub}>
+                      <Text style={[styles.uploadPickerBtnSub, !isDark && styles.uploadPickerBtnSubLight]}>
                         {uploadedFileName ? 'Haz clic para seleccionar otro archivo' : 'Formato .csv delimitado por columnas (punto y coma o comas)'}
                       </Text>
                     </View>
                   </TouchableOpacity>
 
-                  <Text style={styles.subLabel}>O pega el contenido CSV directamente aquí:</Text>
+                  <Text style={[styles.subLabel, !isDark && styles.subLabelLight]}>O pega el contenido CSV directamente aquí:</Text>
                   <TextInput
-                    style={[styles.csvBox, styles.inputBox]}
+                    style={[styles.csvBox, styles.inputBox, !isDark && styles.csvBoxLight]}
                     placeholder={`palabra;traduccion;categoria;nivel\napple;manzana;Frutas;A1\nbreakthrough;avance decisivo;Tecnologia;B2`}
-                    placeholderTextColor={THEME.colors.textSubtle}
+                    placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
                     value={importCsv}
                     onChangeText={(val) => {
                       setImportCsv(val);
@@ -347,6 +365,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
             }
           }}
           onCancel={() => setStatusModal(null)}
+          isDark={isDark}
         />
       )}
     </>
@@ -573,5 +592,59 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
+  },
+  cardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+  },
+  tabRowLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  tabTextLight: {
+    color: '#475569',
+  },
+  descriptionRowLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  infoTextLight: {
+    color: '#475569',
+  },
+  boldTextLight: {
+    color: '#0f172a',
+  },
+  delimiterPillLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+  },
+  delimiterTextLight: {
+    color: '#475569',
+  },
+  subLabelLight: {
+    color: '#475569',
+  },
+  copyBtnLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+  },
+  copyBtnTextLight: {
+    color: '#0f172a',
+  },
+  uploadPickerBtnLight: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fca5a5',
+  },
+  uploadPickerBtnTextLight: {
+    color: '#0f172a',
+  },
+  uploadPickerBtnSubLight: {
+    color: '#64748b',
+  },
+  csvBoxLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#cbd5e1',
+    color: '#0f172a',
   },
 });

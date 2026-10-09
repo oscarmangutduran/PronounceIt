@@ -43,6 +43,7 @@ interface VocabularyTableViewProps {
   onToggleFavorite: (id: string) => void;
   onUpdateStatus: (id: string, status: WordStatus) => void;
   onDeleteWord: (id: string) => void;
+  isDark?: boolean;
 }
 
 export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
@@ -55,6 +56,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   onToggleFavorite,
   onUpdateStatus,
   onDeleteWord,
+  isDark = true,
 }) => {
   const { isTableView, isPhone, isDesktop } = useResponsive();
 
@@ -139,26 +141,26 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
       {/* 1. Header: Breadcrumb, Title & Top Action Buttons */}
       <View style={styles.headerRow}>
         <View style={styles.headerTitles}>
-          <Text style={styles.breadcrumbText}>Biblioteca / {getBreadcrumbTitle()}</Text>
+          <Text style={[styles.breadcrumbText, !isDark && styles.breadcrumbTextLight]}>Biblioteca / {getBreadcrumbTitle()}</Text>
           <View style={styles.titleWithBadge}>
-            <Text style={styles.mainTitle}>{getSectionTitle()}</Text>
+            <Text style={[styles.mainTitle, !isDark && styles.mainTitleLight]}>{getSectionTitle()}</Text>
             <View style={styles.levelBadgePill}>
               <Text style={styles.levelBadgePillText}>A1 - C2</Text>
             </View>
           </View>
-          <Text style={styles.subtitleText}>{filteredWords.length} palabras registradas</Text>
+          <Text style={[styles.subtitleText, !isDark && styles.subtitleTextLight]}>{filteredWords.length} palabras registradas</Text>
         </View>
 
         {/* Action Buttons */}
         <View style={styles.headerActions}>
           {/* Exportar / Importar */}
           <TouchableOpacity
-            style={styles.btnOutline}
+            style={[styles.btnOutline, !isDark && styles.btnOutlineLight]}
             onPress={onOpenExportModal}
             activeOpacity={0.8}
           >
-            <Download size={14} color={THEME.colors.textMuted} style={{ marginRight: 6 }} />
-            <Text style={styles.btnOutlineText}>Exportar / Importar</Text>
+            <Download size={14} color={!isDark ? '#64748b' : THEME.colors.textMuted} style={{ marginRight: 6 }} />
+            <Text style={[styles.btnOutlineText, !isDark && styles.btnOutlineTextLight]}>Exportar / Importar</Text>
           </TouchableOpacity>
 
           {/* Practicar */}
@@ -186,46 +188,46 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
       {/* 2. Filter Bar */}
       <View style={styles.filterBar}>
         {/* Search input with ⌘F */}
-        <View style={styles.searchInputContainer}>
-          <Search size={15} color={THEME.colors.textSubtle} style={{ marginRight: 8 }} />
+        <View style={[styles.searchInputContainer, !isDark && styles.searchInputContainerLight]}>
+          <Search size={15} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} style={{ marginRight: 8 }} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, !isDark && styles.searchInputLight]}
             placeholder="Buscar por palabra en inglés, español o fonética..."
-            placeholderTextColor={THEME.colors.textSubtle}
+            placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
             value={searchTerm}
             onChangeText={(text) => {
               setSearchTerm(text);
               setCurrentPage(1);
             }}
           />
-          <View style={styles.kbdBadge}>
-            <Text style={styles.kbdText}>⌘F</Text>
+          <View style={[styles.kbdBadge, !isDark && styles.kbdBadgeLight]}>
+            <Text style={[styles.kbdText, !isDark && styles.kbdTextLight]}>⌘F</Text>
           </View>
         </View>
 
         {/* Dropdown 1: Level */}
-        <View style={styles.selectWrapper}>
-          <Text style={styles.selectText}>Nivel: Todos (A1-C2)</Text>
-          <ChevronDown size={14} color={THEME.colors.textSubtle} />
+        <View style={[styles.selectWrapper, !isDark && styles.selectWrapperLight]}>
+          <Text style={[styles.selectText, !isDark && styles.selectTextLight]}>Nivel: Todos (A1-C2)</Text>
+          <ChevronDown size={14} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} />
         </View>
 
         {/* Dropdown 2: Status */}
-        <View style={styles.selectWrapper}>
-          <Text style={styles.selectText}>Estado: Todos</Text>
-          <ChevronDown size={14} color={THEME.colors.textSubtle} />
+        <View style={[styles.selectWrapper, !isDark && styles.selectWrapperLight]}>
+          <Text style={[styles.selectText, !isDark && styles.selectTextLight]}>Estado: Todos</Text>
+          <ChevronDown size={14} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} />
         </View>
       </View>
 
       {/* 3. Table / Card View */}
-      <View style={styles.tableCard}>
+      <View style={[styles.tableCard, !isDark && styles.tableCardLight]}>
         {/* Table Column Headers (Only for wide table view) */}
         {isTableView && (
-          <View style={styles.tableHeaderRow}>
-            <Text style={[styles.colHeader, { flex: 1.5 }]}>PALABRA (INGLÉS)</Text>
-            <Text style={[styles.colHeader, { flex: 1.5 }]}>FONÉTICA & PRONUNCIACIÓN</Text>
-            <Text style={[styles.colHeader, { flex: 1.5 }]}>TRADUCCIÓN (ESPAÑOL)</Text>
-            <Text style={[styles.colHeader, { flex: 2.2 }]}>FRASE DE EJEMPLO (BILINGÜE)</Text>
-            <Text style={[styles.colHeader, { flex: 1.3, textAlign: 'right' }]}>
+          <View style={[styles.tableHeaderRow, !isDark && styles.tableHeaderRowLight]}>
+            <Text style={[styles.colHeader, !isDark && styles.colHeaderLight, { flex: 1.5 }]}>PALABRA (INGLÉS)</Text>
+            <Text style={[styles.colHeader, !isDark && styles.colHeaderLight, { flex: 1.5 }]}>FONÉTICA & PRONUNCIACIÓN</Text>
+            <Text style={[styles.colHeader, !isDark && styles.colHeaderLight, { flex: 1.5 }]}>TRADUCCIÓN (ESPAÑOL)</Text>
+            <Text style={[styles.colHeader, !isDark && styles.colHeaderLight, { flex: 2.2 }]}>FRASE DE EJEMPLO (BILINGÜE)</Text>
+            <Text style={[styles.colHeader, !isDark && styles.colHeaderLight, { flex: 1.3, textAlign: 'right' }]}>
               ESTADO & ACCIONES
             </Text>
           </View>
@@ -255,7 +257,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
           /* RESPONSIVE WORD CARDS (Mobile Portrait & Landscape, Tablet Portrait) */
           <ScrollView style={styles.tableBody} contentContainerStyle={styles.cardList}>
             {pageWords.map((word, index) => (
-              <View key={`${word.id || index}_${index}`} style={styles.wordCard}>
+              <View key={`${word.id || index}_${index}`} style={[styles.wordCard, !isDark && styles.wordCardLight]}>
                 {/* 1. Top Bar: Word, speaker, level tag + status pill, star, edit, delete */}
                 <View style={styles.wordCardTop}>
                   <View style={styles.wordCardTitleArea}>
@@ -266,7 +268,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
                       <Volume2 size={16} color={THEME.colors.crimsonLight} />
                     </TouchableOpacity>
                     <View>
-                      <Text style={styles.cardWordTitle}>{word.word}</Text>
+                      <Text style={[styles.cardWordTitle, !isDark && styles.cardWordTitleLight]}>{word.word}</Text>
                       {word.level && <Text style={styles.rowLevelTag}>{word.level}</Text>}
                     </View>
                   </View>
@@ -294,13 +296,13 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
                     >
                       <Star
                         size={16}
-                        color={word.isFavorite ? '#f59e0b' : THEME.colors.textSubtle}
+                        color={word.isFavorite ? '#f59e0b' : (!isDark ? '#94a3b8' : THEME.colors.textSubtle)}
                         fill={word.isFavorite ? '#f59e0b' : 'transparent'}
                       />
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.iconBtn} onPress={() => onEditWord(word)}>
-                      <Edit2 size={15} color={THEME.colors.textMuted} />
+                      <Edit2 size={15} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.iconBtn} onPress={() => confirmDelete(word)}>
@@ -310,7 +312,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
                 </View>
 
                 {/* 2. Meta: Phonetics & Translation */}
-                <View style={styles.wordCardMetaRow}>
+                <View style={[styles.wordCardMetaRow, !isDark && styles.wordCardMetaRowLight]}>
                   <View style={styles.cardMetaBlock}>
                     <Text style={styles.cardMetaLabel}>FONÉTICA</Text>
                     <Text style={styles.rowIpa}>
@@ -325,18 +327,18 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
 
                   <View style={styles.cardMetaBlock}>
                     <Text style={styles.cardMetaLabel}>TRADUCCIÓN</Text>
-                    <Text style={styles.cardTranslationText}>{word.translation || '—'}</Text>
+                    <Text style={[styles.cardTranslationText, !isDark && styles.cardTranslationTextLight]}>{word.translation || '—'}</Text>
                   </View>
                 </View>
 
                 {/* 3. Example sentence (if present) */}
                 {(word.exampleEn || (word as any).exampleSentence || (word as any).example) && (
-                  <View style={styles.cardExampleBlock}>
-                    <Text style={styles.cardExampleEn}>
+                  <View style={[styles.cardExampleBlock, !isDark && styles.cardExampleBlockLight]}>
+                    <Text style={[styles.cardExampleEn, !isDark && styles.cardExampleEnLight]}>
                       "{word.exampleEn || (word as any).exampleSentence || (word as any).example}"
                     </Text>
                     {(word.exampleEs || (word as any).exampleTranslation) ? (
-                      <Text style={styles.cardExampleEs}>
+                      <Text style={[styles.cardExampleEs, !isDark && styles.cardExampleEsLight]}>
                         {word.exampleEs || (word as any).exampleTranslation}
                       </Text>
                     ) : null}
@@ -349,7 +351,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
           /* FULL TABLE VIEW (Desktop and Tablet Landscape) */
           <ScrollView style={styles.tableBody}>
             {pageWords.map((word, index) => (
-              <View key={`${word.id || index}_${index}`} style={styles.tableRow}>
+              <View key={`${word.id || index}_${index}`} style={[styles.tableRow, !isDark && styles.tableRowLight]}>
                 {/* 1. Word (English) */}
                 <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <TouchableOpacity
@@ -359,7 +361,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
                     <Volume2 size={14} color={THEME.colors.crimsonLight} />
                   </TouchableOpacity>
                   <View>
-                    <Text style={styles.rowWord}>{word.word}</Text>
+                    <Text style={[styles.rowWord, !isDark && styles.rowWordLight]}>{word.word}</Text>
                     {word.level && <Text style={styles.rowLevelTag}>{word.level}</Text>}
                   </View>
                 </View>
@@ -378,16 +380,16 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
 
                 {/* 3. Translation */}
                 <View style={{ flex: 1.5 }}>
-                  <Text style={styles.rowTranslation}>{word.translation || '—'}</Text>
+                  <Text style={[styles.rowTranslation, !isDark && styles.rowTranslationLight]}>{word.translation || '—'}</Text>
                 </View>
 
                 {/* 4. Example Sentence */}
                 <View style={{ flex: 2.2 }}>
-                  <Text style={styles.rowExampleEn} numberOfLines={2}>
+                  <Text style={[styles.rowExampleEn, !isDark && styles.rowExampleEnLight]} numberOfLines={2}>
                     {word.exampleEn || (word as any).exampleSentence || (word as any).example || '—'}
                   </Text>
                   {(word.exampleEs || (word as any).exampleTranslation) ? (
-                    <Text style={styles.rowExampleEs} numberOfLines={2}>
+                    <Text style={[styles.rowExampleEs, !isDark && styles.rowExampleEsLight]} numberOfLines={2}>
                       {word.exampleEs || (word as any).exampleTranslation}
                     </Text>
                   ) : null}
@@ -427,14 +429,14 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
                   >
                     <Star
                       size={14}
-                      color={word.isFavorite ? '#f59e0b' : THEME.colors.textSubtle}
+                      color={word.isFavorite ? '#f59e0b' : (!isDark ? '#94a3b8' : THEME.colors.textSubtle)}
                       fill={word.isFavorite ? '#f59e0b' : 'transparent'}
                     />
                   </TouchableOpacity>
 
                   {/* Edit */}
                   <TouchableOpacity style={styles.iconBtn} onPress={() => onEditWord(word)}>
-                    <Edit2 size={13} color={THEME.colors.textMuted} />
+                    <Edit2 size={13} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
                   </TouchableOpacity>
 
                   {/* Delete */}
@@ -448,27 +450,27 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
         )}
 
         {/* 4. Table Pagination Footer */}
-        <View style={styles.paginationFooter}>
+        <View style={[styles.paginationFooter, !isDark && styles.paginationFooterLight]}>
           {/* Showing count */}
           <View style={styles.paginationLeft}>
-            <Text style={styles.paginationText}>
+            <Text style={[styles.paginationText, !isDark && styles.paginationTextLight]}>
               Mostrando{' '}
-              <Text style={styles.paginationBold}>
+              <Text style={[styles.paginationBold, !isDark && styles.paginationBoldLight]}>
                 {filteredWords.length > 0 ? startIndex + 1 : 0}
               </Text>{' '}
               -{' '}
-              <Text style={styles.paginationBold}>
+              <Text style={[styles.paginationBold, !isDark && styles.paginationBoldLight]}>
                 {startIndex + pageWords.length}
               </Text>{' '}
-              de <Text style={styles.paginationBold}>{filteredWords.length}</Text> palabras
+              de <Text style={[styles.paginationBold, !isDark && styles.paginationBoldLight]}>{filteredWords.length}</Text> palabras
             </Text>
 
             {/* Rows per page */}
             <View style={styles.rowsPerPageBox}>
-              <Text style={styles.paginationText}>Filas por página:</Text>
-              <View style={styles.rowsSelect}>
-                <Text style={styles.rowsSelectText}>6</Text>
-                <ChevronDown size={12} color={THEME.colors.textSubtle} />
+              <Text style={[styles.paginationText, !isDark && styles.paginationTextLight]}>Filas por página:</Text>
+              <View style={[styles.rowsSelect, !isDark && styles.rowsSelectLight]}>
+                <Text style={[styles.rowsSelectText, !isDark && styles.rowsSelectTextLight]}>6</Text>
+                <ChevronDown size={12} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} />
               </View>
             </View>
           </View>
@@ -502,11 +504,11 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
           {/* Pagination Controls */}
           <View style={styles.paginationControls}>
             <TouchableOpacity
-              style={[styles.pageBtn, validPage <= 1 && styles.pageBtnDisabled]}
+              style={[styles.pageBtn, !isDark && styles.pageBtnLight, validPage <= 1 && styles.pageBtnDisabled]}
               disabled={validPage <= 1}
               onPress={() => setCurrentPage((p) => Math.max(1, p - 1))}
             >
-              <ChevronLeft size={14} color={validPage <= 1 ? '#475569' : '#ffffff'} />
+              <ChevronLeft size={14} color={validPage <= 1 ? '#94a3b8' : (!isDark ? '#0f172a' : '#ffffff')} />
             </TouchableOpacity>
 
             <Text style={styles.pageNumberText}>
@@ -514,7 +516,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
             </Text>
 
             <TouchableOpacity
-              style={[styles.pageBtn, validPage >= totalPages && styles.pageBtnDisabled]}
+              style={[styles.pageBtn, !isDark && styles.pageBtnLight, validPage >= totalPages && styles.pageBtnDisabled]}
               disabled={validPage >= totalPages}
               onPress={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             >
@@ -1023,5 +1025,115 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#ff758c',
+  },
+
+  // Light Mode Overrides
+  breadcrumbTextLight: {
+    color: '#64748b',
+  },
+  mainTitleLight: {
+    color: '#0f172a',
+  },
+  subtitleTextLight: {
+    color: '#64748b',
+  },
+  btnOutlineLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.12)',
+  },
+  btnOutlineTextLight: {
+    color: '#334155',
+  },
+  searchInputContainerLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  searchInputLight: {
+    color: '#0f172a',
+  },
+  kbdBadgeLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  kbdTextLight: {
+    color: '#64748b',
+  },
+  selectWrapperLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  selectTextLight: {
+    color: '#0f172a',
+  },
+  tableCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.04,
+  },
+  tableHeaderRowLight: {
+    backgroundColor: '#f8fafc',
+    borderBottomColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  colHeaderLight: {
+    color: '#64748b',
+  },
+  tableRowLight: {
+    borderBottomColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  rowWordLight: {
+    color: '#0f172a',
+  },
+  rowTranslationLight: {
+    color: '#334155',
+  },
+  rowExampleEnLight: {
+    color: '#0f172a',
+  },
+  rowExampleEsLight: {
+    color: '#64748b',
+  },
+  wordCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.03,
+  },
+  cardWordTitleLight: {
+    color: '#0f172a',
+  },
+  wordCardMetaRowLight: {
+    backgroundColor: '#f8fafc',
+  },
+  cardTranslationTextLight: {
+    color: '#334155',
+  },
+  cardExampleBlockLight: {
+    backgroundColor: '#f8fafc',
+  },
+  cardExampleEnLight: {
+    color: '#0f172a',
+  },
+  cardExampleEsLight: {
+    color: '#64748b',
+  },
+  paginationFooterLight: {
+    backgroundColor: '#ffffff',
+    borderTopColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  paginationTextLight: {
+    color: '#64748b',
+  },
+  paginationBoldLight: {
+    color: '#0f172a',
+  },
+  rowsSelectLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  rowsSelectTextLight: {
+    color: '#0f172a',
+  },
+  pageBtnLight: {
+    backgroundColor: '#f1f5f9',
   },
 });

@@ -511,7 +511,7 @@ function MainApp() {
   }
 
   return (
-    <View style={styles.appContainer}>
+    <View style={[styles.appContainer, !isDark && styles.appContainerLight]}>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Top Navigation */}
@@ -551,6 +551,7 @@ function MainApp() {
                   setEditingWord(null);
                   setIsAddModalOpen(true);
                 }}
+                isDark={isDark}
               />
 
               <VocabularyTableView
@@ -566,6 +567,7 @@ function MainApp() {
                 onToggleFavorite={handleToggleFavorite}
                 onUpdateStatus={handleUpdateStatus}
                 onDeleteWord={handleDeleteWord}
+                isDark={isDark}
               />
             </View>
           )}
@@ -575,6 +577,7 @@ function MainApp() {
               words={words}
               onBackToVocabulary={() => setActiveTab('vocabulary')}
               onUpdateStatus={handleUpdateStatus}
+              isDark={isDark}
             />
           )}
 
@@ -583,11 +586,12 @@ function MainApp() {
               <TestView
                 words={words}
                 onBackToVocabulary={() => setActiveTab('vocabulary')}
+                isDark={isDark}
               />
             </View>
           )}
 
-          {activeTab === 'stats' && <StatsDashboardView words={words} />}
+          {activeTab === 'stats' && <StatsDashboardView words={words} isDark={isDark} />}
 
           {activeTab === 'settings' && (
             <View style={styles.settingsSectionContainer}>
@@ -657,7 +661,7 @@ function MainApp() {
 
       {/* Bottom Tab Navigation Bar (Mobile only) */}
       {showBottomBar && (
-        <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={[styles.tabBar, !isDark && styles.tabBarLight, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           {/* Tab 1: Vocabulario */}
           <TouchableOpacity
             style={styles.tabItem}
@@ -672,13 +676,14 @@ function MainApp() {
             >
               <BookOpen
                 size={18}
-                color={activeTab === 'vocabulary' ? '#ffffff' : THEME.colors.textMuted}
+                color={activeTab === 'vocabulary' ? '#ffffff' : (!isDark ? '#64748b' : THEME.colors.textMuted)}
               />
             </View>
             <Text
               style={[
                 styles.tabLabel,
-                activeTab === 'vocabulary' && styles.tabLabelActive,
+                !isDark && styles.tabLabelLight,
+                activeTab === 'vocabulary' && (isDark ? styles.tabLabelActive : styles.tabLabelActiveLight),
               ]}
             >
               Vocabulario
@@ -699,13 +704,14 @@ function MainApp() {
             >
               <Layers
                 size={18}
-                color={activeTab === 'flashcards' ? '#ffffff' : THEME.colors.textMuted}
+                color={activeTab === 'flashcards' ? '#ffffff' : (!isDark ? '#64748b' : THEME.colors.textMuted)}
               />
             </View>
             <Text
               style={[
                 styles.tabLabel,
-                activeTab === 'flashcards' && styles.tabLabelActive,
+                !isDark && styles.tabLabelLight,
+                activeTab === 'flashcards' && (isDark ? styles.tabLabelActive : styles.tabLabelActiveLight),
               ]}
             >
               Flashcards
@@ -726,13 +732,14 @@ function MainApp() {
             >
               <ClipboardCheck
                 size={18}
-                color={activeTab === 'test' ? '#ffffff' : THEME.colors.textMuted}
+                color={activeTab === 'test' ? '#ffffff' : (!isDark ? '#64748b' : THEME.colors.textMuted)}
               />
             </View>
             <Text
               style={[
                 styles.tabLabel,
-                activeTab === 'test' && styles.tabLabelActive,
+                !isDark && styles.tabLabelLight,
+                activeTab === 'test' && (isDark ? styles.tabLabelActive : styles.tabLabelActiveLight),
               ]}
             >
               Test
@@ -753,13 +760,14 @@ function MainApp() {
             >
               <BarChart3
                 size={18}
-                color={activeTab === 'stats' ? '#ffffff' : THEME.colors.textMuted}
+                color={activeTab === 'stats' ? '#ffffff' : (!isDark ? '#64748b' : THEME.colors.textMuted)}
               />
             </View>
             <Text
               style={[
                 styles.tabLabel,
-                activeTab === 'stats' && styles.tabLabelActive,
+                !isDark && styles.tabLabelLight,
+                activeTab === 'stats' && (isDark ? styles.tabLabelActive : styles.tabLabelActiveLight),
               ]}
             >
               Progreso
@@ -780,13 +788,14 @@ function MainApp() {
             >
               <Settings
                 size={18}
-                color={activeTab === 'settings' ? '#ffffff' : THEME.colors.textMuted}
+                color={activeTab === 'settings' ? '#ffffff' : (!isDark ? '#64748b' : THEME.colors.textMuted)}
               />
             </View>
             <Text
               style={[
                 styles.tabLabel,
-                activeTab === 'settings' && styles.tabLabelActive,
+                !isDark && styles.tabLabelLight,
+                activeTab === 'settings' && (isDark ? styles.tabLabelActive : styles.tabLabelActiveLight),
               ]}
             >
               Ajustes
@@ -812,6 +821,7 @@ function MainApp() {
           defaultCategorySub={
             selectedFilter.type === 'category' ? selectedFilter.sub : undefined
           }
+          isDark={isDark}
         />
       )}
 
@@ -822,6 +832,7 @@ function MainApp() {
           onClose={() => setIsExportModalOpen(false)}
           words={words}
           onImportWords={handleImportWords}
+          isDark={isDark}
         />
       )}
 
@@ -1018,5 +1029,22 @@ const styles = StyleSheet.create({
   tabLabelActive: {
     color: '#ffffff',
     fontWeight: '700',
+  },
+  appContainerLight: {
+    backgroundColor: '#f8fafc',
+  },
+  tabBarLight: {
+    backgroundColor: '#ffffff',
+    borderTopColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    elevation: 4,
+  },
+  tabLabelLight: {
+    color: '#64748b',
+  },
+  tabLabelActiveLight: {
+    color: '#e62e4c',
+    fontWeight: '800',
   },
 });

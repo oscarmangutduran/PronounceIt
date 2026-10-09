@@ -28,6 +28,7 @@ export interface ConfirmModalProps {
   variant?: ModalVariant;
   onConfirm: () => void;
   onCancel?: () => void;
+  isDark?: boolean;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -39,6 +40,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   variant = 'danger',
   onConfirm,
   onCancel,
+  isDark = true,
 }) => {
   if (!isOpen) return null;
 
@@ -94,7 +96,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       onRequestClose={onCancel || onConfirm}
     >
       <View style={styles.overlay}>
-        <View style={styles.card}>
+        <View style={[styles.card, !isDark && styles.cardLight]}>
           {/* Close button in corner if cancelable */}
           {onCancel && (
             <TouchableOpacity
@@ -102,7 +104,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
               onPress={onCancel}
               activeOpacity={0.7}
             >
-              <X size={16} color={THEME.colors.textSubtle} />
+              <X size={16} color={!isDark ? '#64748b' : THEME.colors.textSubtle} />
             </TouchableOpacity>
           )}
 
@@ -110,18 +112,18 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           {renderIcon()}
 
           {/* Text Content */}
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.message}>{message}</Text>
+          <Text style={[styles.title, !isDark && styles.titleLight]}>{title}</Text>
+          <Text style={[styles.message, !isDark && styles.messageLight]}>{message}</Text>
 
           {/* Action Buttons */}
           <View style={styles.actionsRow}>
             {cancelText && onCancel && (
               <TouchableOpacity
-                style={styles.cancelBtn}
+                style={[styles.cancelBtn, !isDark && styles.cancelBtnLight]}
                 onPress={onCancel}
                 activeOpacity={0.8}
               >
-                <Text style={styles.cancelBtnText}>{cancelText}</Text>
+                <Text style={[styles.cancelBtnText, !isDark && styles.cancelBtnTextLight]}>{cancelText}</Text>
               </TouchableOpacity>
             )}
 
@@ -281,5 +283,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  cardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+  },
+  titleLight: {
+    color: '#0f172a',
+  },
+  messageLight: {
+    color: '#475569',
+  },
+  cancelBtnLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+  },
+  cancelBtnTextLight: {
+    color: '#334155',
   },
 });

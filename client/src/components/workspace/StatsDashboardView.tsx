@@ -22,9 +22,10 @@ import { THEME } from '../../theme';
 
 interface StatsDashboardViewProps {
   words: WordItem[];
+  isDark?: boolean;
 }
 
-export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words }) => {
+export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words, isDark = true }) => {
   const [history, setHistory] = useState<StoredTestItem[]>([]);
 
   useEffect(() => {
@@ -52,30 +53,33 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words })
   const maxLevelCount = Math.max(...levelCounts.map((l) => l.count), 1);
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={[styles.container, !isDark && styles.containerLight]}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.iconCircle}>
           <BarChart3 size={24} color={THEME.colors.crimsonLight} />
         </View>
         <View>
-          <Text style={styles.title}>Progreso & Estadísticas</Text>
-          <Text style={styles.subtitle}>Métricas de retención y evaluaciones completadas</Text>
+          <Text style={[styles.title, !isDark && styles.titleLight]}>Progreso & Estadísticas</Text>
+          <Text style={[styles.subtitle, !isDark && styles.subtitleLight]}>Métricas de retención y evaluaciones completadas</Text>
         </View>
       </View>
 
       {/* Metric Cards Grid */}
       <View style={styles.metricsGrid}>
-        <View style={styles.metricCard}>
-          <Text style={styles.metricLabel}>Total Palabras</Text>
-          <Text style={styles.metricValue}>{totalWords}</Text>
+        <View style={[styles.metricCard, !isDark && styles.cardLight]}>
+          <Text style={[styles.metricLabel, !isDark && styles.metricLabelLight]}>Total Palabras</Text>
+          <Text style={[styles.metricValue, !isDark && styles.metricValueLight]}>{totalWords}</Text>
           <View style={styles.metricIconBox}>
             <BookOpen size={16} color={THEME.colors.crimsonLight} />
           </View>
         </View>
 
-        <View style={styles.metricCard}>
-          <Text style={styles.metricLabel}>Dominadas</Text>
+        <View style={[styles.metricCard, !isDark && styles.cardLight]}>
+          <Text style={[styles.metricLabel, !isDark && styles.metricLabelLight]}>Dominadas</Text>
           <Text style={[styles.metricValue, { color: THEME.colors.emerald }]}>
             {masteredCount}
           </Text>
@@ -84,8 +88,8 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words })
           </View>
         </View>
 
-        <View style={styles.metricCard}>
-          <Text style={styles.metricLabel}>En Repaso</Text>
+        <View style={[styles.metricCard, !isDark && styles.cardLight]}>
+          <Text style={[styles.metricLabel, !isDark && styles.metricLabelLight]}>En Repaso</Text>
           <Text style={[styles.metricValue, { color: THEME.colors.amber }]}>
             {reviewCount}
           </Text>
@@ -94,8 +98,8 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words })
           </View>
         </View>
 
-        <View style={styles.metricCard}>
-          <Text style={styles.metricLabel}>% Dominio</Text>
+        <View style={[styles.metricCard, !isDark && styles.cardLight]}>
+          <Text style={[styles.metricLabel, !isDark && styles.metricLabelLight]}>% Dominio</Text>
           <Text style={[styles.metricValue, { color: THEME.colors.cyan }]}>
             {masteredRate}%
           </Text>
@@ -106,8 +110,8 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words })
       </View>
 
       {/* Distribution by CEFR Level */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Distribución por Nivel MCER</Text>
+      <View style={[styles.sectionCard, !isDark && styles.cardLight]}>
+        <Text style={[styles.sectionTitle, !isDark && styles.titleLight]}>Distribución por Nivel MCER</Text>
         <View style={styles.levelsList}>
           {levelCounts.map((item) => (
             <View key={item.level} style={styles.levelRow}>
@@ -115,7 +119,7 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words })
                 <Text style={styles.levelNameText}>{item.level}</Text>
               </View>
 
-              <View style={styles.levelBarTrack}>
+              <View style={[styles.levelBarTrack, !isDark && styles.levelBarTrackLight]}>
                 <View
                   style={[
                     styles.levelBarFill,
@@ -124,24 +128,24 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words })
                 />
               </View>
 
-              <Text style={styles.levelCountText}>{item.count}</Text>
+              <Text style={[styles.levelCountText, !isDark && styles.levelCountTextLight]}>{item.count}</Text>
             </View>
           ))}
         </View>
       </View>
 
       {/* Recent Tests History */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Historial de Evaluaciones</Text>
+      <View style={[styles.sectionCard, !isDark && styles.cardLight]}>
+        <Text style={[styles.sectionTitle, !isDark && styles.titleLight]}>Historial de Evaluaciones</Text>
         {history.length === 0 ? (
-          <Text style={styles.emptyHistory}>Aún no has completado ningún test.</Text>
+          <Text style={[styles.emptyHistory, !isDark && styles.emptyHistoryLight]}>Aún no has completado ningún test.</Text>
         ) : (
           <View style={styles.historyList}>
             {history.slice(0, 10).map((test) => (
-              <View key={test.id} style={styles.historyItem}>
+              <View key={test.id} style={[styles.historyItem, !isDark && styles.historyItemLight]}>
                 <View>
-                  <Text style={styles.historyTitle}>{test.title}</Text>
-                  <Text style={styles.historyDate}>
+                  <Text style={[styles.historyTitle, !isDark && styles.titleLight]}>{test.title}</Text>
+                  <Text style={[styles.historyDate, !isDark && styles.historyDateLight]}>
                     {new Date(test.timestamp || Date.now()).toLocaleDateString('es-ES', {
                       day: '2-digit',
                       month: 'short',
@@ -153,7 +157,7 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words })
 
                 <View style={styles.historyScoreBox}>
                   <Text style={styles.historyScoreText}>{test.scoreOutOfTen}/10</Text>
-                  <Text style={styles.historyGrade}>{test.gradeLabel}</Text>
+                  <Text style={[styles.historyGrade, !isDark && styles.historyGradeLight]}>{test.gradeLabel}</Text>
                 </View>
               </View>
             ))}
@@ -320,4 +324,47 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: THEME.colors.textMuted,
   },
+  containerLight: {
+    backgroundColor: '#f8fafc',
+  },
+  cardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    elevation: 2,
+  },
+  titleLight: {
+    color: '#0f172a',
+  },
+  subtitleLight: {
+    color: '#475569',
+  },
+  metricLabelLight: {
+    color: '#475569',
+  },
+  metricValueLight: {
+    color: '#0f172a',
+  },
+  levelBarTrackLight: {
+    backgroundColor: '#e2e8f0',
+  },
+  levelCountTextLight: {
+    color: '#475569',
+  },
+  emptyHistoryLight: {
+    color: '#64748b',
+  },
+  historyItemLight: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  historyDateLight: {
+    color: '#64748b',
+  },
+  historyGradeLight: {
+    color: '#475569',
+  },
 });
+

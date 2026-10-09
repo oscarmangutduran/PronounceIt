@@ -73,7 +73,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, !isDark && styles.containerLight]}
       contentContainerStyle={styles.scrollContainer}
       showsVerticalScrollIndicator={false}
     >
@@ -84,15 +84,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <Settings size={24} color={THEME.colors.crimsonLight} />
         </View>
         <View>
-          <Text style={styles.title}>Configuración</Text>
-          <Text style={styles.subtitle}>Preferencias de audio, cuenta e IA</Text>
+          <Text style={[styles.title, !isDark && styles.titleLight]}>Configuración</Text>
+          <Text style={[styles.subtitle, !isDark && styles.subtitleLight]}>Preferencias de audio, cuenta e IA</Text>
         </View>
       </View>
 
       {/* User profile card */}
-      <View style={styles.card}>
+      <View style={[styles.card, !isDark && styles.cardLight]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <Text style={styles.sectionTitle}>Cuenta de Usuario</Text>
+          <Text style={[styles.sectionTitle, !isDark && styles.titleLight]}>Cuenta de Usuario</Text>
           {onOpenEditProfile && (
             <TouchableOpacity
               style={styles.editProfileBtn}
@@ -116,10 +116,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             )}
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.profileName}>
+            <Text style={[styles.profileName, !isDark && styles.titleLight]}>
               {currentUser?.full_name || currentUser?.username || 'Usuario Invitado'}
             </Text>
-            <Text style={styles.profileEmail}>
+            <Text style={[styles.profileEmail, !isDark && styles.subtitleLight]}>
               {currentUser?.email || 'Sin correo asociado'}
             </Text>
             {currentUser?.username && (
@@ -129,7 +129,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </View>
 
         {/* Acciones de Cuenta en la sección de perfil */}
-        <View style={styles.profileCardActions}>
+        <View style={[styles.profileCardActions, !isDark && styles.profileCardActionsLight]}>
           <TouchableOpacity
             style={styles.deleteAccountBtn}
             onPress={() => setShowDeleteModal(true)}
@@ -152,9 +152,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Apariencia y Tema Visual */}
       {onToggleTheme && (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Apariencia y Tema</Text>
-          <Text style={styles.sectionSubtitle}>
+        <View style={[styles.card, !isDark && styles.cardLight]}>
+          <Text style={[styles.sectionTitle, !isDark && styles.titleLight]}>Apariencia y Tema</Text>
+          <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight]}>
             Personaliza el contraste de la interfaz entre modo oscuro y claro.
           </Text>
 
@@ -162,6 +162,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <TouchableOpacity
               style={[
                 styles.themeOptionBtn,
+                !isDark && styles.themeOptionBtnLight,
                 isDark && styles.themeOptionBtnActive,
               ]}
               onPress={() => {
@@ -173,6 +174,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <Text
                 style={[
                   styles.themeOptionBtnText,
+                  !isDark && styles.themeOptionBtnTextLight,
                   isDark && styles.themeOptionBtnTextActive,
                 ]}
               >
@@ -183,6 +185,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <TouchableOpacity
               style={[
                 styles.themeOptionBtn,
+                !isDark && styles.themeOptionBtnLight,
                 !isDark && styles.themeOptionBtnActive,
               ]}
               onPress={() => {
@@ -194,6 +197,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <Text
                 style={[
                   styles.themeOptionBtnText,
+                  !isDark && styles.themeOptionBtnTextLight,
                   !isDark && styles.themeOptionBtnTextActive,
                 ]}
               >
@@ -205,9 +209,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
 
       {/* Speech Audio Voice Settings */}
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Voz & Síntesis de Pronunciación</Text>
-        <Text style={styles.sectionSubtitle}>
+      <View style={[styles.card, !isDark && styles.cardLight]}>
+        <Text style={[styles.sectionTitle, !isDark && styles.titleLight]}>Voz & Síntesis de Pronunciación</Text>
+        <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight]}>
           Ajusta la velocidad de reproducción para practicar a tu propio ritmo.
         </Text>
 
@@ -217,6 +221,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               key={rate}
               style={[
                 styles.rateBtn,
+                !isDark && styles.rateBtnLight,
                 audioSettings.rate === rate && styles.rateBtnActive,
               ]}
               onPress={() => handleUpdateRate(rate)}
@@ -224,6 +229,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <Text
                 style={[
                   styles.rateBtnText,
+                  !isDark && styles.rateBtnTextLight,
                   audioSettings.rate === rate && styles.rateBtnTextActive,
                 ]}
               >
@@ -233,24 +239,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           ))}
         </View>
 
-        <TouchableOpacity style={styles.testVoiceBtn} onPress={testVoice} activeOpacity={0.8}>
-          <Volume2 size={16} color="#ffffff" style={{ marginRight: 6 }} />
-          <Text style={styles.testVoiceBtnText}>Probar Voz en Inglés</Text>
+        <TouchableOpacity
+          style={[styles.testVoiceBtn, !isDark && styles.testVoiceBtnLight]}
+          onPress={testVoice}
+          activeOpacity={0.8}
+        >
+          <Volume2 size={16} color={!isDark ? '#e62e4c' : '#ffffff'} style={{ marginRight: 6 }} />
+          <Text style={[styles.testVoiceBtnText, !isDark && styles.testVoiceBtnTextLight]}>Probar Voz en Inglés</Text>
         </TouchableOpacity>
       </View>
 
       {/* Gemini AI API Key */}
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Clave API de Google Gemini (Opcional)</Text>
-        <Text style={styles.sectionSubtitle}>
+      <View style={[styles.card, !isDark && styles.cardLight]}>
+        <Text style={[styles.sectionTitle, !isDark && styles.titleLight]}>Clave API de Google Gemini (Opcional)</Text>
+        <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight]}>
           Permite autocompletar fonética, definiciones y ejemplos con IA en tiempo real.
         </Text>
 
         <View style={styles.keyInputRow}>
           <TextInput
-            style={styles.keyInput}
+            style={[styles.keyInput, !isDark && styles.keyInputLight]}
             placeholder="AIzaSy..."
-            placeholderTextColor={THEME.colors.textSubtle}
+            placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
             value={apiKey}
             onChangeText={setApiKey}
             secureTextEntry
@@ -272,9 +282,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Backup / CSV Import-Export */}
       {onOpenExportModal && (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Copia de Seguridad y Datos</Text>
-          <Text style={styles.sectionSubtitle}>
+        <View style={[styles.card, !isDark && styles.cardLight]}>
+          <Text style={[styles.sectionTitle, !isDark && styles.titleLight]}>Copia de Seguridad y Datos</Text>
+          <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight]}>
             Exporta tus palabras a un archivo .CSV compatible con Excel o importa nuevo vocabulario a tu cuenta.
           </Text>
           <TouchableOpacity
@@ -321,6 +331,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           onLogout();
         }}
         onCancel={() => setShowLogoutModal(false)}
+        isDark={isDark}
       />
 
       <ConfirmModal
@@ -335,6 +346,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           onDeleteAccount?.();
         }}
         onCancel={() => setShowDeleteModal(false)}
+        isDark={isDark}
       />
     </ScrollView>
   );
@@ -617,4 +629,50 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
+  containerLight: {
+    backgroundColor: '#f8fafc',
+  },
+  cardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    elevation: 2,
+  },
+  titleLight: {
+    color: '#0f172a',
+  },
+  subtitleLight: {
+    color: '#475569',
+  },
+  profileCardActionsLight: {
+    borderTopColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  themeOptionBtnLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+  },
+  themeOptionBtnTextLight: {
+    color: '#475569',
+  },
+  rateBtnLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+  },
+  rateBtnTextLight: {
+    color: '#475569',
+  },
+  testVoiceBtnLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+  },
+  testVoiceBtnTextLight: {
+    color: '#1e293b',
+  },
+  keyInputLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#cbd5e1',
+    color: '#0f172a',
+  },
 });
+
