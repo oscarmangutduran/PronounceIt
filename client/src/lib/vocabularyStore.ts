@@ -60,9 +60,31 @@ class VocabularyService {
     this.initCloudSync();
   }
 
+  private lastUserId: string = '';
+
+  private getEffectiveUserKey(): string {
+    const user = firebaseService.getCurrentUser();
+    if (user?.id) return user.id;
+    if (user?.email) return user.email.trim().toLowerCase();
+    return 'guest';
+  }
+
+  private getWordsStorageKey(): string {
+    return `pronounceit_vocab_words_u_${this.getEffectiveUserKey()}`;
+  }
+
+  private getCategoriesStorageKey(): string {
+    return `pronounceit_user_categories_u_${this.getEffectiveUserKey()}`;
+  }
+
   private initCloudSync() {
     this.syncWithCloud();
-    firebaseService.subscribe(() => {
+    firebaseService.subscribe((user) => {
+      const currentKey = user?.id || user?.email?.trim().toLowerCase() || 'guest';
+      if (currentKey !== this.lastUserId) {
+        this.lastUserId = currentKey;
+        this.loadInitialData();
+      }
       this.syncWithCloud();
     });
     networkService.subscribe((isOnline) => {
@@ -76,88 +98,102 @@ class VocabularyService {
     this.loadInitialData();
   }
 
+  public resetForNewUser(userId?: string) {
+    this.words = [];
+    this.customCategories = [];
+    const targetKey = userId || this.getEffectiveUserKey();
+    this.lastUserId = targetKey;
+    try {
+      appStorage.setItem(`pronounceit_vocab_words_u_${targetKey}`, JSON.stringify([]));
+      appStorage.setItem(`pronounceit_user_categories_u_${targetKey}`, JSON.stringify([]));
+    } catch {}
+    this.notify();
+  }
+
+  public clearCurrentSession() {
+    this.words = [];
+    this.customCategories = [];
+    this.lastUserId = '';
+    this.notify();
+  }
+
   public async syncWithCloud(): Promise<void> {
     if (!networkService.isOnline()) {
       return;
     }
 
-    const wordsMap = new Map<string, WordItem>();
-    this.words.forEach((w) => wordsMap.set(w.id, w));
+    const currentUser = firebaseService.getCurrentUser();
 
-    // 1. Primary Cloud Sync via Firestore (Universal bridge across Web & Mobile APK)
-    if (firebaseService.isFirebaseConnected()) {
+    // 1. Primary Cloud Sync via Firestore
+    if (firebaseService.isFirebaseConnected() && currentUser) {
       try {
-        const remoteWords = await firebaseService.fetchWords();
+        const remoteWords = await firebaseService.fetchWords(currentUser.id);
         if (remoteWords && Array.isArray(remoteWords)) {
+          const wordsMap = new Map<string, WordItem>();
           remoteWords.forEach((w: WordItem) => wordsMap.set(w.id, w));
+          this.words.forEach((w) => wordsMap.set(w.id, w));
+          this.words = Array.from(wordsMap.values());
         }
 
         const remoteCats = await firebaseService.fetchCategories();
         if (remoteCats && Array.isArray(remoteCats) && remoteCats.length > 0) {
           const catMap = new Map<string, CategoryItem>();
-          this.customCategories.forEach((c) => catMap.set(c.id, c));
           remoteCats.forEach((c) => catMap.set(c.id, c));
+          this.customCategories.forEach((c) => catMap.set(c.id, c));
           this.customCategories = Array.from(catMap.values());
-          this.saveCategories();
         }
       } catch (e) {
         console.warn('[VocabStore] Error syncing with Firestore:', e);
       }
     }
 
-    // 2. Secondary Sync via Express Backend (if running / reachable)
-    try {
-      const isBackendLive = await backendApi.checkHealth();
-      if (isBackendLive) {
-        const serverWords = await backendApi.getWords();
-        if (serverWords && Array.isArray(serverWords)) {
-          serverWords.forEach((w) => wordsMap.set(w.id, w));
+    // 2. Secondary Sync via Express Backend (strictly for this user)
+    if (currentUser?.id) {
+      try {
+        const isBackendLive = await backendApi.checkHealth();
+        if (isBackendLive) {
+          const serverWords = await backendApi.getWords(currentUser.id);
+          if (serverWords && Array.isArray(serverWords)) {
+            const wordsMap = new Map<string, WordItem>();
+            serverWords.forEach((w) => wordsMap.set(w.id, w));
+            this.words.forEach((w) => wordsMap.set(w.id, w));
+            this.words = Array.from(wordsMap.values());
+          }
         }
+      } catch (e) {
+        console.warn('[VocabStore] Backend sync warning:', e);
       }
-    } catch (e) {
-      console.warn('[VocabStore] Backend sync warning:', e);
     }
 
-    // 3. Update local state with merged words
-    this.words = Array.from(wordsMap.values());
+    // 3. Update local state
     this.saveWords();
+    this.saveCategories();
     this.notify();
 
-    // 4. Push combined words and categories back to Firestore and Backend
-    if (firebaseService.isFirebaseConnected() && this.words.length > 0) {
+    // 4. Push combined words back to Firestore if user has words
+    if (firebaseService.isFirebaseConnected() && currentUser && this.words.length > 0) {
       firebaseService.syncAllWords(this.words).catch(() => {});
       if (this.customCategories.length > 0) {
         firebaseService.saveCategories(this.customCategories).catch(() => {});
       }
     }
-
-    backendApi.bulkSaveWords(this.words).catch(() => {});
   }
 
   private loadInitialData() {
     try {
-      // Clean up all legacy storage versions so user starts with a completely clean slate
-      [
-        'pronounceit_vocab_words_v1',
-        'pronounceit_vocab_words_v2',
-        'pronounceit_vocab_words_v3',
-        'pronounceit_vocab_words_v4',
-        'pronounceit_categories_v1',
-        'pronounceit_categories_v2',
-        'pronounceit_user_categories_v1',
-        'pronounceit_user_categories_v2',
-        'pronounceit_user_categories_v3',
-      ].forEach((key) => appStorage.removeItem(key));
+      const userKey = this.getEffectiveUserKey();
+      this.lastUserId = userKey;
 
-      const stored = appStorage.getItem(STORAGE_KEY_WORDS);
+      const stored = appStorage.getItem(this.getWordsStorageKey());
       if (stored) {
         this.words = JSON.parse(stored);
       } else {
+        // Every new user account begins with an empty vocabulary
         this.words = [];
         this.saveWords();
       }
 
-      const storedCats = appStorage.getItem(STORAGE_KEY_CATEGORIES);
+      const storedCats = appStorage.getItem(this.getCategoriesStorageKey());
       if (storedCats) {
         this.customCategories = JSON.parse(storedCats);
       } else {
@@ -178,7 +214,7 @@ class VocabularyService {
 
   private saveCategories() {
     try {
-      appStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(this.customCategories));
+      appStorage.setItem(this.getCategoriesStorageKey(), JSON.stringify(this.customCategories));
     } catch (e) {
       console.error('Error saving categories', e);
     }
@@ -201,7 +237,7 @@ class VocabularyService {
 
   private saveWords() {
     try {
-      appStorage.setItem(STORAGE_KEY_WORDS, JSON.stringify(this.words));
+      appStorage.setItem(this.getWordsStorageKey(), JSON.stringify(this.words));
     } catch (e) {
       console.error('Error saving words to storage', e);
     }
@@ -602,8 +638,10 @@ class VocabularyService {
     this.words = [];
     this.customCategories = [];
     try {
-      appStorage.removeItem(STORAGE_KEY_WORDS);
-      appStorage.removeItem(STORAGE_KEY_CATEGORIES);
+      appStorage.removeItem(this.getWordsStorageKey());
+      appStorage.removeItem(this.getCategoriesStorageKey());
+      appStorage.removeItem('pronounceit_vocab_words_v5');
+      appStorage.removeItem('pronounceit_user_categories_v4');
     } catch {}
     this.notify();
   }

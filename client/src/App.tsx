@@ -408,6 +408,8 @@ function MainApp() {
   }, []);
 
   const handleLogout = async () => {
+    vocabService.clearCurrentSession();
+    testHistoryService.clearCurrentSession();
     await firebaseService.signOut();
     setIsAuthenticated(false);
     setCurrentUser(null);

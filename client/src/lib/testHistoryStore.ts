@@ -29,6 +29,7 @@ export const INITIAL_TEST_HISTORY: StoredTestItem[] = [];
 class TestHistoryService {
   private history: StoredTestItem[] = [];
   private listeners: (() => void)[] = [];
+  private lastUserId: string = '';
 
   constructor() {
     this.init();
@@ -40,9 +41,25 @@ class TestHistoryService {
     this.initCloudSync();
   }
 
+  private getEffectiveUserKey(): string {
+    const user = firebaseService.getCurrentUser();
+    if (user?.id) return user.id;
+    if (user?.email) return user.email.trim().toLowerCase();
+    return 'guest';
+  }
+
+  private getHistoryStorageKey(): string {
+    return `pronounceit_test_history_u_${this.getEffectiveUserKey()}`;
+  }
+
   private initCloudSync() {
     this.syncWithCloud();
-    firebaseService.subscribe(() => {
+    firebaseService.subscribe((user) => {
+      const currentKey = user?.id || user?.email?.trim().toLowerCase() || 'guest';
+      if (currentKey !== this.lastUserId) {
+        this.lastUserId = currentKey;
+        this.loadHistory();
+      }
       this.syncWithCloud();
     });
     networkService.subscribe((isOnline) => {
@@ -56,20 +73,38 @@ class TestHistoryService {
     this.loadHistory();
   }
 
+  public resetForNewUser(userId?: string) {
+    this.history = [];
+    const targetKey = userId || this.getEffectiveUserKey();
+    this.lastUserId = targetKey;
+    try {
+      appStorage.setItem(`pronounceit_test_history_u_${targetKey}`, JSON.stringify([]));
+    } catch {}
+    this.notify();
+  }
+
+  public clearCurrentSession() {
+    this.history = [];
+    this.lastUserId = '';
+    this.notify();
+  }
+
   public async syncWithCloud(): Promise<void> {
     if (!networkService.isOnline()) {
       return;
     }
 
-    const testMap = new Map<string, StoredTestItem>();
-    this.history.forEach((t) => testMap.set(t.id, t));
+    const currentUser = firebaseService.getCurrentUser();
 
-    // 1. Fetch from Firestore (universal cloud sync)
-    if (firebaseService.isFirebaseConnected()) {
+    // 1. Fetch from Firestore (universal cloud sync for current user)
+    if (firebaseService.isFirebaseConnected() && currentUser) {
       try {
-        const remote = await firebaseService.fetchTestHistory();
+        const remote = await firebaseService.fetchTestHistory(currentUser.id);
         if (remote && Array.isArray(remote)) {
+          const testMap = new Map<string, StoredTestItem>();
           remote.forEach((t: StoredTestItem) => testMap.set(t.id, t));
+          this.history.forEach((t) => testMap.set(t.id, t));
+          this.history = Array.from(testMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         }
       } catch (e) {
         console.warn('Error syncing test history with Firebase:', e);
@@ -77,25 +112,29 @@ class TestHistoryService {
     }
 
     // 2. Fetch from Backend if live
-    try {
-      const isBackendLive = await backendApi.checkHealth();
-      if (isBackendLive) {
-        const serverTests = await backendApi.getTests();
-        if (serverTests && Array.isArray(serverTests)) {
-          serverTests.forEach((t) => testMap.set(t.id, t));
+    if (currentUser?.id) {
+      try {
+        const isBackendLive = await backendApi.checkHealth();
+        if (isBackendLive) {
+          const serverTests = await backendApi.getTests();
+          if (serverTests && Array.isArray(serverTests)) {
+            const testMap = new Map<string, StoredTestItem>();
+            serverTests.forEach((t) => testMap.set(t.id, t));
+            this.history.forEach((t) => testMap.set(t.id, t));
+            this.history = Array.from(testMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          }
         }
+      } catch (e) {
+        console.warn('Backend test sync warning:', e);
       }
-    } catch (e) {
-      console.warn('Backend test sync warning:', e);
     }
 
     // 3. Update local state
-    this.history = Array.from(testMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     this.saveHistory();
     this.notify();
 
     // 4. Push local tests to Firestore
-    if (firebaseService.isFirebaseConnected() && this.history.length > 0) {
+    if (firebaseService.isFirebaseConnected() && currentUser && this.history.length > 0) {
       this.history.forEach((t) => {
         firebaseService.saveTestResult(t).catch(() => {});
       });
@@ -103,17 +142,18 @@ class TestHistoryService {
   }
 
   private loadHistory() {
-    try { appStorage.removeItem('pronounceit_test_history_v1'); } catch {}
     try {
-      const stored = appStorage.getItem(STORAGE_KEY_TEST_HISTORY);
+      const userKey = this.getEffectiveUserKey();
+      this.lastUserId = userKey;
+      const stored = appStorage.getItem(this.getHistoryStorageKey());
       if (stored) {
         this.history = JSON.parse(stored);
       } else {
-        this.history = [...INITIAL_TEST_HISTORY];
+        this.history = [];
         this.saveHistory();
       }
     } catch {
-      this.history = [...INITIAL_TEST_HISTORY];
+      this.history = [];
     }
     this.notify();
   }

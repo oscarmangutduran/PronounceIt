@@ -14,7 +14,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     let result = [...db.words];
 
     if (userId && typeof userId === 'string') {
-      result = result.filter((w) => !w.userId || w.userId === userId);
+      result = result.filter((w) => w.userId === userId);
     }
     if (category && typeof category === 'string' && category !== 'all') {
       result = result.filter((w) => w.category.toLowerCase() === category.toLowerCase());

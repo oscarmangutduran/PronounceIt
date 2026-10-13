@@ -255,7 +255,10 @@ export const LoginView: React.FC<LoginViewProps> = ({
         if (notice) {
           setWelcomeNotice(notice);
         }
-        vocabService.syncWithCloud().catch(() => {});
+        // Cada nuevo usuario empieza con el vocabulario e historial completamente vacío
+        const newUid = (res as any).user?.id || (res as any).userId || email.trim().toLowerCase();
+        vocabService.resetForNewUser(newUid);
+        testHistoryService.resetForNewUser(newUid);
         setSuccess('¡Cuenta creada con éxito! Por seguridad, debes cambiar tu contraseña provisional (12345) ahora.');
         setMode('change_password');
         setNewPassword('');
