@@ -24,10 +24,12 @@ import {
   Volume2,
   Bookmark,
   Tag,
+  Languages,
+  RotateCcw,
 } from 'lucide-react-native';
 import { WordItem, CategoryItem, PartOfSpeech, PART_OF_SPEECH_OPTIONS } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
-import { autoEnrichWord, AutoEnrichResult, normalizePartOfSpeech, detectQuickPartOfSpeech } from '../../lib/dictionaryService';
+import { autoEnrichWord, normalizePartOfSpeech, detectQuickPartOfSpeech } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
 
@@ -55,7 +57,14 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
+  const isEditing = Boolean(initialWord);
+
   const [word, setWord] = useState('');
+  const [translation, setTranslation] = useState('');
+  const [exampleEn, setExampleEn] = useState('');
+  const [exampleEs, setExampleEs] = useState('');
+  const [phoneticGuide, setPhoneticGuide] = useState('');
+  const [ipa, setIpa] = useState('');
   const [categoryGroup, setCategoryGroup] = useState(defaultCategoryGroup || '');
   const [categorySub, setCategorySub] = useState(defaultCategorySub || '');
   const [partOfSpeech, setPartOfSpeech] = useState<PartOfSpeech>('Sustantivo');
@@ -65,9 +74,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Live Auto-Enrich Preview
-  const [previewData, setPreviewData] = useState<AutoEnrichResult | null>(null);
-  const [loadingPreview, setLoadingPreview] = useState(false);
+  // Live Auto-Enrich state
+  const [loadingAutoEnrich, setLoadingAutoEnrich] = useState(false);
+  const [hasManuallyEditedTranslation, setHasManuallyEditedTranslation] = useState(false);
+  const [hasManuallyEditedExamples, setHasManuallyEditedExamples] = useState(false);
 
   // Dropdown states
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
@@ -132,9 +142,15 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     return Array.from(set);
   }, [allCategories, categoryGroup]);
 
+  // Sync state on mount or when initialWord / props change
   useEffect(() => {
     if (initialWord) {
-      setWord(initialWord.word);
+      setWord(initialWord.word || '');
+      setTranslation(initialWord.translation || '');
+      setExampleEn(initialWord.exampleEn || (initialWord as any).example || '');
+      setExampleEs(initialWord.exampleEs || (initialWord as any).exampleTranslation || '');
+      setPhoneticGuide(initialWord.phoneticGuide || '');
+      setIpa(initialWord.ipa || '');
       setCategoryGroup(initialWord.categoryGroup || (allCategories[0]?.name || ''));
       setCategorySub(initialWord.categorySub || '');
       setIsCustomCategory(false);
@@ -142,22 +158,15 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       const initialPos = normalizePartOfSpeech(initialWord.partOfSpeech || 'Sustantivo');
       setPartOfSpeech(initialPos);
       setIsPosManuallySelected(true);
-      setPreviewData({
-        word: initialWord.word,
-        translation: initialWord.translation,
-        ipa: initialWord.ipa,
-        phoneticGuide: initialWord.phoneticGuide,
-        phoneticNote: initialWord.phoneticNote || '',
-        definition: initialWord.definition || '',
-        exampleEn: initialWord.exampleEn || (initialWord as any).example || '',
-        exampleEs: initialWord.exampleEs || (initialWord as any).exampleTranslation || '',
-        level: initialWord.level,
-        partOfSpeech: initialPos,
-        categoryGroup: initialWord.categoryGroup,
-        categorySub: initialWord.categorySub,
-      });
+      setHasManuallyEditedTranslation(true);
+      setHasManuallyEditedExamples(true);
     } else {
       setWord('');
+      setTranslation('');
+      setExampleEn('');
+      setExampleEs('');
+      setPhoneticGuide('');
+      setIpa('');
       const defaultGroup = defaultCategoryGroup || (allCategories[0]?.name || '');
       setCategoryGroup(defaultGroup);
       setCategorySub(defaultCategorySub || '');
@@ -166,38 +175,51 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setPartOfSpeech('Sustantivo');
       setIsPosManuallySelected(false);
       setIsPosSelectorOpen(false);
-      setPreviewData(null);
+      setHasManuallyEditedTranslation(false);
+      setHasManuallyEditedExamples(false);
     }
+    setLoadingAutoEnrich(false);
     setIsCategoryOpen(false);
     setIsSubcategoryOpen(false);
   }, [initialWord, defaultCategoryGroup, defaultCategorySub, isOpen, allCategories]);
 
-  // Debounced live auto-enrichment as the user types
+  // Debounced live auto-enrichment when creating a NEW word
   useEffect(() => {
+    if (initialWord) return; // In edit mode, do NOT auto-overwrite user's fields while typing
+
     const clean = word.trim();
     if (!clean || clean.length < 2) {
-      if (!initialWord) setPreviewData(null);
-      setLoadingPreview(false);
+      setLoadingAutoEnrich(false);
       return;
     }
 
     const timer = setTimeout(async () => {
-      setLoadingPreview(true);
+      setLoadingAutoEnrich(true);
       try {
         const res = await autoEnrichWord(clean);
-        setPreviewData(res);
-        if (res?.partOfSpeech && !isPosManuallySelected) {
-          setPartOfSpeech(res.partOfSpeech);
+        if (res) {
+          if (!hasManuallyEditedTranslation) {
+            setTranslation(res.translation || '');
+          }
+          if (!hasManuallyEditedExamples) {
+            setExampleEn(res.exampleEn || '');
+            setExampleEs(res.exampleEs || '');
+          }
+          setPhoneticGuide((prev) => (prev ? prev : res.phoneticGuide || ''));
+          setIpa((prev) => (prev ? prev : res.ipa || ''));
+          if (!isPosManuallySelected && res.partOfSpeech) {
+            setPartOfSpeech(normalizePartOfSpeech(res.partOfSpeech));
+          }
         }
       } catch (e) {
         console.warn('Auto enrich preview error:', e);
       } finally {
-        setLoadingPreview(false);
+        setLoadingAutoEnrich(false);
       }
-    }, 450);
+    }, 500);
 
     return () => clearTimeout(timer);
-  }, [word, initialWord, isPosManuallySelected]);
+  }, [word, initialWord, hasManuallyEditedTranslation, hasManuallyEditedExamples, isPosManuallySelected]);
 
   const handleWordChange = (text: string) => {
     setWord(text);
@@ -207,6 +229,48 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       if (quickPos) {
         setPartOfSpeech(quickPos);
       }
+    }
+  };
+
+  const handleTranslationChange = (text: string) => {
+    setTranslation(text);
+    setHasManuallyEditedTranslation(true);
+  };
+
+  const handleExampleEnChange = (text: string) => {
+    setExampleEn(text);
+    setHasManuallyEditedExamples(true);
+  };
+
+  const handleExampleEsChange = (text: string) => {
+    setExampleEs(text);
+    setHasManuallyEditedExamples(true);
+  };
+
+  // On-demand AI suggestion generator (usable in both create and edit modes)
+  const handleRegenerateWithAI = async () => {
+    const clean = word.trim();
+    if (!clean) {
+      setValidationError('Por favor ingresa primero la palabra en inglés.');
+      return;
+    }
+    setLoadingAutoEnrich(true);
+    try {
+      const res = await autoEnrichWord(clean);
+      if (res) {
+        setTranslation(res.translation || '');
+        setExampleEn(res.exampleEn || '');
+        setExampleEs(res.exampleEs || '');
+        if (res.phoneticGuide) setPhoneticGuide(res.phoneticGuide);
+        if (res.ipa) setIpa(res.ipa);
+        if (res.partOfSpeech) setPartOfSpeech(normalizePartOfSpeech(res.partOfSpeech));
+        setHasManuallyEditedTranslation(true);
+        setHasManuallyEditedExamples(true);
+      }
+    } catch (e) {
+      console.warn('Error al autocompletar con IA:', e);
+    } finally {
+      setLoadingAutoEnrich(false);
     }
   };
 
@@ -231,23 +295,45 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   };
 
   const handleSave = async () => {
-    if (!word.trim()) {
+    const cleanWord = word.trim();
+    if (!cleanWord) {
       setValidationError('Por favor ingresa la palabra en inglés.');
       return;
     }
 
     setSaving(true);
-    let enrichedData: any = previewData;
-    if (!enrichedData || enrichedData.word.toLowerCase() !== word.trim().toLowerCase()) {
+    let finalTranslation = translation.trim();
+    let finalExampleEn = exampleEn.trim();
+    let finalExampleEs = exampleEs.trim();
+    let finalPhoneticGuide = phoneticGuide.trim();
+    let finalIpa = ipa.trim();
+    let finalPos = partOfSpeech;
+
+    // Fallback if translation is blank
+    if (!finalTranslation) {
       try {
-        enrichedData = await autoEnrichWord(word.trim());
+        const enriched = await autoEnrichWord(cleanWord);
+        if (enriched) {
+          if (!finalTranslation) finalTranslation = enriched.translation;
+          if (!finalExampleEn) finalExampleEn = enriched.exampleEn;
+          if (!finalExampleEs) finalExampleEs = enriched.exampleEs;
+          if (!finalPhoneticGuide) finalPhoneticGuide = enriched.phoneticGuide;
+          if (!finalIpa) finalIpa = enriched.ipa;
+          if (!isPosManuallySelected && enriched.partOfSpeech) {
+            finalPos = normalizePartOfSpeech(enriched.partOfSpeech);
+          }
+        }
       } catch (e) {
-        console.warn('Auto enrich error on save:', e);
+        console.warn('Auto enrich error on save fallback:', e);
       }
     }
 
-    const finalGroup = categoryGroup.trim() || enrichedData?.categoryGroup || (allCategories[0]?.name || 'General');
-    const finalSub = categorySub.trim() || enrichedData?.categorySub || '';
+    if (!finalTranslation) {
+      finalTranslation = cleanWord;
+    }
+
+    const finalGroup = categoryGroup.trim() || (allCategories[0]?.name || 'General');
+    const finalSub = categorySub.trim() || '';
 
     // Automatically ensure the category & subcategory are registered in the user's categories list
     if (finalGroup) {
@@ -261,25 +347,15 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       }
     }
 
-    const autoDetectedPos: PartOfSpeech =
-      (enrichedData?.partOfSpeech ? normalizePartOfSpeech(enrichedData.partOfSpeech) : null) ||
-      detectQuickPartOfSpeech(word.trim()) ||
-      partOfSpeech ||
-      'Sustantivo';
-
-    const finalPos: PartOfSpeech = isPosManuallySelected ? partOfSpeech : autoDetectedPos;
-
     onSave({
-      word: word.trim(),
-      translation: enrichedData?.translation || (initialWord ? initialWord.translation : word.trim()),
-      phoneticGuide:
-        enrichedData?.phoneticGuide ||
-        (initialWord ? initialWord.phoneticGuide : `"${word.trim().toLowerCase()}"`),
-      ipa: enrichedData?.ipa || (initialWord ? initialWord.ipa : ''),
-      definition: enrichedData?.definition || (initialWord ? initialWord.definition : ''),
-      exampleEn: enrichedData?.exampleEn || (initialWord ? initialWord.exampleEn : ''),
-      exampleEs: enrichedData?.exampleEs || (initialWord ? initialWord.exampleEs : ''),
-      level: enrichedData?.level || (initialWord ? initialWord.level : 'B1'),
+      word: cleanWord,
+      translation: finalTranslation,
+      phoneticGuide: finalPhoneticGuide || `"${cleanWord.toLowerCase()}"`,
+      ipa: finalIpa || '',
+      definition: finalTranslation,
+      exampleEn: finalExampleEn,
+      exampleEs: finalExampleEs,
+      level: initialWord ? initialWord.level : 'B1',
       partOfSpeech: finalPos,
       categoryGroup: finalGroup,
       categorySub: finalSub,
@@ -314,7 +390,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 <BookOpen size={16} color={THEME.colors.crimsonLight} />
               </View>
               <Text style={[styles.headerTitle, !isDark && styles.headerTitleLight]}>
-                {initialWord ? 'Editar Palabra' : 'Nueva Palabra'}
+                {isEditing ? 'Editar Palabra' : 'Nueva Palabra'}
               </Text>
             </View>
 
@@ -332,13 +408,45 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             <View style={[styles.noticeBox, !isDark && styles.noticeBoxLight]}>
               <Sparkles size={14} color="#ff4d6d" style={{ marginTop: 2 }} />
               <Text style={[styles.noticeText, !isDark && styles.noticeTextLight]}>
-                Escribe la palabra y selecciona su categoría. La traducción, fonética en inglés y las frases de ejemplo en inglés y español se autogeneran al instante.
+                {isEditing
+                  ? 'Puedes modificar el significado, las dos oraciones de ejemplo y todos los campos de esta palabra.'
+                  : 'Escribe la palabra en inglés. El significado, la fonética y las frases se sugieren automáticamente y puedes editarlas todas.'}
               </Text>
             </View>
 
             {/* 1. Palabra en Inglés */}
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, !isDark && styles.labelLight]}>Palabra en Inglés *</Text>
+              <View style={styles.labelActionRow}>
+                <Text style={[styles.label, !isDark && styles.labelLight]}>Palabra en Inglés *</Text>
+                <View style={styles.labelActions}>
+                  {word.trim().length > 0 && (
+                    <TouchableOpacity
+                      style={[styles.speakerBtn, !isDark && styles.speakerBtnLight]}
+                      onPress={() => vocabService.speak(word)}
+                      activeOpacity={0.7}
+                    >
+                      <Volume2 size={13} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
+                      <Text style={[styles.speakerBtnText, !isDark && styles.speakerBtnTextLight]}>Escuchar</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={[styles.aiSuggestBtn, !isDark && styles.aiSuggestBtnLight]}
+                    onPress={handleRegenerateWithAI}
+                    disabled={loadingAutoEnrich}
+                    activeOpacity={0.7}
+                  >
+                    {loadingAutoEnrich ? (
+                      <ActivityIndicator size="small" color={!isDark ? '#e11d48' : '#ff758c'} />
+                    ) : (
+                      <Sparkles size={13} color={!isDark ? '#e11d48' : '#ff758c'} />
+                    )}
+                    <Text style={[styles.aiSuggestBtnText, !isDark && styles.aiSuggestBtnTextLight]}>
+                      {loadingAutoEnrich ? 'Buscando...' : 'Sugerir con IA'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
               <TextInput
                 style={[
                   styles.input,
@@ -356,69 +464,147 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 }}
                 onBlur={() => setFocusedField(null)}
                 autoCapitalize="none"
-                autoFocus
+                autoFocus={!isEditing}
+              />
+
+              {loadingAutoEnrich && !isEditing && (
+                <View style={styles.inlineLoadingBox}>
+                  <ActivityIndicator size="small" color="#ff4d6d" />
+                  <Text style={[styles.inlineLoadingText, !isDark && styles.inlineLoadingTextLight]}>
+                    Buscando traducción y frases sugeridas...
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* 2. Significado / Traducción al Español */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, !isDark && styles.labelLight]}>
+                Significado / Traducción (Español) *
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  !isDark && styles.inputLight,
+                  focusedField === 'translation' && styles.inputFocused,
+                ]}
+                placeholder="Ej: gran avance, hallazgo importante, elocuente..."
+                placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                value={translation}
+                onChangeText={handleTranslationChange}
+                onFocus={() => {
+                  setFocusedField('translation');
+                  setIsCategoryOpen(false);
+                  setIsSubcategoryOpen(false);
+                }}
+                onBlur={() => setFocusedField(null)}
               />
             </View>
 
-            {/* Live Auto-Enrichment Preview Box */}
-            {loadingPreview && (
-              <View style={styles.previewLoadingBox}>
-                <ActivityIndicator size="small" color="#ff4d6d" />
-                <Text style={styles.previewLoadingText}>
-                  Buscando traducción, fonética y frases de ejemplo...
+            {/* 3. Frase de Ejemplo en Inglés */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, !isDark && styles.labelLight]}>
+                Frase de Ejemplo (Inglés)
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  !isDark && styles.inputLight,
+                  focusedField === 'exampleEn' && styles.inputFocused,
+                ]}
+                placeholder="Ej: Scientists announced a major breakthrough in renewable energy."
+                placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                value={exampleEn}
+                onChangeText={handleExampleEnChange}
+                multiline
+                numberOfLines={2}
+                onFocus={() => {
+                  setFocusedField('exampleEn');
+                  setIsCategoryOpen(false);
+                  setIsSubcategoryOpen(false);
+                }}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
+
+            {/* 4. Traducción de la Frase en Español */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, !isDark && styles.labelLight]}>
+                Traducción de la Frase (Español)
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  !isDark && styles.inputLight,
+                  focusedField === 'exampleEs' && styles.inputFocused,
+                ]}
+                placeholder="Ej: Los científicos anunciaron un gran avance en energía renovable."
+                placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                value={exampleEs}
+                onChangeText={handleExampleEsChange}
+                multiline
+                numberOfLines={2}
+                onFocus={() => {
+                  setFocusedField('exampleEs');
+                  setIsCategoryOpen(false);
+                  setIsSubcategoryOpen(false);
+                }}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
+
+            {/* 5. Pronunciación Fonética (Guía & IPA) */}
+            <View style={styles.rowCols}>
+              <View style={styles.colHalf}>
+                <Text style={[styles.label, !isDark && styles.labelLight]}>
+                  Guía Fonética (Aprox.)
                 </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    !isDark && styles.inputLight,
+                    focusedField === 'phoneticGuide' && styles.inputFocused,
+                  ]}
+                  placeholder='Ej: "breik-zru"'
+                  placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                  value={phoneticGuide}
+                  onChangeText={setPhoneticGuide}
+                  onFocus={() => {
+                    setFocusedField('phoneticGuide');
+                    setIsCategoryOpen(false);
+                    setIsSubcategoryOpen(false);
+                  }}
+                  onBlur={() => setFocusedField(null)}
+                />
               </View>
-            )}
 
-            {previewData && !loadingPreview && (
-              <View style={[styles.previewCard, !isDark && styles.previewCardLight]}>
-                <View style={styles.previewHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <Sparkles size={13} color="#ff4d6d" />
-                    <Text style={styles.previewBadgeText}>Auto-Generado</Text>
-                    <View style={[styles.previewPosPill, !isDark && styles.previewPosPillLight]}>
-                      <Text style={[styles.previewPosPillText, !isDark && styles.previewPosPillTextLight]}>
-                        {partOfSpeech}
-                      </Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => vocabService.speak(previewData.word || word)}
-                    style={styles.previewSpeakerBtn}
-                    activeOpacity={0.8}
-                  >
-                    <Volume2 size={13} color={THEME.colors.crimsonLight} />
-                    <Text style={styles.previewAudioText}>Escuchar pronunciación</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Traducción y Fonética en inglés */}
-                <View style={styles.previewRow}>
-                  <View style={{ flex: 1.2 }}>
-                    <Text style={styles.previewLabel}>Traducción (Español)</Text>
-                    <Text style={[styles.previewTranslation, !isDark && styles.previewTranslationLight]}>{previewData.translation}</Text>
-                  </View>
-                  <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                    <Text style={styles.previewLabel}>Fonéticamente (Inglés)</Text>
-                    <Text style={styles.previewIpa}>{previewData.ipa || '—'}</Text>
-                    {previewData.phoneticGuide ? (
-                      <Text style={styles.previewGuide}>{previewData.phoneticGuide}</Text>
-                    ) : null}
-                  </View>
-                </View>
-
-                {/* Frase en inglés y frase en español */}
-                <View style={[styles.previewSentenceBox, !isDark && styles.previewSentenceBoxLight]}>
-                  <Text style={styles.previewLabel}>Frase en inglés con esta palabra</Text>
-                  <Text style={[styles.previewSentenceEn, !isDark && styles.previewSentenceEnLight]}>{previewData.exampleEn}</Text>
-
-                  <Text style={[styles.previewLabel, { marginTop: 8 }]}>Traducción en español</Text>
-                  <Text style={[styles.previewSentenceEs, !isDark && styles.previewSentenceEsLight]}>{previewData.exampleEs}</Text>
-                </View>
+              <View style={styles.colHalf}>
+                <Text style={[styles.label, !isDark && styles.labelLight]}>
+                  Fonética IPA
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    !isDark && styles.inputLight,
+                    focusedField === 'ipa' && styles.inputFocused,
+                  ]}
+                  placeholder="Ej: /ˈbreɪkˌθruː/"
+                  placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                  value={ipa}
+                  onChangeText={setIpa}
+                  onFocus={() => {
+                    setFocusedField('ipa');
+                    setIsCategoryOpen(false);
+                    setIsSubcategoryOpen(false);
+                  }}
+                  onBlur={() => setFocusedField(null)}
+                />
               </View>
-            )}
+            </View>
 
-            {/* 2. Tipo de palabra (Asignado automáticamente) */}
+            {/* 6. Tipo de palabra (Gramática) */}
             <View style={[styles.autoPosBox, !isDark && styles.autoPosBoxLight]}>
               <View style={styles.autoPosHeader}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, flexWrap: 'wrap' }}>
@@ -455,7 +641,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   : '✨ Asignado automáticamente según la gramática en inglés.'}
               </Text>
 
-              {/* Botones / Chips de las 9 opciones solicitadas (solo si pulsa modificar manual) */}
+              {/* Botones / Chips de las 9 opciones solicitadas */}
               {isPosSelectorOpen && (
                 <View style={[styles.posChipsContainer, { marginTop: 10 }]}>
                   {PART_OF_SPEECH_OPTIONS.map((posOption) => {
@@ -493,7 +679,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               )}
             </View>
 
-            {/* 3. Categoría (Lista Desplegable) */}
+            {/* 7. Categoría (Lista Desplegable) */}
             <View style={[styles.inputGroup, { zIndex: 50 }]}>
               <View style={styles.labelRow}>
                 <Text style={[styles.label, !isDark && styles.labelLight]}>Categoría *</Text>
@@ -526,7 +712,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 </View>
               ) : (
                 <View style={styles.dropdownContainer}>
-                  {/* Dropdown Trigger */}
                   <TouchableOpacity
                     style={[
                       styles.dropdownTrigger,
@@ -552,7 +737,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     )}
                   </TouchableOpacity>
 
-                  {/* Dropdown Menu List */}
                   {isCategoryOpen && (
                     <View style={[styles.dropdownMenu, !isDark && styles.dropdownMenuLight]}>
                       <ScrollView
@@ -614,7 +798,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               )}
             </View>
 
-            {/* 3. Subcategoría (Lista Desplegable) */}
+            {/* 8. Subcategoría (Lista Desplegable) */}
             <View style={[styles.inputGroup, { zIndex: 40 }]}>
               <View style={styles.labelRow}>
                 <Text style={[styles.label, !isDark && styles.labelLight]}>Subcategoría</Text>
@@ -647,7 +831,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 </View>
               ) : (
                 <View style={styles.dropdownContainer}>
-                  {/* Dropdown Trigger */}
                   <TouchableOpacity
                     style={[
                       styles.dropdownTrigger,
@@ -679,7 +862,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     )}
                   </TouchableOpacity>
 
-                  {/* Dropdown Menu List */}
                   {isSubcategoryOpen && (
                     <View style={[styles.dropdownMenu, !isDark && styles.dropdownMenuLight]}>
                       <ScrollView
@@ -687,7 +869,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                         style={styles.dropdownScrollView}
                         showsVerticalScrollIndicator={false}
                       >
-                        {/* Option: Sin subcategoría */}
                         <TouchableOpacity
                           style={[
                             styles.dropdownItem,
@@ -711,7 +892,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                           {categorySub === '' && <Check size={14} color="#ffffff" />}
                         </TouchableOpacity>
 
-                        {/* List available subcategories for current category */}
                         {availableSubcategories.map((subName) => {
                           const isSelected =
                             categorySub.toLowerCase() === subName.toLowerCase();
@@ -791,7 +971,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               ) : (
                 <>
                   <Check size={16} color="#ffffff" style={{ marginRight: 6 }} />
-                  <Text style={styles.saveButtonText}>Guardar Palabra</Text>
+                  <Text style={styles.saveButtonText}>
+                    {isEditing ? 'Actualizar Palabra' : 'Guardar Palabra'}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -840,7 +1022,7 @@ const styles = StyleSheet.create({
   },
   modalCardDesktop: {
     width: '100%',
-    maxWidth: 500,
+    maxWidth: 520,
     borderRadius: THEME.radius.xl,
   },
   modalHeader: {
@@ -870,7 +1052,7 @@ const styles = StyleSheet.create({
   },
   scrollBody: {
     padding: 20,
-    gap: 16,
+    gap: 14,
   },
   noticeBox: {
     flexDirection: 'row',
@@ -901,6 +1083,73 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  labelActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  labelActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  speakerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(230, 46, 76, 0.12)',
+    borderRadius: 6,
+  },
+  speakerBtnLight: {
+    backgroundColor: '#ffe4e6',
+  },
+  speakerBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: THEME.colors.crimsonLight,
+  },
+  speakerBtnTextLight: {
+    color: '#e11d48',
+  },
+  aiSuggestBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(230, 46, 76, 0.15)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.3)',
+  },
+  aiSuggestBtnLight: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fca5a5',
+  },
+  aiSuggestBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ff758c',
+  },
+  aiSuggestBtnTextLight: {
+    color: '#e11d48',
+  },
+  inlineLoadingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
+  },
+  inlineLoadingText: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+  },
+  inlineLoadingTextLight: {
+    color: '#64748b',
+  },
   linkText: {
     fontSize: 11,
     color: THEME.colors.crimsonLight,
@@ -917,9 +1166,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as any) : {}),
   },
+  textArea: {
+    height: 68,
+    paddingTop: 10,
+    paddingBottom: 10,
+    textAlignVertical: 'top',
+  },
   inputFocused: {
     borderColor: THEME.colors.crimson,
     backgroundColor: 'rgba(230, 46, 76, 0.05)',
+  },
+  rowCols: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  colHalf: {
+    flex: 1,
+    gap: 6,
   },
   customInputRow: {
     flexDirection: 'row',
@@ -940,109 +1203,6 @@ const styles = StyleSheet.create({
     color: THEME.colors.textMuted,
     fontSize: 11,
     fontWeight: '600',
-  },
-
-  // Live Preview Styles
-  previewLoadingBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: THEME.radius.md,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  previewLoadingText: {
-    fontSize: 12,
-    color: THEME.colors.textMuted,
-  },
-  previewCard: {
-    backgroundColor: '#120d1e',
-    borderWidth: 1,
-    borderColor: 'rgba(230, 46, 76, 0.35)',
-    borderRadius: THEME.radius.lg,
-    padding: 14,
-    gap: 12,
-    shadowColor: '#e62e4c',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-  },
-  previewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  previewBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#ff758c',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  previewSpeakerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: 'rgba(230, 46, 76, 0.12)',
-    borderRadius: 6,
-  },
-  previewAudioText: {
-    fontSize: 11,
-    color: THEME.colors.crimsonLight,
-    fontWeight: '600',
-  },
-  previewRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  previewLabel: {
-    fontSize: 10,
-    color: THEME.colors.textSubtle,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 2,
-  },
-  previewTranslation: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  previewIpa: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#93c5fd',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  },
-  previewGuide: {
-    fontSize: 11,
-    color: THEME.colors.textSubtle,
-  },
-  previewSentenceBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderRadius: THEME.radius.md,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  previewSentenceEn: {
-    fontSize: 12,
-    color: '#e2e8f0',
-    fontStyle: 'italic',
-    lineHeight: 18,
-  },
-  previewSentenceEs: {
-    fontSize: 11,
-    color: '#94a3b8',
-    lineHeight: 16,
   },
 
   // Dropdown Styles
@@ -1174,6 +1334,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+
+  // Light Mode Overrides
   modalCardLight: {
     backgroundColor: '#ffffff',
     borderColor: 'rgba(0, 0, 0, 0.1)',
@@ -1221,23 +1383,6 @@ const styles = StyleSheet.create({
   },
   dropdownItemTextLight: {
     color: '#334155',
-  },
-  previewCardLight: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#fca5a5',
-  },
-  previewTranslationLight: {
-    color: '#0f172a',
-  },
-  previewSentenceBoxLight: {
-    backgroundColor: '#f1f5f9',
-    borderColor: '#e2e8f0',
-  },
-  previewSentenceEnLight: {
-    color: '#1e293b',
-  },
-  previewSentenceEsLight: {
-    color: '#475569',
   },
   modalFooterLight: {
     borderTopColor: 'rgba(0, 0, 0, 0.08)',
@@ -1291,27 +1436,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
   },
-  previewPosPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: 'rgba(230, 46, 76, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(230, 46, 76, 0.3)',
-  },
-  previewPosPillLight: {
-    backgroundColor: '#ffe4e6',
-    borderColor: '#fca5a5',
-  },
-  previewPosPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#ff758c',
-    textTransform: 'uppercase',
-  },
-  previewPosPillTextLight: {
-    color: '#e11d48',
-  },
 
   // Auto-assigned Part of Speech Box Styles
   autoPosBox: {
@@ -1320,7 +1444,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(230, 46, 76, 0.22)',
     borderRadius: THEME.radius.lg,
     padding: 12,
-    marginBottom: 16,
   },
   autoPosBoxLight: {
     backgroundColor: '#fff1f2',
@@ -1383,4 +1506,3 @@ const styles = StyleSheet.create({
     color: THEME.colors.crimsonLight,
   },
 });
-
