@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Image,
+  Linking,
 } from 'react-native';
 import {
   Settings,
@@ -21,6 +22,8 @@ import {
   UserX,
   Sun,
   Moon,
+  Smartphone,
+  Download,
 } from 'lucide-react-native';
 import { UserProfile } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
@@ -276,6 +279,33 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             ) : (
               <Text style={styles.saveKeyText}>Guardar</Text>
             )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Consigue la versión móvil (Descargar APK) */}
+      <View style={[styles.card, !isDark && styles.cardLight]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 240 }}>
+            <View style={[styles.iconCircle, { backgroundColor: 'rgba(230, 46, 76, 0.15)' }]}>
+              <Smartphone size={22} color={THEME.colors.crimsonLight} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.sectionTitle, !isDark && styles.titleLight, { marginBottom: 2 }]}>
+                Consigue la versión móvil
+              </Text>
+              <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 0 }]}>
+                Descarga e instala la app oficial en tu Android (v1.1.0 APK)
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.downloadApkBtn}
+            onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.1.0/PronounceIt-v1.1.0.apk')}
+            activeOpacity={0.85}
+          >
+            <Download size={16} color="#ffffff" style={{ marginRight: 6 }} />
+            <Text style={styles.downloadApkBtnText}>Descargar APK</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -585,6 +615,25 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   exportDataBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  downloadApkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: THEME.colors.crimson,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: THEME.radius.md,
+    shadowColor: THEME.colors.crimson,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  downloadApkBtnText: {
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',

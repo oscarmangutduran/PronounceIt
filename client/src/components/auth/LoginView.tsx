@@ -25,6 +25,8 @@ import {
   Sparkles,
   BookOpen,
   WifiOff,
+  Smartphone,
+  Download,
 } from 'lucide-react-native';
 import { firebaseService, WelcomeEmailNotice } from '../../lib/firebaseClient';
 import { vocabService } from '../../lib/vocabularyStore';
@@ -683,46 +685,19 @@ export const LoginView: React.FC<LoginViewProps> = ({
             )}
           </View>
 
-          {/* Recommended Resources Footer */}
-          <View style={styles.partnerFooter}>
-            <Text style={styles.partnerFooterTitle}>APLICACIONES RECOMENDADAS</Text>
-            <View style={styles.partnerRow}>
-              <TouchableOpacity
-                style={styles.partnerBadge}
-                onPress={() => Linking.openURL('https://www.duolingo.com/')}
-              >
-                <Image
-                  source={require('../../assets/duolingo.png')}
-                  style={styles.partnerIcon}
-                  resizeMode="contain"
-                />
-                <Text style={styles.partnerText}>Duolingo</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.partnerBadge}
-                onPress={() => Linking.openURL('https://beespeaker.com/')}
-              >
-                <Image
-                  source={require('../../assets/beespeaker.png')}
-                  style={styles.partnerIcon}
-                  resizeMode="contain"
-                />
-                <Text style={styles.partnerText}>BeeSpeaker</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.partnerBadge}
-                onPress={() => Linking.openURL('https://wlingua.com/')}
-              >
-                <Image
-                  source={require('../../assets/wlingua.png')}
-                  style={styles.partnerIcon}
-                  resizeMode="contain"
-                />
-                <Text style={styles.partnerText}>Wlingua</Text>
-              </TouchableOpacity>
-            </View>
+          {/* Consigue la versión móvil */}
+          <View style={styles.mobileDownloadFooter}>
+            <TouchableOpacity
+              style={styles.mobileDownloadBtn}
+              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.1.0/PronounceIt-v1.1.0.apk')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.mobileDownloadIconBox}>
+                <Smartphone size={16} color="#ffffff" />
+              </View>
+              <Text style={styles.mobileDownloadTitle}>Consigue la versión móvil</Text>
+              <Download size={15} color={THEME.colors.crimsonLight} />
+            </TouchableOpacity>
           </View>
         </ScrollView>
         </KeyboardAvoidingView>
@@ -997,45 +972,37 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-  partnerFooter: {
-    marginTop: 28,
+  mobileDownloadFooter: {
+    marginTop: 26,
     alignItems: 'center',
     width: '100%',
     maxWidth: 420,
   },
-  partnerFooterTitle: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: THEME.colors.textSubtle,
-    letterSpacing: 1.2,
-    marginBottom: 12,
-  },
-  partnerRow: {
-    flexDirection: 'row',
-    gap: 8,
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-  },
-  partnerBadge: {
+  mobileDownloadBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(230, 46, 76, 0.12)',
     borderWidth: 1,
-    borderColor: THEME.colors.border,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: THEME.radius.sm,
-    gap: 6,
+    borderColor: 'rgba(230, 46, 76, 0.35)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: THEME.radius.md,
+    gap: 10,
   },
-  partnerIcon: {
-    width: 14,
-    height: 14,
-    borderRadius: 3,
+  mobileDownloadIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: THEME.colors.crimson,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  partnerText: {
-    color: THEME.colors.textMuted,
-    fontSize: 11,
-    fontWeight: '500',
+  mobileDownloadTitle: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   offlineBanner: {
     flexDirection: 'row',

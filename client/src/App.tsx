@@ -20,6 +20,8 @@ import {
   ClipboardCheck,
   BarChart3,
   Settings,
+  Smartphone,
+  Download,
 } from 'lucide-react-native';
 
 import { MainNavTab, WordItem, WordStatus, UserProfile } from './types';
@@ -626,47 +628,17 @@ function MainApp() {
             <Text style={[styles.footerCopyright, !isDark && styles.footerTextBlack]}>
               © PronounceIt | Desarrollado con ❤️ Oscar Mangut Dev
             </Text>
-            <View style={styles.footerPartners}>
-              <Text style={[styles.footerPartnerTitle, !isDark && styles.footerPartnerTitleLight]}>
-                APLICACIONES RECOMENDADAS:
+            <TouchableOpacity
+              style={[styles.footerMobileBtn, !isDark && styles.footerMobileBtnLight]}
+              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.1.0/PronounceIt-v1.1.0.apk')}
+              activeOpacity={0.8}
+            >
+              <Smartphone size={15} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
+              <Text style={[styles.footerMobileText, !isDark && styles.footerMobileTextLight]}>
+                Consigue la versión móvil
               </Text>
-              <TouchableOpacity
-                style={[styles.footerPartnerBadge, !isDark && styles.footerPartnerBadgeLight]}
-                onPress={() => Linking.openURL('https://www.duolingo.com/')}
-              >
-                <Image
-                  source={require('./assets/duolingo.png')}
-                  style={styles.footerPartnerLogo}
-                />
-                <Text style={[styles.footerPartnerName, !isDark && styles.footerPartnerNameLight]}>
-                  Duolingo
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.footerPartnerBadge, !isDark && styles.footerPartnerBadgeLight]}
-                onPress={() => Linking.openURL('https://beespeaker.com/')}
-              >
-                <Image
-                  source={require('./assets/beespeaker.png')}
-                  style={styles.footerPartnerLogo}
-                />
-                <Text style={[styles.footerPartnerName, !isDark && styles.footerPartnerNameLight]}>
-                  BeeSpeaker
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.footerPartnerBadge, !isDark && styles.footerPartnerBadgeLight]}
-                onPress={() => Linking.openURL('https://wlingua.com/')}
-              >
-                <Image
-                  source={require('./assets/wlingua.png')}
-                  style={styles.footerPartnerLogo}
-                />
-                <Text style={[styles.footerPartnerName, !isDark && styles.footerPartnerNameLight]}>
-                  Wlingua
-                </Text>
-              </TouchableOpacity>
-            </View>
+              <Download size={13} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -945,58 +917,28 @@ const styles = StyleSheet.create({
     color: THEME.colors.textSubtle,
     fontWeight: '500',
   },
-  footerPartners: {
+  footerMobileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-  },
-  footerPartnerTitle: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: THEME.colors.textSubtle,
-    letterSpacing: 1,
-    marginRight: 4,
-  },
-  footerPartnerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: 'rgba(230, 46, 76, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(230, 46, 76, 0.3)',
     borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 8,
   },
-  footerPartnerLogo: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
+  footerMobileBtnLight: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fecdd3',
   },
-  footerPartnerName: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#e2e8f0',
-  },
-  footerContainerLight: {
-    backgroundColor: '#ffffff',
-    borderTopColor: 'rgba(0, 0, 0, 0.08)',
-  },
-  footerTextBlack: {
-    color: '#000000',
-    fontWeight: '600',
-  },
-  footerPartnerTitleLight: {
-    color: '#000000',
-    fontWeight: '800',
-  },
-  footerPartnerBadgeLight: {
-    backgroundColor: '#f1f5f9',
-    borderColor: 'rgba(0, 0, 0, 0.12)',
-  },
-  footerPartnerNameLight: {
-    color: '#000000',
+  footerMobileText: {
+    fontSize: 12,
     fontWeight: '700',
+    color: '#ffffff',
+  },
+  footerMobileTextLight: {
+    color: '#e11d48',
   },
 
   // Mobile Bottom Tab Bar
