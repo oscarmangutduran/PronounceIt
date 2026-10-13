@@ -1,6 +1,24 @@
 import { WordItem, WordLevel, WordStatus, PartOfSpeech } from '../types';
 import { appStorage } from './storage';
 import { networkService } from './networkService';
+import { IRREGULAR_VERBS } from '../data/irregularVerbs';
+
+const IRREGULAR_VERB_SET = new Set<string>();
+IRREGULAR_VERBS.forEach((v) => {
+  if (v.infinitive) IRREGULAR_VERB_SET.add(v.infinitive.toLowerCase().trim());
+  if (v.pastSimple) {
+    v.pastSimple.split(/[\/,]/).forEach((s) => {
+      const c = s.trim().toLowerCase();
+      if (c) IRREGULAR_VERB_SET.add(c);
+    });
+  }
+  if (v.pastParticiple) {
+    v.pastParticiple.split(/[\/,]/).forEach((s) => {
+      const c = s.trim().toLowerCase();
+      if (c) IRREGULAR_VERB_SET.add(c);
+    });
+  }
+});
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 1500): Promise<Response> {
   const controller = new AbortController();
@@ -582,30 +600,72 @@ export function normalizePartOfSpeech(pos: string): PartOfSpeech {
 
 export function detectQuickPartOfSpeech(word: string): PartOfSpeech | null {
   const w = word.toLowerCase().trim();
-  if (['the', 'a', 'an', 'this', 'that', 'these', 'those', 'every', 'each', 'some', 'any', 'no', 'my', 'your', 'his', 'her', 'its', 'our', 'their'].includes(w)) {
+  if (!w) return null;
+
+  // 1. Determiners & Articles
+  if (['the', 'a', 'an', 'this', 'that', 'these', 'those', 'every', 'each', 'some', 'any', 'no', 'my', 'your', 'his', 'her', 'its', 'our', 'their', 'much', 'many', 'several', 'few', 'little', 'all', 'both', 'either', 'neither', 'another', 'such'].includes(w)) {
     return 'Artículo/determinante';
   }
-  if (['in', 'on', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'off', 'over', 'under', 'toward', 'towards', 'behind', 'across', 'without'].includes(w)) {
-    return 'Preposición';
-  }
-  if (['and', 'but', 'or', 'so', 'because', 'although', 'since', 'unless', 'while', 'whereas', 'if', 'nor', 'yet', 'either', 'neither', 'whether'].includes(w)) {
-    return 'Conjunción';
-  }
-  if (['i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'mine', 'yours', 'hers', 'ours', 'theirs', 'myself', 'yourself', 'himself', 'herself', 'itself', 'ourselves', 'themselves', 'who', 'whom', 'whose', 'which', 'what', 'anyone', 'someone', 'everyone', 'nobody', 'anything', 'something', 'everything', 'nothing'].includes(w)) {
+
+  // 2. Pronouns
+  if (['i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'mine', 'yours', 'hers', 'ours', 'theirs', 'myself', 'yourself', 'himself', 'herself', 'itself', 'ourselves', 'themselves', 'who', 'whom', 'whose', 'which', 'what', 'anyone', 'someone', 'everyone', 'nobody', 'anything', 'something', 'everything', 'nothing', 'somebody', 'anybody', 'everybody', 'no one'].includes(w)) {
     return 'Pronombre';
   }
-  if (['wow', 'oh', 'hey', 'hello', 'hi', 'oops', 'ouch', 'alas', 'yay', 'hurray', 'ah', 'aha', 'bravo', 'bingo', 'hooray'].includes(w)) {
+
+  // 3. Prepositions
+  if (['in', 'on', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'off', 'over', 'under', 'toward', 'towards', 'behind', 'across', 'without', 'within', 'along', 'among', 'around', 'beneath', 'beside', 'besides', 'beyond', 'inside', 'outside', 'near', 'upon', 'throughout', 'despite', 'except'].includes(w)) {
+    return 'Preposición';
+  }
+
+  // 4. Conjunctions
+  if (['and', 'but', 'or', 'so', 'because', 'although', 'since', 'unless', 'while', 'whereas', 'if', 'nor', 'yet', 'either', 'neither', 'whether', 'though', 'even though', 'provided'].includes(w)) {
+    return 'Conjunción';
+  }
+
+  // 5. Interjections
+  if (['wow', 'oh', 'hey', 'hello', 'hi', 'oops', 'ouch', 'alas', 'yay', 'hurray', 'ah', 'aha', 'bravo', 'bingo', 'hooray', 'gosh', 'yeah', 'yep', 'nope'].includes(w)) {
     return 'Interjección';
   }
-  if (['be', 'is', 'are', 'was', 'were', 'have', 'has', 'do', 'does', 'go', 'make', 'take', 'see', 'come', 'get', 'give', 'know', 'think', 'say', 'look', 'want', 'use', 'find', 'tell', 'ask', 'work', 'seem', 'feel', 'try', 'leave', 'call', 'run', 'read', 'write', 'learn', 'play', 'eat', 'drink', 'walk', 'speak', 'talk', 'listen', 'watch', 'stand', 'sit', 'buy', 'sell', 'pay', 'meet', 'send', 'build', 'understand', 'remember'].includes(w)) {
+
+  // 6. Irregular verbs from catalog
+  if (IRREGULAR_VERB_SET.has(w)) {
     return 'Verbo';
   }
-  if (['good', 'bad', 'big', 'small', 'great', 'new', 'old', 'young', 'important', 'beautiful', 'happy', 'sad', 'fast', 'slow', 'hard', 'easy', 'different', 'same', 'high', 'low', 'early', 'late', 'strong', 'weak', 'rich', 'poor'].includes(w)) {
-    return 'Adjetivo';
+
+  // Common verbs and auxiliaries/modals
+  if (['be', 'is', 'am', 'are', 'was', 'were', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'done', 'doing', 'can', 'could', 'will', 'would', 'shall', 'should', 'may', 'might', 'must', 'ought', 'go', 'make', 'take', 'see', 'come', 'get', 'give', 'know', 'think', 'say', 'look', 'want', 'use', 'find', 'tell', 'ask', 'work', 'seem', 'feel', 'try', 'leave', 'call', 'run', 'read', 'write', 'learn', 'play', 'eat', 'drink', 'walk', 'speak', 'talk', 'listen', 'watch', 'stand', 'sit', 'buy', 'sell', 'pay', 'meet', 'send', 'build', 'understand', 'remember', 'love', 'like', 'hate', 'need', 'believe', 'live', 'die', 'open', 'close', 'start', 'begin', 'stop', 'finish', 'end', 'help', 'keep', 'put', 'set', 'turn', 'move', 'change', 'follow', 'decide', 'show', 'hear', 'allow', 'create', 'carry'].includes(w)) {
+    return 'Verbo';
   }
-  if (['quickly', 'slowly', 'always', 'never', 'often', 'sometimes', 'very', 'really', 'well', 'badly', 'already', 'now', 'then', 'here', 'there', 'together', 'quite', 'almost', 'also', 'too', 'enough', 'hardly', 'barely', 'even'].includes(w)) {
+
+  // Verbs ending in -ize, -ise, -ify, -ate
+  if (w.length > 5 && (w.endsWith('ize') || w.endsWith('ise') || w.endsWith('ify') || w.endsWith('ate'))) {
+    return 'Verbo';
+  }
+
+  // 7. Adverbs
+  const nonAdverbsEndingInLy = ['friendly', 'lovely', 'lonely', 'silly', 'ugly', 'likely', 'deadly', 'lively', 'elderly', 'costly', 'orderly', 'timely', 'holy', 'fly', 'rely', 'apply', 'supply', 'jelly', 'belly'];
+  if (w.length > 3 && w.endsWith('ly') && !nonAdverbsEndingInLy.includes(w)) {
     return 'Adverbio';
   }
+
+  if (['quickly', 'slowly', 'always', 'never', 'often', 'sometimes', 'usually', 'seldom', 'rarely', 'hardly', 'scarcely', 'barely', 'already', 'soon', 'late', 'early', 'now', 'then', 'today', 'tomorrow', 'yesterday', 'tonight', 'here', 'there', 'everywhere', 'nowhere', 'somewhere', 'anywhere', 'very', 'quite', 'rather', 'pretty', 'extremely', 'fairly', 'too', 'almost', 'nearly', 'just', 'only', 'even', 'also', 'together', 'apart', 'instead', 'perhaps', 'maybe', 'probably', 'possibly', 'certainly', 'definitely', 'actually', 'really', 'indeed'].includes(w)) {
+    return 'Adverbio';
+  }
+
+  // 8. Adjectives
+  if (['good', 'bad', 'big', 'small', 'great', 'new', 'old', 'young', 'important', 'beautiful', 'happy', 'sad', 'fast', 'slow', 'hard', 'easy', 'different', 'same', 'high', 'low', 'early', 'late', 'strong', 'weak', 'rich', 'poor', 'long', 'short', 'hot', 'cold', 'warm', 'cool', 'clean', 'dirty', 'dark', 'bright', 'tired', 'safe', 'dangerous', 'right', 'wrong', 'true', 'false', 'simple', 'complex', 'special', 'common', 'rare', 'clear', 'ready', 'sure', 'certain', 'possible', 'impossible'].includes(w)) {
+    return 'Adjetivo';
+  }
+
+  if (w.length > 4 && (w.endsWith('able') || w.endsWith('ible') || w.endsWith('ful') || w.endsWith('less') || w.endsWith('ous') || w.endsWith('ious') || w.endsWith('ic') || w.endsWith('ive') || w.endsWith('ish'))) {
+    return 'Adjetivo';
+  }
+
+  // 9. Nouns by suffix
+  if (w.length > 5 && (w.endsWith('tion') || w.endsWith('sion') || w.endsWith('ment') || w.endsWith('ness') || w.endsWith('ity') || w.endsWith('ance') || w.endsWith('ence') || w.endsWith('ship') || w.endsWith('hood') || w.endsWith('ism') || w.endsWith('ist'))) {
+    return 'Sustantivo';
+  }
+
   return null;
 }
 

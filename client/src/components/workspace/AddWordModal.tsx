@@ -27,7 +27,7 @@ import {
 } from 'lucide-react-native';
 import { WordItem, CategoryItem, PartOfSpeech, PART_OF_SPEECH_OPTIONS } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
-import { autoEnrichWord, AutoEnrichResult, normalizePartOfSpeech } from '../../lib/dictionaryService';
+import { autoEnrichWord, AutoEnrichResult, normalizePartOfSpeech, detectQuickPartOfSpeech } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
 
@@ -60,6 +60,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [categorySub, setCategorySub] = useState(defaultCategorySub || '');
   const [partOfSpeech, setPartOfSpeech] = useState<PartOfSpeech>('Sustantivo');
   const [isPosManuallySelected, setIsPosManuallySelected] = useState(false);
+  const [isPosSelectorOpen, setIsPosSelectorOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -164,6 +165,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setIsCustomSubcategory(false);
       setPartOfSpeech('Sustantivo');
       setIsPosManuallySelected(false);
+      setIsPosSelectorOpen(false);
       setPreviewData(null);
     }
     setIsCategoryOpen(false);
@@ -196,6 +198,17 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
     return () => clearTimeout(timer);
   }, [word, initialWord, isPosManuallySelected]);
+
+  const handleWordChange = (text: string) => {
+    setWord(text);
+    const clean = text.trim();
+    if (clean.length > 0 && !isPosManuallySelected) {
+      const quickPos = detectQuickPartOfSpeech(clean);
+      if (quickPos) {
+        setPartOfSpeech(quickPos);
+      }
+    }
+  };
 
   const handleSelectCategory = (name: string) => {
     setCategoryGroup(name);
@@ -248,6 +261,14 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       }
     }
 
+    const autoDetectedPos: PartOfSpeech =
+      (enrichedData?.partOfSpeech ? normalizePartOfSpeech(enrichedData.partOfSpeech) : null) ||
+      detectQuickPartOfSpeech(word.trim()) ||
+      partOfSpeech ||
+      'Sustantivo';
+
+    const finalPos: PartOfSpeech = isPosManuallySelected ? partOfSpeech : autoDetectedPos;
+
     onSave({
       word: word.trim(),
       translation: enrichedData?.translation || (initialWord ? initialWord.translation : word.trim()),
@@ -259,7 +280,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       exampleEn: enrichedData?.exampleEn || (initialWord ? initialWord.exampleEn : ''),
       exampleEs: enrichedData?.exampleEs || (initialWord ? initialWord.exampleEs : ''),
       level: enrichedData?.level || (initialWord ? initialWord.level : 'B1'),
-      partOfSpeech: partOfSpeech,
+      partOfSpeech: finalPos,
       categoryGroup: finalGroup,
       categorySub: finalSub,
       status: initialWord ? initialWord.status : 'nueva',
@@ -327,7 +348,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 placeholder="Ej: breakthrough, eloquent, serendipity..."
                 placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
                 value={word}
-                onChangeText={setWord}
+                onChangeText={handleWordChange}
                 onFocus={() => {
                   setFocusedField('word');
                   setIsCategoryOpen(false);
@@ -397,64 +418,79 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               </View>
             )}
 
-            {/* 2. Tipo de palabra (Categoría gramatical) */}
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Tag size={13} color={THEME.colors.crimsonLight} />
-                  <Text style={[styles.label, !isDark && styles.labelLight, { marginBottom: 0 }]}>
-                    Tipo de palabra *
+            {/* 2. Tipo de palabra (Asignado automáticamente) */}
+            <View style={[styles.autoPosBox, !isDark && styles.autoPosBoxLight]}>
+              <View style={styles.autoPosHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, flexWrap: 'wrap' }}>
+                  <Sparkles size={14} color="#ff4d6d" />
+                  <Text style={[styles.autoPosTitle, !isDark && styles.autoPosTitleLight]}>
+                    Tipo de palabra:
                   </Text>
+                  <View style={[styles.autoPosBadge, !isDark && styles.autoPosBadgeLight]}>
+                    <Text style={[styles.autoPosBadgeText, !isDark && styles.autoPosBadgeTextLight]}>
+                      {partOfSpeech}
+                    </Text>
+                  </View>
                 </View>
-                {isPosManuallySelected && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (previewData?.partOfSpeech) {
-                        setPartOfSpeech(previewData.partOfSpeech);
-                      }
-                      setIsPosManuallySelected(false);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.linkText}>↻ Auto-detectado</Text>
-                  </TouchableOpacity>
-                )}
+
+                <TouchableOpacity
+                  style={styles.changePosToggleBtn}
+                  onPress={() => setIsPosSelectorOpen(!isPosSelectorOpen)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.changePosToggleText}>
+                    {isPosSelectorOpen ? 'Ocultar opciones' : 'Modificar manual'}
+                  </Text>
+                  {isPosSelectorOpen ? (
+                    <ChevronUp size={12} color={THEME.colors.crimsonLight} />
+                  ) : (
+                    <ChevronDown size={12} color={THEME.colors.crimsonLight} />
+                  )}
+                </TouchableOpacity>
               </View>
 
-              {/* Botones / Chips de las 9 opciones solicitadas */}
-              <View style={styles.posChipsContainer}>
-                {PART_OF_SPEECH_OPTIONS.map((posOption) => {
-                  const isSelected = partOfSpeech === posOption;
-                  return (
-                    <TouchableOpacity
-                      key={posOption}
-                      style={[
-                        styles.posChip,
-                        !isDark && styles.posChipLight,
-                        isSelected && styles.posChipActive,
-                      ]}
-                      onPress={() => {
-                        setPartOfSpeech(posOption);
-                        setIsPosManuallySelected(true);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      {isSelected && (
-                        <Check size={12} color="#ffffff" style={{ marginRight: 4 }} />
-                      )}
-                      <Text
+              <Text style={[styles.autoPosSubtext, !isDark && styles.autoPosSubtextLight]}>
+                {isPosManuallySelected
+                  ? 'Modificado manualmente por ti.'
+                  : '✨ Asignado automáticamente según la gramática en inglés.'}
+              </Text>
+
+              {/* Botones / Chips de las 9 opciones solicitadas (solo si pulsa modificar manual) */}
+              {isPosSelectorOpen && (
+                <View style={[styles.posChipsContainer, { marginTop: 10 }]}>
+                  {PART_OF_SPEECH_OPTIONS.map((posOption) => {
+                    const isSelected = partOfSpeech === posOption;
+                    return (
+                      <TouchableOpacity
+                        key={posOption}
                         style={[
-                          styles.posChipText,
-                          !isDark && styles.posChipTextLight,
-                          isSelected && styles.posChipTextActive,
+                          styles.posChip,
+                          !isDark && styles.posChipLight,
+                          isSelected && styles.posChipActive,
                         ]}
+                        onPress={() => {
+                          setPartOfSpeech(posOption);
+                          setIsPosManuallySelected(true);
+                        }}
+                        activeOpacity={0.8}
                       >
-                        {posOption}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                        {isSelected && (
+                          <Check size={12} color="#ffffff" style={{ marginRight: 4 }} />
+                        )}
+                        <Text
+                          style={[
+                            styles.posChipText,
+                            !isDark && styles.posChipTextLight,
+                            isSelected && styles.posChipTextActive,
+                          ]}
+                        >
+                          {posOption}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
 
             {/* 3. Categoría (Lista Desplegable) */}
@@ -1275,6 +1311,76 @@ const styles = StyleSheet.create({
   },
   previewPosPillTextLight: {
     color: '#e11d48',
+  },
+
+  // Auto-assigned Part of Speech Box Styles
+  autoPosBox: {
+    backgroundColor: 'rgba(230, 46, 76, 0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.22)',
+    borderRadius: THEME.radius.lg,
+    padding: 12,
+    marginBottom: 16,
+  },
+  autoPosBoxLight: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fecdd3',
+  },
+  autoPosHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  autoPosTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  autoPosTitleLight: {
+    color: '#0f172a',
+  },
+  autoPosBadge: {
+    backgroundColor: THEME.colors.crimson,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: THEME.radius.full || 999,
+  },
+  autoPosBadgeLight: {
+    backgroundColor: '#e11d48',
+  },
+  autoPosBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  autoPosBadgeTextLight: {
+    color: '#ffffff',
+  },
+  autoPosSubtext: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+    marginTop: 6,
+    lineHeight: 15,
+  },
+  autoPosSubtextLight: {
+    color: '#64748b',
+  },
+  changePosToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 6,
+  },
+  changePosToggleText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: THEME.colors.crimsonLight,
   },
 });
 
