@@ -28,7 +28,7 @@ import {
   RotateCcw,
 } from 'lucide-react-native';
 import { WordItem, CategoryItem, PartOfSpeech, PART_OF_SPEECH_OPTIONS } from '../../types';
-import { vocabService } from '../../lib/vocabularyStore';
+import { vocabService, getWordCategories, getWordSubcategories } from '../../lib/vocabularyStore';
 import { autoEnrichWord, normalizePartOfSpeech, detectQuickPartOfSpeech } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
@@ -65,25 +65,29 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [exampleEs, setExampleEs] = useState('');
   const [phoneticGuide, setPhoneticGuide] = useState('');
   const [ipa, setIpa] = useState('');
-  const [categoryGroup, setCategoryGroup] = useState(defaultCategoryGroup || '');
-  const [categorySub, setCategorySub] = useState(defaultCategorySub || '');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
   const [partOfSpeech, setPartOfSpeech] = useState<PartOfSpeech>('Sustantivo');
   const [isPosManuallySelected, setIsPosManuallySelected] = useState(false);
   const [isPosSelectorOpen, setIsPosSelectorOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [duplicateWordName, setDuplicateWordName] = useState('');
 
   // Live Auto-Enrich state
   const [loadingAutoEnrich, setLoadingAutoEnrich] = useState(false);
   const [hasManuallyEditedTranslation, setHasManuallyEditedTranslation] = useState(false);
   const [hasManuallyEditedExamples, setHasManuallyEditedExamples] = useState(false);
 
-  // Dropdown states
-  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
-  const [isSubcategoryOpen, setIsSubcategoryOpen] = useState(false);
-  const [isCustomCategory, setIsCustomCategory] = useState(false);
-  const [isCustomSubcategory, setIsCustomSubcategory] = useState(false);
+  // Dropdown & custom input states
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [isSubcategoryDropdownOpen, setIsSubcategoryDropdownOpen] = useState(false);
+  const [isCustomCategoryMode, setIsCustomCategoryMode] = useState(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
+  const [isCustomSubcategoryMode, setIsCustomSubcategoryMode] = useState(false);
+  const [customSubcategoryInput, setCustomSubcategoryInput] = useState('');
 
   // Get all unique categories (from prop + vocabStore)
   const allCategories = useMemo(() => {
@@ -105,42 +109,44 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     // 2. From words in storage
     const storedWords = vocabService.getWords();
     storedWords.forEach((w) => {
-      if (w.categoryGroup && !seen.has(w.categoryGroup.toLowerCase())) {
-        seen.add(w.categoryGroup.toLowerCase());
-        list.push({
-          name: w.categoryGroup,
-          count: 0,
-          subcategories: [],
-        });
-      }
+      const wCats = getWordCategories(w);
+      const wSubs = getWordSubcategories(w);
+      wCats.forEach((wc) => {
+        if (!seen.has(wc.toLowerCase())) {
+          seen.add(wc.toLowerCase());
+          list.push({
+            name: wc,
+            count: 0,
+            subcategories: wSubs,
+          });
+        }
+      });
     });
 
     return list;
   }, [categories]);
 
-  // Get subcategories for selected category
+  // Available subcategories based on currently selected categories
   const availableSubcategories = useMemo(() => {
     const set = new Set<string>();
-    const currentCat = allCategories.find(
-      (c) => c.name.toLowerCase() === categoryGroup.toLowerCase()
-    );
-    if (currentCat?.subcategories) {
-      currentCat.subcategories.forEach((s) => set.add(s));
-    }
 
-    // Check words in storage
+    allCategories.forEach((cat) => {
+      if (selectedCategories.some((sc) => sc.toLowerCase() === cat.name.toLowerCase())) {
+        cat.subcategories?.forEach((s) => set.add(s));
+      }
+    });
+
     const storedWords = vocabService.getWords();
     storedWords.forEach((w) => {
-      if (
-        w.categoryGroup?.toLowerCase() === categoryGroup.toLowerCase() &&
-        w.categorySub
-      ) {
-        set.add(w.categorySub);
+      const wCats = getWordCategories(w);
+      if (wCats.some((wc) => selectedCategories.some((sc) => sc.toLowerCase() === wc.toLowerCase()))) {
+        const wSubs = getWordSubcategories(w);
+        wSubs.forEach((s) => set.add(s));
       }
     });
 
     return Array.from(set);
-  }, [allCategories, categoryGroup]);
+  }, [allCategories, selectedCategories]);
 
   // Sync state on mount or when initialWord / props change
   useEffect(() => {
@@ -151,10 +157,17 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setExampleEs(initialWord.exampleEs || (initialWord as any).exampleTranslation || '');
       setPhoneticGuide(initialWord.phoneticGuide || '');
       setIpa(initialWord.ipa || '');
-      setCategoryGroup(initialWord.categoryGroup || (allCategories[0]?.name || ''));
-      setCategorySub(initialWord.categorySub || '');
-      setIsCustomCategory(false);
-      setIsCustomSubcategory(false);
+
+      const initCats = getWordCategories(initialWord);
+      const initSubs = getWordSubcategories(initialWord);
+      setSelectedCategories(initCats.length > 0 ? initCats : [allCategories[0]?.name || 'General']);
+      setSelectedSubcategories(initSubs);
+
+      setIsCustomCategoryMode(false);
+      setIsCustomSubcategoryMode(false);
+      setCustomCategoryInput('');
+      setCustomSubcategoryInput('');
+
       const initialPos = normalizePartOfSpeech(initialWord.partOfSpeech || 'Sustantivo');
       setPartOfSpeech(initialPos);
       setIsPosManuallySelected(true);
@@ -167,11 +180,16 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setExampleEs('');
       setPhoneticGuide('');
       setIpa('');
-      const defaultGroup = defaultCategoryGroup || (allCategories[0]?.name || '');
-      setCategoryGroup(defaultGroup);
-      setCategorySub(defaultCategorySub || '');
-      setIsCustomCategory(false);
-      setIsCustomSubcategory(false);
+
+      const defaultGroup = defaultCategoryGroup || (allCategories[0]?.name || 'General');
+      setSelectedCategories([defaultGroup]);
+      setSelectedSubcategories(defaultCategorySub ? [defaultCategorySub] : []);
+
+      setIsCustomCategoryMode(false);
+      setIsCustomSubcategoryMode(false);
+      setCustomCategoryInput('');
+      setCustomSubcategoryInput('');
+
       setPartOfSpeech('Sustantivo');
       setIsPosManuallySelected(false);
       setIsPosSelectorOpen(false);
@@ -179,13 +197,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setHasManuallyEditedExamples(false);
     }
     setLoadingAutoEnrich(false);
-    setIsCategoryOpen(false);
-    setIsSubcategoryOpen(false);
+    setIsCategoryDropdownOpen(false);
+    setIsSubcategoryDropdownOpen(false);
   }, [initialWord, defaultCategoryGroup, defaultCategorySub, isOpen, allCategories]);
 
   // Debounced live auto-enrichment when creating a NEW word
   useEffect(() => {
-    if (initialWord) return; // In edit mode, do NOT auto-overwrite user's fields while typing
+    if (initialWord) return;
 
     const clean = word.trim();
     if (!clean || clean.length < 2) {
@@ -247,7 +265,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     setHasManuallyEditedExamples(true);
   };
 
-  // On-demand AI suggestion generator (usable in both create and edit modes)
+  // On-demand AI suggestion generator
   const handleRegenerateWithAI = async () => {
     const clean = word.trim();
     if (!clean) {
@@ -274,30 +292,84 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     }
   };
 
-  const handleSelectCategory = (name: string) => {
-    setCategoryGroup(name);
-    setIsCategoryOpen(false);
-    setIsCustomCategory(false);
+  // Category Multi-Select Helpers
+  const toggleCategory = (catName: string) => {
+    setSelectedCategories((prev) => {
+      const exists = prev.some((c) => c.toLowerCase() === catName.toLowerCase());
+      if (exists) {
+        const filtered = prev.filter((c) => c.toLowerCase() !== catName.toLowerCase());
+        return filtered.length > 0 ? filtered : [catName]; // at least one category
+      } else {
+        return [...prev, catName];
+      }
+    });
+  };
 
-    // Auto-update subcategory to first available or reset
-    const cat = allCategories.find((c) => c.name.toLowerCase() === name.toLowerCase());
-    if (cat && cat.subcategories && cat.subcategories.length > 0) {
-      setCategorySub(cat.subcategories[0]);
-    } else {
-      setCategorySub('');
+  const removeCategory = (catName: string) => {
+    setSelectedCategories((prev) => {
+      const filtered = prev.filter((c) => c.toLowerCase() !== catName.toLowerCase());
+      return filtered.length > 0 ? filtered : [allCategories[0]?.name || 'General'];
+    });
+  };
+
+  const handleAddCustomCategory = () => {
+    const clean = customCategoryInput.trim();
+    if (clean) {
+      if (!selectedCategories.some((c) => c.toLowerCase() === clean.toLowerCase())) {
+        setSelectedCategories((prev) => [...prev, clean]);
+      }
+      setCustomCategoryInput('');
+      setIsCustomCategoryMode(false);
     }
   };
 
-  const handleSelectSubcategory = (name: string) => {
-    setCategorySub(name);
-    setIsSubcategoryOpen(false);
-    setIsCustomSubcategory(false);
+  // Subcategory Multi-Select Helpers
+  const toggleSubcategory = (subName: string) => {
+    setSelectedSubcategories((prev) => {
+      const exists = prev.some((s) => s.toLowerCase() === subName.toLowerCase());
+      if (exists) {
+        return prev.filter((s) => s.toLowerCase() !== subName.toLowerCase());
+      } else {
+        return [...prev, subName];
+      }
+    });
+  };
+
+  const removeSubcategory = (subName: string) => {
+    setSelectedSubcategories((prev) =>
+      prev.filter((s) => s.toLowerCase() !== subName.toLowerCase())
+    );
+  };
+
+  const handleAddCustomSubcategory = () => {
+    const clean = customSubcategoryInput.trim();
+    if (clean) {
+      if (!selectedSubcategories.some((s) => s.toLowerCase() === clean.toLowerCase())) {
+        setSelectedSubcategories((prev) => [...prev, clean]);
+      }
+      setCustomSubcategoryInput('');
+      setIsCustomSubcategoryMode(false);
+    }
   };
 
   const handleSave = async () => {
     const cleanWord = word.trim();
     if (!cleanWord) {
       setValidationError('Por favor ingresa la palabra en inglés.');
+      return;
+    }
+
+    // Comprobar si la palabra ya existe en el vocabulario (evitar duplicados)
+    const existingWords = vocabService.getWords();
+    const isDuplicate = existingWords.some(
+      (w) =>
+        w.word.trim().toLowerCase() === cleanWord.toLowerCase() &&
+        (!initialWord || w.id !== initialWord.id)
+    );
+
+    if (isDuplicate) {
+      setDuplicateWordName(cleanWord);
+      setDuplicateModalOpen(true);
       return;
     }
 
@@ -332,20 +404,24 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       finalTranslation = cleanWord;
     }
 
-    const finalGroup = categoryGroup.trim() || (allCategories[0]?.name || 'General');
-    const finalSub = categorySub.trim() || '';
+    const finalGroups = selectedCategories.length > 0 ? selectedCategories : ['General'];
+    const finalSubs = selectedSubcategories;
+    const finalGroupString = finalGroups.join(', ');
+    const finalSubString = finalSubs.join(', ');
 
-    // Automatically ensure the category & subcategory are registered in the user's categories list
-    if (finalGroup) {
+    // Automatically ensure all categories & subcategories are registered in vocabService
+    finalGroups.forEach((groupName) => {
       try {
-        const cat = vocabService.addCategory(finalGroup);
-        if (finalSub && cat?.id) {
-          vocabService.addSubcategory(cat.id, finalSub);
+        const cat = vocabService.addCategory(groupName);
+        if (finalSubs.length > 0 && cat?.id) {
+          finalSubs.forEach((subName) => {
+            vocabService.addSubcategory(cat.id, subName);
+          });
         }
       } catch (e) {
         console.warn('Category auto-register warning:', e);
       }
-    }
+    });
 
     onSave({
       word: cleanWord,
@@ -357,8 +433,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       exampleEs: finalExampleEs,
       level: initialWord ? initialWord.level : 'B1',
       partOfSpeech: finalPos,
-      categoryGroup: finalGroup,
-      categorySub: finalSub,
+      categoryGroup: finalGroupString,
+      categorySub: finalSubString,
+      categoryGroups: finalGroups,
+      categorySubs: finalSubs,
       status: initialWord ? initialWord.status : 'nueva',
       isFavorite: initialWord ? initialWord.isFavorite : false,
       srsIntervalDays: initialWord?.srsIntervalDays ?? 1,
@@ -409,8 +487,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               <Sparkles size={14} color="#ff4d6d" style={{ marginTop: 2 }} />
               <Text style={[styles.noticeText, !isDark && styles.noticeTextLight]}>
                 {isEditing
-                  ? 'Puedes modificar el significado, las dos oraciones de ejemplo y todos los campos de esta palabra.'
-                  : 'Escribe la palabra en inglés. El significado, la fonética y las frases se sugieren automáticamente y puedes editarlas todas.'}
+                  ? 'Puedes modificar el significado, las dos oraciones, y asignar varias categorías y subcategorías.'
+                  : 'Escribe la palabra en inglés. Puedes asignarle múltiples categorías y subcategorías y editar todos los campos libremente.'}
               </Text>
             </View>
 
@@ -459,8 +537,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 onChangeText={handleWordChange}
                 onFocus={() => {
                   setFocusedField('word');
-                  setIsCategoryOpen(false);
-                  setIsSubcategoryOpen(false);
+                  setIsCategoryDropdownOpen(false);
+                  setIsSubcategoryDropdownOpen(false);
                 }}
                 onBlur={() => setFocusedField(null)}
                 autoCapitalize="none"
@@ -494,8 +572,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 onChangeText={handleTranslationChange}
                 onFocus={() => {
                   setFocusedField('translation');
-                  setIsCategoryOpen(false);
-                  setIsSubcategoryOpen(false);
+                  setIsCategoryDropdownOpen(false);
+                  setIsSubcategoryDropdownOpen(false);
                 }}
                 onBlur={() => setFocusedField(null)}
               />
@@ -521,8 +599,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 numberOfLines={2}
                 onFocus={() => {
                   setFocusedField('exampleEn');
-                  setIsCategoryOpen(false);
-                  setIsSubcategoryOpen(false);
+                  setIsCategoryDropdownOpen(false);
+                  setIsSubcategoryDropdownOpen(false);
                 }}
                 onBlur={() => setFocusedField(null)}
               />
@@ -548,8 +626,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 numberOfLines={2}
                 onFocus={() => {
                   setFocusedField('exampleEs');
-                  setIsCategoryOpen(false);
-                  setIsSubcategoryOpen(false);
+                  setIsCategoryDropdownOpen(false);
+                  setIsSubcategoryDropdownOpen(false);
                 }}
                 onBlur={() => setFocusedField(null)}
               />
@@ -573,8 +651,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   onChangeText={setPhoneticGuide}
                   onFocus={() => {
                     setFocusedField('phoneticGuide');
-                    setIsCategoryOpen(false);
-                    setIsSubcategoryOpen(false);
+                    setIsCategoryDropdownOpen(false);
+                    setIsSubcategoryDropdownOpen(false);
                   }}
                   onBlur={() => setFocusedField(null)}
                 />
@@ -596,8 +674,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   onChangeText={setIpa}
                   onFocus={() => {
                     setFocusedField('ipa');
-                    setIsCategoryOpen(false);
-                    setIsSubcategoryOpen(false);
+                    setIsCategoryDropdownOpen(false);
+                    setIsSubcategoryDropdownOpen(false);
                   }}
                   onBlur={() => setFocusedField(null)}
                 />
@@ -679,35 +757,60 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               )}
             </View>
 
-            {/* 7. Categoría (Lista Desplegable) */}
+            {/* 7. Categorías (Múltiples categorías permitidas) */}
             <View style={[styles.inputGroup, { zIndex: 50 }]}>
               <View style={styles.labelRow}>
-                <Text style={[styles.label, !isDark && styles.labelLight]}>Categoría *</Text>
-                {!isCustomCategory && (
-                  <TouchableOpacity onPress={() => setIsCustomCategory(true)}>
-                    <Text style={styles.linkText}>+ Nueva categoría</Text>
-                  </TouchableOpacity>
-                )}
+                <Text style={[styles.label, !isDark && styles.labelLight]}>
+                  Categorías (puedes elegir varias) *
+                </Text>
+                <TouchableOpacity onPress={() => setIsCustomCategoryMode(!isCustomCategoryMode)}>
+                  <Text style={styles.linkText}>
+                    {isCustomCategoryMode ? 'Cancelar' : '+ Nueva categoría'}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              {isCustomCategory ? (
+              {/* Chips de categorías seleccionadas */}
+              <View style={styles.selectedTagsContainer}>
+                {selectedCategories.map((catName) => (
+                  <View
+                    key={catName}
+                    style={[styles.selectedTagPill, !isDark && styles.selectedTagPillLight]}
+                  >
+                    <Folder size={12} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
+                    <Text
+                      style={[styles.selectedTagText, !isDark && styles.selectedTagTextLight]}
+                    >
+                      {catName}
+                    </Text>
+                    {selectedCategories.length > 1 && (
+                      <TouchableOpacity
+                        onPress={() => removeCategory(catName)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <X size={12} color={!isDark ? '#e11d48' : '#ff758c'} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+              </View>
+
+              {/* Input para agregar nueva categoría personalizada */}
+              {isCustomCategoryMode ? (
                 <View style={styles.customInputRow}>
                   <TextInput
                     style={[styles.input, !isDark && styles.inputLight, { flex: 1 }]}
-                    placeholder="Escribe el nombre de la categoría..."
+                    placeholder="Nombre de la nueva categoría..."
                     placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                    value={categoryGroup}
-                    onChangeText={setCategoryGroup}
+                    value={customCategoryInput}
+                    onChangeText={setCustomCategoryInput}
                     autoFocus
                   />
                   <TouchableOpacity
-                    style={[styles.cancelCustomBtn, !isDark && styles.cancelCustomBtnLight]}
-                    onPress={() => {
-                      setIsCustomCategory(false);
-                      setCategoryGroup(allCategories[0]?.name || '');
-                    }}
+                    style={[styles.saveCustomBtn]}
+                    onPress={handleAddCustomCategory}
                   >
-                    <Text style={[styles.cancelCustomBtnText, !isDark && styles.cancelCustomBtnTextLight]}>Elegir existente</Text>
+                    <Text style={styles.saveCustomBtnText}>Agregar</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -716,28 +819,35 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     style={[
                       styles.dropdownTrigger,
                       !isDark && styles.dropdownTriggerLight,
-                      isCategoryOpen && styles.dropdownTriggerActive,
+                      isCategoryDropdownOpen && styles.dropdownTriggerActive,
                     ]}
                     onPress={() => {
-                      setIsCategoryOpen(!isCategoryOpen);
-                      setIsSubcategoryOpen(false);
+                      setIsCategoryDropdownOpen(!isCategoryDropdownOpen);
+                      setIsSubcategoryDropdownOpen(false);
                     }}
                     activeOpacity={0.8}
                   >
                     <View style={styles.dropdownTriggerLeft}>
                       <Folder size={15} color={THEME.colors.crimsonLight} />
-                      <Text style={[styles.dropdownTriggerText, !isDark && styles.dropdownTriggerTextLight]}>
-                        {categoryGroup || 'Selecciona una categoría...'}
+                      <Text
+                        style={[
+                          styles.dropdownTriggerText,
+                          !isDark && styles.dropdownTriggerTextLight,
+                        ]}
+                      >
+                        {selectedCategories.length > 0
+                          ? `Categorías seleccionadas (${selectedCategories.length})`
+                          : 'Selecciona categorías...'}
                       </Text>
                     </View>
-                    {isCategoryOpen ? (
+                    {isCategoryDropdownOpen ? (
                       <ChevronUp size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
                     ) : (
                       <ChevronDown size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
                     )}
                   </TouchableOpacity>
 
-                  {isCategoryOpen && (
+                  {isCategoryDropdownOpen && (
                     <View style={[styles.dropdownMenu, !isDark && styles.dropdownMenuLight]}>
                       <ScrollView
                         nestedScrollEnabled
@@ -745,8 +855,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                         showsVerticalScrollIndicator={false}
                       >
                         {allCategories.map((cat) => {
-                          const isSelected =
-                            categoryGroup.toLowerCase() === cat.name.toLowerCase();
+                          const isSelected = selectedCategories.some(
+                            (c) => c.toLowerCase() === cat.name.toLowerCase()
+                          );
                           return (
                             <TouchableOpacity
                               key={cat.name}
@@ -754,7 +865,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                                 styles.dropdownItem,
                                 isSelected && styles.dropdownItemActive,
                               ]}
-                              onPress={() => handleSelectCategory(cat.name)}
+                              onPress={() => toggleCategory(cat.name)}
                               activeOpacity={0.8}
                             >
                               <View style={styles.dropdownItemLeft}>
@@ -780,9 +891,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                         <TouchableOpacity
                           style={styles.dropdownItemNew}
                           onPress={() => {
-                            setIsCustomCategory(true);
-                            setIsCategoryOpen(false);
-                            setCategoryGroup('');
+                            setIsCustomCategoryMode(true);
+                            setIsCategoryDropdownOpen(false);
                           }}
                           activeOpacity={0.8}
                         >
@@ -798,35 +908,60 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               )}
             </View>
 
-            {/* 8. Subcategoría (Lista Desplegable) */}
+            {/* 8. Subcategorías (Múltiples subcategorías permitidas) */}
             <View style={[styles.inputGroup, { zIndex: 40 }]}>
               <View style={styles.labelRow}>
-                <Text style={[styles.label, !isDark && styles.labelLight]}>Subcategoría</Text>
-                {!isCustomSubcategory && (
-                  <TouchableOpacity onPress={() => setIsCustomSubcategory(true)}>
-                    <Text style={styles.linkText}>+ Nueva subcategoría</Text>
-                  </TouchableOpacity>
-                )}
+                <Text style={[styles.label, !isDark && styles.labelLight]}>
+                  Subcategorías (opcional, puedes elegir varias)
+                </Text>
+                <TouchableOpacity onPress={() => setIsCustomSubcategoryMode(!isCustomSubcategoryMode)}>
+                  <Text style={styles.linkText}>
+                    {isCustomSubcategoryMode ? 'Cancelar' : '+ Nueva subcategoría'}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              {isCustomSubcategory ? (
+              {/* Chips de subcategorías seleccionadas */}
+              {selectedSubcategories.length > 0 && (
+                <View style={styles.selectedTagsContainer}>
+                  {selectedSubcategories.map((subName) => (
+                    <View
+                      key={subName}
+                      style={[styles.selectedTagPill, !isDark && styles.selectedTagPillLight]}
+                    >
+                      <Pin size={12} color={!isDark ? '#e11d48' : '#ff758c'} />
+                      <Text
+                        style={[styles.selectedTagText, !isDark && styles.selectedTagTextLight]}
+                      >
+                        {subName}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => removeSubcategory(subName)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <X size={12} color={!isDark ? '#e11d48' : '#ff758c'} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Input para agregar subcategoría personalizada */}
+              {isCustomSubcategoryMode ? (
                 <View style={styles.customInputRow}>
                   <TextInput
                     style={[styles.input, !isDark && styles.inputLight, { flex: 1 }]}
-                    placeholder="Escribe la subcategoría..."
+                    placeholder="Nombre de la nueva subcategoría..."
                     placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                    value={categorySub}
-                    onChangeText={setCategorySub}
+                    value={customSubcategoryInput}
+                    onChangeText={setCustomSubcategoryInput}
                     autoFocus
                   />
                   <TouchableOpacity
-                    style={[styles.cancelCustomBtn, !isDark && styles.cancelCustomBtnLight]}
-                    onPress={() => {
-                      setIsCustomSubcategory(false);
-                      setCategorySub(availableSubcategories[0] || '');
-                    }}
+                    style={[styles.saveCustomBtn]}
+                    onPress={handleAddCustomSubcategory}
                   >
-                    <Text style={[styles.cancelCustomBtnText, !isDark && styles.cancelCustomBtnTextLight]}>Elegir existente</Text>
+                    <Text style={styles.saveCustomBtnText}>Agregar</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -835,66 +970,92 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     style={[
                       styles.dropdownTrigger,
                       !isDark && styles.dropdownTriggerLight,
-                      isSubcategoryOpen && styles.dropdownTriggerActive,
+                      isSubcategoryDropdownOpen && styles.dropdownTriggerActive,
                     ]}
                     onPress={() => {
-                      setIsSubcategoryOpen(!isSubcategoryOpen);
-                      setIsCategoryOpen(false);
+                      setIsSubcategoryDropdownOpen(!isSubcategoryDropdownOpen);
+                      setIsCategoryDropdownOpen(false);
                     }}
                     activeOpacity={0.8}
                   >
                     <View style={styles.dropdownTriggerLeft}>
-                      <Pin size={14} color={categorySub ? '#ff758c' : (!isDark ? '#94a3b8' : THEME.colors.textSubtle)} />
+                      <Pin
+                        size={14}
+                        color={
+                          selectedSubcategories.length > 0
+                            ? '#ff758c'
+                            : !isDark
+                            ? '#94a3b8'
+                            : THEME.colors.textSubtle
+                        }
+                      />
                       <Text
                         style={[
                           styles.dropdownTriggerText,
                           !isDark && styles.dropdownTriggerTextLight,
-                          !categorySub && { color: !isDark ? '#94a3b8' : THEME.colors.textSubtle },
+                          selectedSubcategories.length === 0 && {
+                            color: !isDark ? '#94a3b8' : THEME.colors.textSubtle,
+                          },
                         ]}
                       >
-                        {categorySub || 'Sin subcategoría (General)'}
+                        {selectedSubcategories.length > 0
+                          ? `Subcategorías elegidas (${selectedSubcategories.length})`
+                          : 'Sin subcategoría (General)'}
                       </Text>
                     </View>
-                    {isSubcategoryOpen ? (
+                    {isSubcategoryDropdownOpen ? (
                       <ChevronUp size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
                     ) : (
                       <ChevronDown size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
                     )}
                   </TouchableOpacity>
 
-                  {isSubcategoryOpen && (
+                  {isSubcategoryDropdownOpen && (
                     <View style={[styles.dropdownMenu, !isDark && styles.dropdownMenuLight]}>
                       <ScrollView
                         nestedScrollEnabled
                         style={styles.dropdownScrollView}
                         showsVerticalScrollIndicator={false}
                       >
+                        {/* Opción para limpiar todas las subcategorías */}
                         <TouchableOpacity
                           style={[
                             styles.dropdownItem,
-                            categorySub === '' && styles.dropdownItemActive,
+                            selectedSubcategories.length === 0 && styles.dropdownItemActive,
                           ]}
-                          onPress={() => handleSelectSubcategory('')}
+                          onPress={() => setSelectedSubcategories([])}
                           activeOpacity={0.8}
                         >
                           <View style={styles.dropdownItemLeft}>
-                            <Pin size={13} color={categorySub === '' ? '#ffffff' : (!isDark ? '#94a3b8' : THEME.colors.textSubtle)} />
+                            <Pin
+                              size={13}
+                              color={
+                                selectedSubcategories.length === 0
+                                  ? '#ffffff'
+                                  : !isDark
+                                  ? '#94a3b8'
+                                  : THEME.colors.textSubtle
+                              }
+                            />
                             <Text
                               style={[
                                 styles.dropdownItemText,
                                 !isDark && styles.dropdownItemTextLight,
-                                categorySub === '' && styles.dropdownItemTextActive,
+                                selectedSubcategories.length === 0 && styles.dropdownItemTextActive,
                               ]}
                             >
-                              Sin subcategoría (General)
+                              Ninguna (General)
                             </Text>
                           </View>
-                          {categorySub === '' && <Check size={14} color="#ffffff" />}
+                          {selectedSubcategories.length === 0 && (
+                            <Check size={14} color="#ffffff" />
+                          )}
                         </TouchableOpacity>
 
                         {availableSubcategories.map((subName) => {
-                          const isSelected =
-                            categorySub.toLowerCase() === subName.toLowerCase();
+                          const isSelected = selectedSubcategories.some(
+                            (s) => s.toLowerCase() === subName.toLowerCase()
+                          );
                           return (
                             <TouchableOpacity
                               key={subName}
@@ -902,7 +1063,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                                 styles.dropdownItem,
                                 isSelected && styles.dropdownItemActive,
                               ]}
-                              onPress={() => handleSelectSubcategory(subName)}
+                              onPress={() => toggleSubcategory(subName)}
                               activeOpacity={0.8}
                             >
                               <View style={styles.dropdownItemLeft}>
@@ -928,9 +1089,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                         <TouchableOpacity
                           style={styles.dropdownItemNew}
                           onPress={() => {
-                            setIsCustomSubcategory(true);
-                            setIsSubcategoryOpen(false);
-                            setCategorySub('');
+                            setIsCustomSubcategoryMode(true);
+                            setIsSubcategoryDropdownOpen(false);
                           }}
                           activeOpacity={0.8}
                         >
@@ -954,7 +1114,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               onPress={onClose}
               disabled={saving}
             >
-              <Text style={[styles.cancelButtonText, !isDark && styles.cancelButtonTextLight]}>Cancelar</Text>
+              <Text style={[styles.cancelButtonText, !isDark && styles.cancelButtonTextLight]}>
+                Cancelar
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -990,6 +1152,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         cancelText={null}
         variant="warning"
         onConfirm={() => setValidationError(null)}
+        isDark={isDark}
+      />
+
+      {/* Duplicate Word Alert Modal */}
+      <ConfirmModal
+        isOpen={duplicateModalOpen}
+        title="Palabra ya registrada"
+        message={`La palabra "${duplicateWordName}" ya existe en tu vocabulario. Puedes buscarla en tu lista para repasarla o editar sus datos.`}
+        confirmText="Entendido"
+        cancelText={null}
+        variant="warning"
+        onConfirm={() => setDuplicateModalOpen(false)}
         isDark={isDark}
       />
     </Modal>
@@ -1189,20 +1363,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  cancelCustomBtn: {
-    paddingHorizontal: 12,
+  saveCustomBtn: {
+    paddingHorizontal: 14,
     height: 44,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: THEME.colors.crimson,
     borderRadius: THEME.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  cancelCustomBtnText: {
-    color: THEME.colors.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
+  saveCustomBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Tags Pill Container
+  selectedTagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 4,
+  },
+  selectedTagPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(230, 46, 76, 0.15)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.35)',
+  },
+  selectedTagPillLight: {
+    backgroundColor: '#ffe4e6',
+    borderColor: '#fca5a5',
+  },
+  selectedTagText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  selectedTagTextLight: {
+    color: '#0f172a',
   },
 
   // Dropdown Styles
@@ -1362,13 +1565,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderColor: '#cbd5e1',
     color: '#0f172a',
-  },
-  cancelCustomBtnLight: {
-    backgroundColor: '#f1f5f9',
-    borderColor: '#cbd5e1',
-  },
-  cancelCustomBtnTextLight: {
-    color: '#475569',
   },
   dropdownTriggerLight: {
     backgroundColor: '#f8fafc',

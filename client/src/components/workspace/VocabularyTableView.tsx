@@ -25,7 +25,7 @@ import {
   Sparkles,
 } from 'lucide-react-native';
 import { WordItem, WordStatus } from '../../types';
-import { vocabService } from '../../lib/vocabularyStore';
+import { vocabService, getWordCategories, getWordSubcategories } from '../../lib/vocabularyStore';
 import { SelectedFilter } from './SidebarCategories';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
@@ -96,8 +96,12 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
       if (selectedFilter.type === 'mastered') return w.status === 'dominada';
       if (selectedFilter.type === 'level') return w.level === selectedFilter.level;
       if (selectedFilter.type === 'category') {
-        if (w.categoryGroup !== selectedFilter.group) return false;
-        if (selectedFilter.sub && w.categorySub !== selectedFilter.sub) return false;
+        const groups = getWordCategories(w);
+        if (!groups.some((g) => g.toLowerCase() === selectedFilter.group.toLowerCase())) return false;
+        if (selectedFilter.sub) {
+          const subs = getWordSubcategories(w);
+          if (!subs.some((s) => s.toLowerCase() === selectedFilter.sub.toLowerCase())) return false;
+        }
       }
 
       return true;

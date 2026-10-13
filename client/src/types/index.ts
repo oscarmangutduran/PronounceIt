@@ -73,6 +73,8 @@ export interface WordItem {
   isFavorite: boolean;
   categoryGroup: string;
   categorySub: string;
+  categoryGroups?: string[];
+  categorySubs?: string[];
   srsIntervalDays?: number;
   lastReviewedAt?: string;
   createdAt?: string;

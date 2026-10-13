@@ -295,13 +295,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 Consigue la versión móvil
               </Text>
               <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 0 }]}>
-                Descarga e instala la app oficial en tu Android (v1.1.0 APK)
+                Descarga e instala la app oficial en tu Android (v1.2.0 APK)
               </Text>
             </View>
           </View>
           <TouchableOpacity
             style={styles.downloadApkBtn}
-            onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.1.0/PronounceIt-v1.1.0.apk')}
+            onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.2.0/PronounceIt-v1.2.0.apk')}
             activeOpacity={0.85}
           >
             <Download size={16} color="#ffffff" style={{ marginRight: 6 }} />

@@ -18,6 +18,26 @@ export interface AudioSettings {
 
 export const INITIAL_CATEGORIES: CategoryItem[] = [];
 
+export function getWordCategories(word: Partial<WordItem>): string[] {
+  if (Array.isArray(word.categoryGroups) && word.categoryGroups.length > 0) {
+    return word.categoryGroups.map((c) => c.trim()).filter(Boolean);
+  }
+  if (word.categoryGroup) {
+    return word.categoryGroup.split(',').map((c) => c.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+export function getWordSubcategories(word: Partial<WordItem>): string[] {
+  if (Array.isArray(word.categorySubs) && word.categorySubs.length > 0) {
+    return word.categorySubs.map((s) => s.trim()).filter(Boolean);
+  }
+  if (word.categorySub) {
+    return word.categorySub.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 export const INITIAL_WORDS: WordItem[] = [];
 
 class VocabularyService {
@@ -193,10 +213,11 @@ class VocabularyService {
   }
 
   public getCategories(): CategoryItem[] {
-    // Ensure any words with categoryGroup are represented
+    // Ensure any words with categoryGroup / categoryGroups are represented
     for (const w of this.words) {
-      if (w.categoryGroup?.trim()) {
-        const groupTrimmed = w.categoryGroup.trim();
+      const groups = getWordCategories(w);
+      const subs = getWordSubcategories(w);
+      for (const groupTrimmed of groups) {
         let cat = this.customCategories.find(
           (c) => c.name.toLowerCase() === groupTrimmed.toLowerCase()
         );
@@ -211,8 +232,7 @@ class VocabularyService {
           this.customCategories.push(cat);
         }
 
-        if (w.categorySub?.trim()) {
-          const subTrimmed = w.categorySub.trim();
+        for (const subTrimmed of subs) {
           if (!cat.subcategories) cat.subcategories = [];
           const subExists = cat.subcategories.some(
             (s) => s.name.toLowerCase() === subTrimmed.toLowerCase()
@@ -229,12 +249,16 @@ class VocabularyService {
     }
 
     return this.customCategories.map((cat) => {
-      const groupWords = this.words.filter(
-        (w) => (w.categoryGroup || '').trim().toLowerCase() === cat.name.trim().toLowerCase()
+      const groupWords = this.words.filter((w) =>
+        getWordCategories(w).some(
+          (g) => g.trim().toLowerCase() === cat.name.trim().toLowerCase()
+        )
       );
       const subcategories = (cat.subcategories || []).map((sub) => {
-        const subWords = groupWords.filter(
-          (w) => (w.categorySub || '').trim().toLowerCase() === sub.name.trim().toLowerCase()
+        const subWords = groupWords.filter((w) =>
+          getWordSubcategories(w).some(
+            (s) => s.trim().toLowerCase() === sub.name.trim().toLowerCase()
+          )
         );
         return {
           ...sub,

@@ -630,7 +630,7 @@ function MainApp() {
             </Text>
             <TouchableOpacity
               style={[styles.footerMobileBtn, !isDark && styles.footerMobileBtnLight]}
-              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.1.0/PronounceIt-v1.1.0.apk')}
+              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.2.0/PronounceIt-v1.2.0.apk')}
               activeOpacity={0.8}
             >
               <Smartphone size={15} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
