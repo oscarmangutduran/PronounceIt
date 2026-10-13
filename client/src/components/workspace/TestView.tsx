@@ -495,18 +495,18 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, i
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.modeTab, testType === 'irregular_verbs' && styles.modeTabActive]}
+            style={[styles.modeTab, (testType as string) === 'irregular_verbs' && styles.modeTabActive]}
             onPress={() => setTestType('irregular_verbs')}
           >
             <Zap
               size={16}
-              color={testType === 'irregular_verbs' ? '#ffffff' : !isDark ? '#64748b' : THEME.colors.textMuted}
+              color={(testType as string) === 'irregular_verbs' ? '#ffffff' : !isDark ? '#64748b' : THEME.colors.textMuted}
             />
             <Text
               style={[
                 styles.modeTabText,
-                testType === 'irregular_verbs' && styles.modeTabTextActive,
-                !isDark && testType !== 'irregular_verbs' && styles.modeTabTextLight,
+                (testType as string) === 'irregular_verbs' && styles.modeTabTextActive,
+                !isDark && (testType as string) !== 'irregular_verbs' && styles.modeTabTextLight,
               ]}
             >
               Verbos Irregulares

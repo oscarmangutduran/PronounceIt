@@ -16,7 +16,7 @@ import {
   ArrowRight,
   TrendingUp,
   Sparkles,
-} from 'lucide-react';
+} from 'lucide-react-native';
 import { StoredTestItem, testHistoryService } from '../../lib/testHistoryStore';
 import { vocabService } from '../../lib/vocabularyStore';
 
@@ -91,7 +91,7 @@ export const TestResultsModal: React.FC<TestResultsModalProps> = ({
         <div className="px-6 py-4.5 bg-[#120d1e] border-b border-white/10 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#e62e4c] to-purple-600 flex items-center justify-center text-white shadow-lg shadow-[#e62e4c]/30 border border-white/10">
-              <Trophy size={20} className="text-amber-300" />
+              <Trophy size={20} color="#fcd34d" />
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
@@ -195,7 +195,7 @@ export const TestResultsModal: React.FC<TestResultsModalProps> = ({
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <Tag size={13} className="text-pink-200" />
+                <Tag size={13} color="#fbcfe8" />
                 <span>Por Tipo</span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/30 text-pink-200">
                   {posTests}
@@ -211,7 +211,7 @@ export const TestResultsModal: React.FC<TestResultsModalProps> = ({
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <Zap size={13} className="text-amber-300" />
+                <Zap size={13} color="#fcd34d" />
                 <span>Verbos Irregulares</span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/30 text-purple-200">
                   {irregularTests}
@@ -290,7 +290,7 @@ export const TestResultsModal: React.FC<TestResultsModalProps> = ({
                               : 'bg-purple-600/20 border-purple-500/30 text-purple-300'
                           }`}
                         >
-                          {isVocab ? <BookOpen size={20} /> : <Zap size={20} className="text-amber-300" />}
+                          {isVocab ? <BookOpen size={20} /> : <Zap size={20} color="#fcd34d" />}
                         </div>
 
                         <div>

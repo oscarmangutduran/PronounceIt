@@ -109,11 +109,14 @@ export async function exportCsvFileAsync(
 
   // 2. Mobile (Android & iOS)
   try {
-    const dir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+    const fsAny = FileSystem as any;
+    const dir = fsAny.cacheDirectory || fsAny.documentDirectory || '';
     const fileUri = `${dir}${finalName}`;
-    await FileSystem.writeAsStringAsync(fileUri, content, {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
+    if (fsAny.writeAsStringAsync) {
+      await fsAny.writeAsStringAsync(fileUri, content, {
+        encoding: fsAny.EncodingType?.UTF8 || 'utf8',
+      });
+    }
 
     const isAvailable = await Sharing.isAvailableAsync();
     if (isAvailable) {

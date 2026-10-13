@@ -689,15 +689,18 @@ export const LoginView: React.FC<LoginViewProps> = ({
           <View style={styles.mobileDownloadFooter}>
             <TouchableOpacity
               style={styles.mobileDownloadBtn}
-              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.2.0/PronounceIt-v1.2.0.apk')}
+              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.0.0/PronounceIt-v1.0.0.apk')}
               activeOpacity={0.85}
             >
               <View style={styles.mobileDownloadIconBox}>
                 <Smartphone size={16} color="#ffffff" />
               </View>
-              <Text style={styles.mobileDownloadTitle}>Consigue la versión móvil</Text>
+              <Text style={styles.mobileDownloadTitle}>Consigue la versión móvil (v1.0.0)</Text>
               <Download size={15} color={THEME.colors.crimsonLight} />
             </TouchableOpacity>
+            <Text style={{ fontSize: 11, color: THEME.colors.textSubtle, marginTop: 12, fontWeight: '500' }}>
+              PronounceIt v1.0.0
+            </Text>
           </View>
         </ScrollView>
         </KeyboardAvoidingView>
@@ -721,7 +724,11 @@ const styles = StyleSheet.create({
     opacity: 0.28,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(8, 6, 15, 0.78)',
   },
   scrollContent: {
