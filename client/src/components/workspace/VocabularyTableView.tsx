@@ -269,7 +269,16 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
                     </TouchableOpacity>
                     <View>
                       <Text style={[styles.cardWordTitle, !isDark && styles.cardWordTitleLight]}>{word.word}</Text>
-                      {word.level && <Text style={styles.rowLevelTag}>{word.level}</Text>}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                        {word.level && <Text style={styles.rowLevelTag}>{word.level}</Text>}
+                        {word.partOfSpeech ? (
+                          <View style={[styles.rowPosTag, !isDark && styles.rowPosTagLight]}>
+                            <Text style={[styles.rowPosTagText, !isDark && styles.rowPosTagTextLight]}>
+                              {word.partOfSpeech}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
                     </View>
                   </View>
 
@@ -362,7 +371,16 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
                   </TouchableOpacity>
                   <View>
                     <Text style={[styles.rowWord, !isDark && styles.rowWordLight]}>{word.word}</Text>
-                    {word.level && <Text style={styles.rowLevelTag}>{word.level}</Text>}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                      {word.level && <Text style={styles.rowLevelTag}>{word.level}</Text>}
+                      {word.partOfSpeech ? (
+                        <View style={[styles.rowPosTag, !isDark && styles.rowPosTagLight]}>
+                          <Text style={[styles.rowPosTagText, !isDark && styles.rowPosTagTextLight]}>
+                            {word.partOfSpeech}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
                 </View>
 
@@ -762,6 +780,26 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: THEME.colors.crimsonLight,
     fontWeight: '600',
+  },
+  rowPosTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    backgroundColor: 'rgba(230, 46, 76, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.25)',
+  },
+  rowPosTagLight: {
+    backgroundColor: '#ffe4e6',
+    borderColor: '#fca5a5',
+  },
+  rowPosTagText: {
+    fontSize: 9,
+    color: '#ff758c',
+    fontWeight: '700',
+  },
+  rowPosTagTextLight: {
+    color: '#e11d48',
   },
   rowIpa: {
     fontSize: 12,

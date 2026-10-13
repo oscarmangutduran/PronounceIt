@@ -2,21 +2,30 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Reglas para usuarios y sus datos privados
+    // Reglas para colecciones de cuentas de PronounceIt
+    match /accounts/{docId} {
+      allow read, write: if true;
+    }
+
+    // Reglas para usuarios y sus datos privados (subcolecciones words, test_history, etc.)
     match /users/{userId} {
-      // Un usuario solo puede leer y modificar su propio documento de perfil
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if true;
 
-      // Subcolección de vocabulario (words)
-      match /words/{wordId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+      match /{allSubcollections=**} {
+        allow read, write: if true;
       }
+    }
 
-      // Subcolección de historial de exámenes (test_history)
-      match /test_history/{testId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
+    // Colección global de vocabulario
+    match /words/{wordId} {
+      allow read, write: if true;
+    }
+
+    // Colección global de historial de exámenes
+    match /test_history/{testId} {
+      allow read, write: if true;
     }
 
   }
 }
+

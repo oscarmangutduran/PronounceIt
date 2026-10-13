@@ -61,42 +61,57 @@ class VocabularyService {
       return;
     }
 
+    const wordsMap = new Map<string, WordItem>();
+    this.words.forEach((w) => wordsMap.set(w.id, w));
+
+    // 1. Primary Cloud Sync via Firestore (Universal bridge across Web & Mobile APK)
+    if (firebaseService.isFirebaseConnected()) {
+      try {
+        const remoteWords = await firebaseService.fetchWords();
+        if (remoteWords && Array.isArray(remoteWords)) {
+          remoteWords.forEach((w: WordItem) => wordsMap.set(w.id, w));
+        }
+
+        const remoteCats = await firebaseService.fetchCategories();
+        if (remoteCats && Array.isArray(remoteCats) && remoteCats.length > 0) {
+          const catMap = new Map<string, CategoryItem>();
+          this.customCategories.forEach((c) => catMap.set(c.id, c));
+          remoteCats.forEach((c) => catMap.set(c.id, c));
+          this.customCategories = Array.from(catMap.values());
+          this.saveCategories();
+        }
+      } catch (e) {
+        console.warn('[VocabStore] Error syncing with Firestore:', e);
+      }
+    }
+
+    // 2. Secondary Sync via Express Backend (if running / reachable)
     try {
       const isBackendLive = await backendApi.checkHealth();
       if (isBackendLive) {
         const serverWords = await backendApi.getWords();
-        if (serverWords !== null) {
-          const map = new Map<string, WordItem>();
-          serverWords.forEach((w) => map.set(w.id, w));
-          this.words.forEach((w) => map.set(w.id, w));
-          this.words = Array.from(map.values());
-          this.saveWords();
-          this.notify();
-          backendApi.bulkSaveWords(this.words).catch(() => {});
-          return;
+        if (serverWords && Array.isArray(serverWords)) {
+          serverWords.forEach((w) => wordsMap.set(w.id, w));
         }
       }
     } catch (e) {
-      console.warn('Backend sync warning:', e);
+      console.warn('[VocabStore] Backend sync warning:', e);
     }
 
-    if (firebaseService.isFirebaseConnected()) {
-      try {
-        const remoteWords = await (firebaseService as any).fetchWords?.();
-        if (remoteWords && Array.isArray(remoteWords)) {
-          const map = new Map<string, WordItem>();
-          remoteWords.forEach((w: WordItem) => map.set(w.id, w));
-          this.words.forEach((w) => map.set(w.id, w));
-          this.words = Array.from(map.values());
-          this.saveWords();
-          this.notify();
-          (firebaseService as any).syncWordsToFirestore?.(this.words).catch(() => {});
-          return;
-        }
-      } catch (e) {
-        console.warn('Error syncing words with Firebase:', e);
+    // 3. Update local state with merged words
+    this.words = Array.from(wordsMap.values());
+    this.saveWords();
+    this.notify();
+
+    // 4. Push combined words and categories back to Firestore and Backend
+    if (firebaseService.isFirebaseConnected() && this.words.length > 0) {
+      firebaseService.syncAllWords(this.words).catch(() => {});
+      if (this.customCategories.length > 0) {
+        firebaseService.saveCategories(this.customCategories).catch(() => {});
       }
     }
+
+    backendApi.bulkSaveWords(this.words).catch(() => {});
   }
 
   private loadInitialData() {
@@ -146,6 +161,9 @@ class VocabularyService {
       appStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(this.customCategories));
     } catch (e) {
       console.error('Error saving categories', e);
+    }
+    if (firebaseService.isFirebaseConnected()) {
+      firebaseService.saveCategories(this.customCategories).catch(() => {});
     }
     this.notify();
   }

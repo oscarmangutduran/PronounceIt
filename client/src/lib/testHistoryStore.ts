@@ -61,39 +61,44 @@ class TestHistoryService {
       return;
     }
 
+    const testMap = new Map<string, StoredTestItem>();
+    this.history.forEach((t) => testMap.set(t.id, t));
+
+    // 1. Fetch from Firestore (universal cloud sync)
+    if (firebaseService.isFirebaseConnected()) {
+      try {
+        const remote = await firebaseService.fetchTestHistory();
+        if (remote && Array.isArray(remote)) {
+          remote.forEach((t: StoredTestItem) => testMap.set(t.id, t));
+        }
+      } catch (e) {
+        console.warn('Error syncing test history with Firebase:', e);
+      }
+    }
+
+    // 2. Fetch from Backend if live
     try {
       const isBackendLive = await backendApi.checkHealth();
       if (isBackendLive) {
         const serverTests = await backendApi.getTests();
-        if (serverTests && serverTests.length > 0) {
-          const map = new Map<string, StoredTestItem>();
-          serverTests.forEach((t) => map.set(t.id, t));
-          this.history.forEach((t) => map.set(t.id, t));
-          this.history = Array.from(map.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-          this.saveHistory();
-          this.notify();
-          return;
+        if (serverTests && Array.isArray(serverTests)) {
+          serverTests.forEach((t) => testMap.set(t.id, t));
         }
       }
     } catch (e) {
       console.warn('Backend test sync warning:', e);
     }
 
-    if (firebaseService.isFirebaseConnected()) {
-      try {
-        const remote = await firebaseService.fetchTestHistory();
-        if (remote !== null && Array.isArray(remote)) {
-          const map = new Map<string, StoredTestItem>();
-          remote.forEach((t: StoredTestItem) => map.set(t.id, t));
-          this.history.forEach((t) => map.set(t.id, t));
-          this.history = Array.from(map.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-          this.saveHistory();
-          this.notify();
-          return;
-        }
-      } catch (e) {
-        console.warn('Error syncing test history with Firebase:', e);
-      }
+    // 3. Update local state
+    this.history = Array.from(testMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    this.saveHistory();
+    this.notify();
+
+    // 4. Push local tests to Firestore
+    if (firebaseService.isFirebaseConnected() && this.history.length > 0) {
+      this.history.forEach((t) => {
+        firebaseService.saveTestResult(t).catch(() => {});
+      });
     }
   }
 

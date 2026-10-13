@@ -27,6 +27,8 @@ import {
   WifiOff,
 } from 'lucide-react-native';
 import { firebaseService, WelcomeEmailNotice } from '../../lib/firebaseClient';
+import { vocabService } from '../../lib/vocabularyStore';
+import { testHistoryService } from '../../lib/testHistoryStore';
 import { appStorage } from '../../lib/storage';
 import { networkService } from '../../lib/networkService';
 import { THEME } from '../../theme';
@@ -220,6 +222,8 @@ export const LoginView: React.FC<LoginViewProps> = ({
           appStorage.setItem('pronounceit_saved_password', newPassword);
           if (username) appStorage.setItem('pronounceit_saved_username', username.trim());
         }
+        vocabService.syncWithCloud().catch(() => {});
+        testHistoryService.syncWithCloud().catch(() => {});
         setSuccess('¡Contraseña actualizada con éxito! Entrando a la aplicación...');
         setTimeout(() => onSuccess(), 400);
       } else {
@@ -245,9 +249,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
           appStorage.setItem('pronounceit_saved_email', email.trim());
           appStorage.setItem('pronounceit_saved_username', username.trim());
         }
-        if (res.welcomeEmailNotice) {
-          setWelcomeNotice(res.welcomeEmailNotice);
+        const notice = (res as any).welcomeEmailNotice || (res as any).emailNotice;
+        if (notice) {
+          setWelcomeNotice(notice);
         }
+        vocabService.syncWithCloud().catch(() => {});
         setSuccess('¡Cuenta creada con éxito! Por seguridad, debes cambiar tu contraseña provisional (12345) ahora.');
         setMode('change_password');
         setNewPassword('');
@@ -271,6 +277,9 @@ export const LoginView: React.FC<LoginViewProps> = ({
       setLoading(false);
 
       if (res.success) {
+        vocabService.syncWithCloud().catch(() => {});
+        testHistoryService.syncWithCloud().catch(() => {});
+
         if (res.mustChangePassword || res.user?.must_change_password || cleanPass === '12345') {
           setMode('change_password');
           setError(null);

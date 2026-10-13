@@ -22,11 +22,14 @@ import {
   setDoc,
   deleteDoc,
   writeBatch,
+  query,
+  where,
   Firestore,
 } from 'firebase/firestore';
-import { FirebaseConfig, UserProfile, WordItem } from '../types';
+import { FirebaseConfig, UserProfile, WordItem, CategoryItem } from '../types';
 import { StoredTestItem } from './testHistoryStore';
 import { backendApi } from './apiClient';
+import { normalizePartOfSpeech } from './dictionaryService';
 
 export interface WelcomeEmailNotice {
   to: string;
@@ -539,24 +542,71 @@ class FirebaseService {
     emailOrUsername: string,
     password: string
   ): Promise<{ success: boolean; message?: string; mustChangePassword?: boolean; user?: UserProfile }> {
-    const input = (emailOrUsername || '').trim().toLowerCase();
+    const rawInput = (emailOrUsername || '').trim();
+    const input = rawInput.toLowerCase();
     const cleanPass = (password || '').trim();
     if (!input || !cleanPass) {
       return { success: false, message: 'Por favor ingresa tu usuario/correo y contraseña' };
     }
 
+    const normInput = input.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     let foundAccount: StoredAccount | null = null;
 
-    // 1. Check in Firestore Cloud Database (WORKS ACROSS ALL DEVICES)
+    // 1. Check in Firestore Cloud Database (WORKS ACROSS WEB AND APK)
     if (this.db) {
       try {
-        const snap = await Promise.race([
-          getDoc(doc(this.db, 'accounts', input)),
-          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000)),
+        const fetchPromise = (async () => {
+          // Direct doc lookup by lowercase email/username
+          const snap = await getDoc(doc(this.db!, 'accounts', input));
+          if (snap?.exists?.()) return snap.data() as StoredAccount;
+
+          // Normalized accent-free lookup
+          if (normInput !== input) {
+            const normSnap = await getDoc(doc(this.db!, 'accounts', normInput));
+            if (normSnap?.exists?.()) return normSnap.data() as StoredAccount;
+          }
+
+          // User document lookup
+          const uSnap = await getDoc(doc(this.db!, 'users', input));
+          if (uSnap?.exists?.() && uSnap.data()?.email) {
+            const uData = uSnap.data();
+            const accDoc = await getDoc(doc(this.db!, 'accounts', uData.email.toLowerCase()));
+            if (accDoc?.exists?.()) return accDoc.data() as StoredAccount;
+            return {
+              id: uData.id || input,
+              email: uData.email,
+              username: uData.username || rawInput,
+              fullName: uData.full_name || uData.username || rawInput,
+              password: uData.password || '12345',
+              mustChangePassword: Boolean(uData.must_change_password),
+              avatarUrl: uData.avatar_url,
+              createdAt: uData.created_at,
+            } as StoredAccount;
+          }
+
+          // Query by email
+          try {
+            const emailQ = query(collection(this.db!, 'accounts'), where('email', '==', input));
+            const emailDocs = await getDocs(emailQ);
+            if (!emailDocs.empty) return emailDocs.docs[0].data() as StoredAccount;
+          } catch {}
+
+          // Query by username
+          try {
+            const userQ = query(collection(this.db!, 'accounts'), where('username', '==', rawInput));
+            const userDocs = await getDocs(userQ);
+            if (!userDocs.empty) return userDocs.docs[0].data() as StoredAccount;
+          } catch {}
+
+          return null;
+        })();
+
+        foundAccount = await Promise.race([
+          fetchPromise,
+          new Promise<StoredAccount | null>((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), 8000)
+          ),
         ]);
-        if (snap?.exists?.()) {
-          foundAccount = snap.data() as StoredAccount;
-        }
       } catch (err) {
         console.warn('[Firestore] Offline o timeout buscando cuenta en base de datos:', err);
       }
@@ -566,7 +616,10 @@ class FirebaseService {
     if (!foundAccount) {
       const accounts = this.getStoredAccounts();
       const localMatch = accounts.find(
-        (a) => a.email.toLowerCase() === input || a.username.toLowerCase() === input
+        (a) =>
+          a.email.toLowerCase() === input ||
+          a.username.toLowerCase() === input ||
+          a.username.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === normInput
       );
       if (localMatch) {
         foundAccount = localMatch;
@@ -612,15 +665,24 @@ class FirebaseService {
             created_at: sUser.created_at,
           };
 
-          if (mustChange) {
-            this.currentUser = profile;
-            appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
-            this.notify();
-            return {
-              success: true,
-              mustChangePassword: true,
-              user: profile,
+          // Save account in Firestore so APK can also use it
+          if (this.db) {
+            const syncAcc: StoredAccount = {
+              id: sUser.id,
+              email: sUser.email.toLowerCase(),
+              username: sUser.username,
+              fullName: sUser.username,
+              password: cleanPass,
+              mustChangePassword: mustChange,
+              avatarUrl: profile.avatar_url,
+              createdAt: sUser.created_at,
+              updatedAt: new Date().toISOString(),
             };
+            Promise.all([
+              setDoc(doc(this.db, 'accounts', sUser.email.toLowerCase()), syncAcc, { merge: true }),
+              setDoc(doc(this.db, 'accounts', sUser.username.toLowerCase()), syncAcc, { merge: true }),
+              setDoc(doc(this.db, 'users', sUser.id), syncAcc, { merge: true }),
+            ]).catch(() => {});
           }
 
           this.currentUser = profile;
@@ -628,7 +690,7 @@ class FirebaseService {
           this.notify();
           return {
             success: true,
-            mustChangePassword: false,
+            mustChangePassword: mustChange,
             user: profile,
           };
         }
@@ -644,10 +706,40 @@ class FirebaseService {
         return { success: false, message: 'Contraseña incorrecta' };
       }
 
+      // Synchronize all key docs in Firestore for instant multi-platform lookup
+      if (this.db) {
+        const eKey = foundAccount.email.toLowerCase();
+        const uKey = foundAccount.username.toLowerCase();
+        const normKey = uKey.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        Promise.all([
+          setDoc(doc(this.db, 'accounts', eKey), foundAccount, { merge: true }),
+          setDoc(doc(this.db, 'accounts', uKey), foundAccount, { merge: true }),
+          setDoc(doc(this.db, 'accounts', normKey), foundAccount, { merge: true }),
+          setDoc(doc(this.db, 'users', foundAccount.id), {
+            id: foundAccount.id,
+            email: foundAccount.email,
+            username: foundAccount.username,
+            full_name: foundAccount.fullName || foundAccount.username,
+            avatar_url: foundAccount.avatarUrl || null,
+            must_change_password: Boolean(foundAccount.mustChangePassword),
+            updated_at: new Date().toISOString(),
+          }, { merge: true }),
+          setDoc(doc(this.db, 'users', eKey), {
+            id: foundAccount.id,
+            email: foundAccount.email,
+            username: foundAccount.username,
+            full_name: foundAccount.fullName || foundAccount.username,
+            avatar_url: foundAccount.avatarUrl || null,
+            must_change_password: Boolean(foundAccount.mustChangePassword),
+            updated_at: new Date().toISOString(),
+          }, { merge: true }),
+        ]).catch(() => {});
+      }
+
       // Save/update this account in local device cache
       const accounts = this.getStoredAccounts();
       const existingIdx = accounts.findIndex(
-        (a) => a.id === foundAccount!.id || a.username.toLowerCase() === foundAccount!.username.toLowerCase()
+        (a) => a.id === foundAccount!.id || a.email.toLowerCase() === foundAccount!.email.toLowerCase()
       );
       if (existingIdx >= 0) {
         accounts[existingIdx] = { ...accounts[existingIdx], ...foundAccount };
@@ -682,30 +774,23 @@ class FirebaseService {
         created_at: foundAccount.createdAt,
       };
 
-      if (mustChange) {
-        this.currentUser = profile;
-        appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
-        this.notify();
-        return {
-          success: true,
-          mustChangePassword: true,
-          user: profile,
-        };
-      }
-
       this.currentUser = profile;
       appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
       this.notify();
+
+      // In background, also attempt login on Express backend to keep tokens in sync
+      backendApi.login(foundAccount.email, cleanPass).catch(() => {});
+
       return {
         success: true,
-        mustChangePassword: false,
+        mustChangePassword: mustChange,
         user: profile,
       };
     }
 
     // 5. Auto-provision provisional access if password is 12345
     if (cleanPass === '12345') {
-      const cleanUsername = input.includes('@') ? input.split('@')[0] : input;
+      const cleanUsername = input.includes('@') ? input.split('@')[0] : rawInput;
       const cleanEmail = input.includes('@') ? input : `${cleanUsername}@pronounceit.app`;
       const autoAccount: StoredAccount = {
         id: `usr-${Date.now().toString(36)}`,
@@ -759,30 +844,39 @@ class FirebaseService {
   public async signUpWithStandardPassword(
     email: string,
     username: string
-  ): Promise<{ success: boolean; message?: string; emailNotice?: WelcomeEmailNotice; user?: UserProfile }> {
+  ): Promise<{ success: boolean; message?: string; emailNotice?: WelcomeEmailNotice; welcomeEmailNotice?: WelcomeEmailNotice; user?: UserProfile }> {
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanUsername = (username || '').trim();
     const uKey = cleanUsername.toLowerCase();
+    const normKey = uKey.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
     if (!cleanEmail || !cleanUsername) {
       return { success: false, message: 'El correo y el nombre de usuario son obligatorios.' };
     }
 
-    // 1. Check if user already exists in Firestore Cloud Database
+    // 1. Check if user already exists in Firestore Cloud Database (WORKS ACROSS ALL DEVICES)
     if (this.db) {
       try {
-        const [uSnap, eSnap] = await Promise.race([
-          Promise.all([
-            getDoc(doc(this.db, 'accounts', uKey)),
-            getDoc(doc(this.db, 'accounts', cleanEmail)),
-          ]),
-          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000)),
+        const checkPromise = Promise.all([
+          getDoc(doc(this.db, 'accounts', cleanEmail)),
+          getDoc(doc(this.db, 'accounts', uKey)),
+          normKey !== uKey ? getDoc(doc(this.db, 'accounts', normKey)) : Promise.resolve(null),
         ]);
-        if (uSnap?.exists?.()) {
-          return { success: false, message: 'Ya existe una cuenta con este nombre de usuario.' };
-        }
+        const [eSnap, uSnap, nSnap] = await Promise.race([
+          checkPromise,
+          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
+        ]);
         if (eSnap?.exists?.()) {
-          return { success: false, message: 'Ya existe una cuenta con este correo electrónico.' };
+          return {
+            success: false,
+            message: 'Ya existe una cuenta con este correo electrónico. Por favor selecciona "Iniciar Sesión" para ingresar.',
+          };
+        }
+        if (uSnap?.exists?.() || (nSnap && nSnap.exists?.())) {
+          return {
+            success: false,
+            message: 'Ya existe una cuenta con este nombre de usuario. Por favor selecciona "Iniciar Sesión" para ingresar.',
+          };
         }
       } catch (err) {
         console.warn('[Firestore] Offline o timeout comprobando cuentas existentes:', err);
@@ -795,7 +889,10 @@ class FirebaseService {
       (a) => a.email.toLowerCase() === cleanEmail || a.username.toLowerCase() === uKey
     );
     if (alreadyExists) {
-      return { success: false, message: 'Ya existe una cuenta con este correo o nombre de usuario.' };
+      return {
+        success: false,
+        message: 'Ya existe una cuenta con este correo o usuario en este dispositivo. Por favor selecciona "Iniciar Sesión".',
+      };
     }
 
     const userId = `usr-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
@@ -813,21 +910,35 @@ class FirebaseService {
     // 3. Save to Firestore Cloud Database (so ANY other device can immediately log in)
     if (this.db) {
       try {
+        const writes = [
+          setDoc(doc(this.db, 'accounts', cleanEmail), newAccount, { merge: true }),
+          setDoc(doc(this.db, 'accounts', uKey), newAccount, { merge: true }),
+          setDoc(doc(this.db, 'users', userId), {
+            id: userId,
+            email: cleanEmail,
+            username: cleanUsername,
+            full_name: cleanUsername,
+            must_change_password: true,
+            created_at: newAccount.createdAt,
+            updated_at: newAccount.updatedAt,
+          }, { merge: true }),
+          setDoc(doc(this.db, 'users', cleanEmail), {
+            id: userId,
+            email: cleanEmail,
+            username: cleanUsername,
+            full_name: cleanUsername,
+            must_change_password: true,
+            created_at: newAccount.createdAt,
+            updated_at: newAccount.updatedAt,
+          }, { merge: true }),
+        ];
+        if (normKey !== uKey) {
+          writes.push(setDoc(doc(this.db, 'accounts', normKey), newAccount, { merge: true }));
+        }
+
         await Promise.race([
-          Promise.all([
-            setDoc(doc(this.db, 'accounts', uKey), newAccount, { merge: true }),
-            setDoc(doc(this.db, 'accounts', cleanEmail), newAccount, { merge: true }),
-            setDoc(doc(this.db, 'users', userId), {
-              id: userId,
-              email: cleanEmail,
-              username: cleanUsername,
-              full_name: cleanUsername,
-              must_change_password: true,
-              created_at: newAccount.createdAt,
-              updated_at: newAccount.updatedAt,
-            }, { merge: true }),
-          ]),
-          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000)),
+          Promise.all(writes),
+          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
         ]);
       } catch (err) {
         console.warn('[Firestore] Offline o timeout guardando cuenta en Firestore:', err);
@@ -858,6 +969,7 @@ class FirebaseService {
       success: true,
       message: `Cuenta creada con éxito. Ya puedes iniciar sesión con tu usuario (${cleanUsername}) y la contraseña estándar (12345).`,
       emailNotice,
+      welcomeEmailNotice: emailNotice,
     };
   }
 
@@ -873,33 +985,52 @@ class FirebaseService {
     }
 
     const input = (emailOrUsername || '').trim().toLowerCase();
+    const normInput = input.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-    // 1. Update in Firestore Cloud Database
+    // 1. Update in Firestore Cloud Database across all keys
     if (this.db) {
       try {
-        const snap = await Promise.race([
-          getDoc(doc(this.db, 'accounts', input)),
-          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000)),
-        ]);
-        if (snap?.exists?.()) {
-          const acc = snap.data() as StoredAccount;
-          acc.password = newPassword;
-          acc.mustChangePassword = false;
-          acc.updatedAt = new Date().toISOString();
-          const uKey = acc.username.toLowerCase();
-          const eKey = acc.email.toLowerCase();
-          await Promise.race([
-            Promise.all([
-              setDoc(doc(this.db, 'accounts', uKey), acc, { merge: true }),
-              setDoc(doc(this.db, 'accounts', eKey), acc, { merge: true }),
-              setDoc(doc(this.db, 'users', acc.id), {
+        const updateTask = async () => {
+          let acc: StoredAccount | null = null;
+          const snap = await getDoc(doc(this.db!, 'accounts', input));
+          if (snap.exists()) {
+            acc = snap.data() as StoredAccount;
+          } else {
+            const eDoc = await getDoc(doc(this.db!, 'accounts', normInput));
+            if (eDoc.exists()) acc = eDoc.data() as StoredAccount;
+          }
+
+          if (acc) {
+            acc.password = newPassword;
+            acc.mustChangePassword = false;
+            acc.updatedAt = new Date().toISOString();
+            const uKey = acc.username.toLowerCase();
+            const eKey = acc.email.toLowerCase();
+            const normKey = uKey.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+            const ops = [
+              setDoc(doc(this.db!, 'accounts', uKey), acc, { merge: true }),
+              setDoc(doc(this.db!, 'accounts', eKey), acc, { merge: true }),
+              setDoc(doc(this.db!, 'users', acc.id), {
                 must_change_password: false,
                 updated_at: acc.updatedAt,
               }, { merge: true }),
-            ]),
-            new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000)),
-          ]);
-        }
+              setDoc(doc(this.db!, 'users', eKey), {
+                must_change_password: false,
+                updated_at: acc.updatedAt,
+              }, { merge: true }),
+            ];
+            if (normKey !== uKey) {
+              ops.push(setDoc(doc(this.db!, 'accounts', normKey), acc, { merge: true }));
+            }
+            await Promise.all(ops);
+          }
+        };
+
+        await Promise.race([
+          updateTask(),
+          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
+        ]);
       } catch (err) {
         console.warn('[Firestore] Offline o timeout actualizando contraseña en Firestore:', err);
       }
@@ -908,7 +1039,10 @@ class FirebaseService {
     // 2. Update local accounts
     const accounts = this.getStoredAccounts();
     const account = accounts.find(
-      (a) => a.email.toLowerCase() === input || a.username.toLowerCase() === input
+      (a) =>
+        a.email.toLowerCase() === input ||
+        a.username.toLowerCase() === input ||
+        a.username.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === normInput
     );
     if (account) {
       account.password = newPassword;
@@ -1361,24 +1495,17 @@ class FirebaseService {
   public async fetchWords(userId?: string): Promise<WordItem[] | null> {
     if (!this.db) return null;
     const uid = this.getEffectiveUserId(userId);
+    const email = this.currentUser?.email?.trim().toLowerCase();
 
     try {
-      const wordsCol = collection(this.db, 'users', uid, 'words');
-      let snapshot = await getDocs(wordsCol);
+      const wordsMap = new Map<string, WordItem>();
 
-      // Fallback to top-level words collection if user subcollection is empty
-      if (snapshot.empty) {
-        const globalCol = collection(this.db, 'words');
-        snapshot = await getDocs(globalCol);
-      }
-
-      const words: WordItem[] = [];
-      snapshot.forEach((d) => {
+      const parseWordDoc = (d: any): WordItem => {
         const data = d.data();
-        words.push({
+        return {
           id: d.id,
           word: data.word || '',
-          partOfSpeech: data.partOfSpeech || 'noun',
+          partOfSpeech: normalizePartOfSpeech(data.partOfSpeech || 'Sustantivo'),
           level: data.level || 'B1',
           ipa: data.ipa || '',
           phoneticGuide: data.phoneticGuide || '',
@@ -1388,16 +1515,46 @@ class FirebaseService {
           exampleEn: data.exampleEn || '',
           exampleEs: data.exampleEs || '',
           highlightWord: data.highlightWord || '',
-          status: data.status || 'nueva',
+          status: data.status || 'learning',
           isFavorite: Boolean(data.isFavorite),
           categoryGroup: data.categoryGroup || 'General',
           categorySub: data.categorySub || 'General',
           srsIntervalDays: data.srsIntervalDays ?? 1,
           lastReviewedAt: data.lastReviewedAt,
-          createdAt: data.createdAt,
-        });
-      });
-      return words;
+          createdAt: data.createdAt || new Date().toISOString(),
+        };
+      };
+
+      // 1. Fetch from user ID subcollection
+      try {
+        const wordsCol = collection(this.db, 'users', uid, 'words');
+        const snapshot = await getDocs(wordsCol);
+        snapshot.forEach((d) => wordsMap.set(d.id, parseWordDoc(d)));
+      } catch {}
+
+      // 2. Fetch from user email subcollection if available and different
+      if (email && email !== uid) {
+        try {
+          const emailWordsCol = collection(this.db, 'users', email, 'words');
+          const emailSnap = await getDocs(emailWordsCol);
+          emailSnap.forEach((d) => {
+            if (!wordsMap.has(d.id)) wordsMap.set(d.id, parseWordDoc(d));
+          });
+        } catch {}
+      }
+
+      // 3. Fallback to top-level words collection filtered by user
+      try {
+        if (email) {
+          const q = query(collection(this.db, 'words'), where('user_email', '==', email));
+          const qSnap = await getDocs(q);
+          qSnap.forEach((d) => {
+            if (!wordsMap.has(d.id)) wordsMap.set(d.id, parseWordDoc(d));
+          });
+        }
+      } catch {}
+
+      return Array.from(wordsMap.values());
     } catch (err: any) {
       console.warn('[Firebase] Error al cargar palabras de Firestore:', err?.code || err?.message);
       return null;
@@ -1407,11 +1564,13 @@ class FirebaseService {
   public async upsertWord(word: WordItem, userId?: string): Promise<boolean> {
     if (!this.db) return false;
     const uid = this.getEffectiveUserId(userId);
+    const email = this.currentUser?.email?.trim().toLowerCase();
 
     try {
       const wordData = {
         id: word.id,
         user_id: uid,
+        user_email: email || '',
         word: word.word,
         partOfSpeech: word.partOfSpeech,
         level: word.level,
@@ -1433,15 +1592,16 @@ class FirebaseService {
         updatedAt: new Date().toISOString(),
       };
 
-      // Write to both user subcollection and top-level collection for convenience
-      const userWordRef = doc(this.db, 'users', uid, 'words', word.id);
-      const globalWordRef = doc(this.db, 'words', word.id);
+      const writes = [
+        setDoc(doc(this.db, 'users', uid, 'words', word.id), wordData, { merge: true }),
+        setDoc(doc(this.db, 'words', word.id), wordData, { merge: true }),
+      ];
 
-      await Promise.all([
-        setDoc(userWordRef, wordData, { merge: true }),
-        setDoc(globalWordRef, wordData, { merge: true }),
-      ]);
+      if (email && email !== uid) {
+        writes.push(setDoc(doc(this.db, 'users', email, 'words', word.id), wordData, { merge: true }));
+      }
 
+      await Promise.all(writes);
       return true;
     } catch (err) {
       console.warn('[Firebase] Error al guardar palabra en Firestore:', err);
@@ -1452,12 +1612,17 @@ class FirebaseService {
   public async deleteWord(wordId: string, userId?: string): Promise<boolean> {
     if (!this.db) return false;
     const uid = this.getEffectiveUserId(userId);
+    const email = this.currentUser?.email?.trim().toLowerCase();
 
     try {
-      await Promise.all([
+      const deletes = [
         deleteDoc(doc(this.db, 'users', uid, 'words', wordId)),
         deleteDoc(doc(this.db, 'words', wordId)),
-      ]);
+      ];
+      if (email && email !== uid) {
+        deletes.push(deleteDoc(doc(this.db, 'users', email, 'words', wordId)));
+      }
+      await Promise.all(deletes);
       return true;
     } catch (err) {
       console.warn('[Firebase] Error al eliminar palabra de Firestore:', err);
@@ -1466,42 +1631,105 @@ class FirebaseService {
   }
 
   public async syncAllWords(words: WordItem[], userId?: string): Promise<boolean> {
-    if (!this.db) return false;
+    if (!this.db || !words) return false;
     const uid = this.getEffectiveUserId(userId);
+    const email = this.currentUser?.email?.trim().toLowerCase();
 
     try {
-      const batch = writeBatch(this.db);
-      for (const w of words) {
-        const wordData = {
-          id: w.id,
-          user_id: uid,
-          word: w.word,
-          partOfSpeech: w.partOfSpeech,
-          level: w.level,
-          ipa: w.ipa,
-          phoneticGuide: w.phoneticGuide,
-          phoneticNote: w.phoneticNote || '',
-          translation: w.translation,
-          definition: w.definition || '',
-          exampleEn: w.exampleEn || '',
-          exampleEs: w.exampleEs || '',
-          highlightWord: w.highlightWord || '',
-          status: w.status,
-          isFavorite: w.isFavorite,
-          categoryGroup: w.categoryGroup,
-          categorySub: w.categorySub,
-          srsIntervalDays: w.srsIntervalDays ?? 1,
-          lastReviewedAt: w.lastReviewedAt || null,
-          createdAt: w.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        batch.set(doc(this.db, 'users', uid, 'words', w.id), wordData, { merge: true });
-        batch.set(doc(this.db, 'words', w.id), wordData, { merge: true });
+      // Chunk batches of 250 (Firestore limit is 500)
+      const chunkSize = 250;
+      for (let i = 0; i < words.length; i += chunkSize) {
+        const chunk = words.slice(i, i + chunkSize);
+        const batch = writeBatch(this.db);
+        for (const w of chunk) {
+          const wordData = {
+            id: w.id,
+            user_id: uid,
+            user_email: email || '',
+            word: w.word,
+            partOfSpeech: w.partOfSpeech,
+            level: w.level,
+            ipa: w.ipa,
+            phoneticGuide: w.phoneticGuide,
+            phoneticNote: w.phoneticNote || '',
+            translation: w.translation,
+            definition: w.definition || '',
+            exampleEn: w.exampleEn || '',
+            exampleEs: w.exampleEs || '',
+            highlightWord: w.highlightWord || '',
+            status: w.status,
+            isFavorite: w.isFavorite,
+            categoryGroup: w.categoryGroup,
+            categorySub: w.categorySub,
+            srsIntervalDays: w.srsIntervalDays ?? 1,
+            lastReviewedAt: w.lastReviewedAt || null,
+            createdAt: w.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          batch.set(doc(this.db, 'users', uid, 'words', w.id), wordData, { merge: true });
+          batch.set(doc(this.db, 'words', w.id), wordData, { merge: true });
+          if (email && email !== uid) {
+            batch.set(doc(this.db, 'users', email, 'words', w.id), wordData, { merge: true });
+          }
+        }
+        await batch.commit();
       }
-      await batch.commit();
       return true;
     } catch (err) {
       console.warn('[Firebase] Error en sincronización por lotes de palabras:', err);
+      return false;
+    }
+  }
+
+  // Alias for backward compatibility
+  public async syncWordsToFirestore(words: WordItem[], userId?: string): Promise<boolean> {
+    return this.syncAllWords(words, userId);
+  }
+
+  // ==========================================
+  // FIRESTORE: CATEGORIES
+  // ==========================================
+  public async fetchCategories(userId?: string): Promise<CategoryItem[] | null> {
+    if (!this.db) return null;
+    const uid = this.getEffectiveUserId(userId);
+    const email = this.currentUser?.email?.trim().toLowerCase();
+
+    try {
+      const uDoc = await getDoc(doc(this.db, 'users', uid));
+      if (uDoc.exists() && Array.isArray(uDoc.data()?.categories)) {
+        return uDoc.data()?.categories as CategoryItem[];
+      }
+      if (email && email !== uid) {
+        const eDoc = await getDoc(doc(this.db, 'users', email));
+        if (eDoc.exists() && Array.isArray(eDoc.data()?.categories)) {
+          return eDoc.data()?.categories as CategoryItem[];
+        }
+      }
+      return null;
+    } catch (err) {
+      console.warn('[Firebase] Error al cargar categorías de Firestore:', err);
+      return null;
+    }
+  }
+
+  public async saveCategories(categories: CategoryItem[], userId?: string): Promise<boolean> {
+    if (!this.db || !categories) return false;
+    const uid = this.getEffectiveUserId(userId);
+    const email = this.currentUser?.email?.trim().toLowerCase();
+
+    try {
+      const payload = {
+        categories,
+        updated_at: new Date().toISOString(),
+      };
+      const writes = [setDoc(doc(this.db, 'users', uid), payload, { merge: true })];
+      if (email && email !== uid) {
+        writes.push(setDoc(doc(this.db, 'users', email), payload, { merge: true }));
+      }
+      await Promise.all(writes);
+      return true;
+    } catch (err) {
+      console.warn('[Firebase] Error al guardar categorías en Firestore:', err);
       return false;
     }
   }

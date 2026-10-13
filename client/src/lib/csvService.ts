@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { WordItem, WordLevel, WordStatus } from '../types';
+import { normalizePartOfSpeech } from './dictionaryService';
 
 /**
  * Escapes a single CSV value according to RFC 4180
@@ -52,7 +53,7 @@ export function wordsToCsv(words: WordItem[], delimiter: string = ';'): string {
     escapeCsvValue(w.categoryGroup || '', delimiter),
     escapeCsvValue(w.categorySub || '', delimiter),
     escapeCsvValue(w.level || 'B1', delimiter),
-    escapeCsvValue(w.partOfSpeech || 'noun', delimiter),
+    escapeCsvValue(w.partOfSpeech || 'Sustantivo', delimiter),
     escapeCsvValue(w.ipa || '', delimiter),
     escapeCsvValue(w.phoneticGuide || '', delimiter),
     escapeCsvValue(w.phoneticNote || '', delimiter),
@@ -466,7 +467,7 @@ export function parseCsvToWords(csvText: string): WordItem[] {
       categoryGroup: getVal('categoryGroup') || 'General',
       categorySub: getVal('categorySub') || '',
       level,
-      partOfSpeech: getVal('partOfSpeech') || 'noun',
+      partOfSpeech: normalizePartOfSpeech(getVal('partOfSpeech') || 'Sustantivo'),
       ipa: getVal('ipa') || `/${cleanLower}/`,
       phoneticGuide: getVal('phoneticGuide') || `"${cleanLower}"`,
       phoneticNote: getVal('phoneticNote') || 'Pronunciación estándar',

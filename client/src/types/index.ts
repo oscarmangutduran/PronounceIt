@@ -42,10 +42,24 @@ export interface FirebaseConfig {
 export type WordLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 export type WordStatus = 'nueva' | 'en_repaso' | 'dominada';
 
+export const PART_OF_SPEECH_OPTIONS = [
+  'Sustantivo',
+  'Pronombre',
+  'Verbo',
+  'Adjetivo',
+  'Adverbio',
+  'Preposición',
+  'Conjunción',
+  'Interjección',
+  'Artículo/determinante',
+] as const;
+
+export type PartOfSpeech = (typeof PART_OF_SPEECH_OPTIONS)[number];
+
 export interface WordItem {
   id: string;
   word: string;
-  partOfSpeech: string;
+  partOfSpeech: PartOfSpeech | string;
   level: WordLevel;
   ipa: string;
   phoneticGuide: string;

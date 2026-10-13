@@ -22,10 +22,12 @@ import {
   ChevronUp,
   Plus,
   Volume2,
+  Bookmark,
+  Tag,
 } from 'lucide-react-native';
-import { WordItem, CategoryItem } from '../../types';
+import { WordItem, CategoryItem, PartOfSpeech, PART_OF_SPEECH_OPTIONS } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
-import { autoEnrichWord, AutoEnrichResult } from '../../lib/dictionaryService';
+import { autoEnrichWord, AutoEnrichResult, normalizePartOfSpeech } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
 
@@ -56,6 +58,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [word, setWord] = useState('');
   const [categoryGroup, setCategoryGroup] = useState(defaultCategoryGroup || '');
   const [categorySub, setCategorySub] = useState(defaultCategorySub || '');
+  const [partOfSpeech, setPartOfSpeech] = useState<PartOfSpeech>('Sustantivo');
+  const [isPosManuallySelected, setIsPosManuallySelected] = useState(false);
   const [saving, setSaving] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -134,6 +138,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setCategorySub(initialWord.categorySub || '');
       setIsCustomCategory(false);
       setIsCustomSubcategory(false);
+      const initialPos = normalizePartOfSpeech(initialWord.partOfSpeech || 'Sustantivo');
+      setPartOfSpeech(initialPos);
+      setIsPosManuallySelected(true);
       setPreviewData({
         word: initialWord.word,
         translation: initialWord.translation,
@@ -144,7 +151,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         exampleEn: initialWord.exampleEn || (initialWord as any).example || '',
         exampleEs: initialWord.exampleEs || (initialWord as any).exampleTranslation || '',
         level: initialWord.level,
-        partOfSpeech: initialWord.partOfSpeech,
+        partOfSpeech: initialPos,
         categoryGroup: initialWord.categoryGroup,
         categorySub: initialWord.categorySub,
       });
@@ -155,6 +162,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setCategorySub(defaultCategorySub || '');
       setIsCustomCategory(false);
       setIsCustomSubcategory(false);
+      setPartOfSpeech('Sustantivo');
+      setIsPosManuallySelected(false);
       setPreviewData(null);
     }
     setIsCategoryOpen(false);
@@ -175,6 +184,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       try {
         const res = await autoEnrichWord(clean);
         setPreviewData(res);
+        if (res?.partOfSpeech && !isPosManuallySelected) {
+          setPartOfSpeech(res.partOfSpeech);
+        }
       } catch (e) {
         console.warn('Auto enrich preview error:', e);
       } finally {
@@ -183,7 +195,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     }, 450);
 
     return () => clearTimeout(timer);
-  }, [word, initialWord]);
+  }, [word, initialWord, isPosManuallySelected]);
 
   const handleSelectCategory = (name: string) => {
     setCategoryGroup(name);
@@ -247,7 +259,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       exampleEn: enrichedData?.exampleEn || (initialWord ? initialWord.exampleEn : ''),
       exampleEs: enrichedData?.exampleEs || (initialWord ? initialWord.exampleEs : ''),
       level: enrichedData?.level || (initialWord ? initialWord.level : 'B1'),
-      partOfSpeech: enrichedData?.partOfSpeech || (initialWord ? initialWord.partOfSpeech : 'noun'),
+      partOfSpeech: partOfSpeech,
       categoryGroup: finalGroup,
       categorySub: finalSub,
       status: initialWord ? initialWord.status : 'nueva',
@@ -340,9 +352,14 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             {previewData && !loadingPreview && (
               <View style={[styles.previewCard, !isDark && styles.previewCardLight]}>
                 <View style={styles.previewHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <Sparkles size={13} color="#ff4d6d" />
                     <Text style={styles.previewBadgeText}>Auto-Generado</Text>
+                    <View style={[styles.previewPosPill, !isDark && styles.previewPosPillLight]}>
+                      <Text style={[styles.previewPosPillText, !isDark && styles.previewPosPillTextLight]}>
+                        {partOfSpeech}
+                      </Text>
+                    </View>
                   </View>
                   <TouchableOpacity
                     onPress={() => vocabService.speak(previewData.word || word)}
@@ -380,7 +397,67 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               </View>
             )}
 
-            {/* 2. Categoría (Lista Desplegable) */}
+            {/* 2. Tipo de palabra (Categoría gramatical) */}
+            <View style={styles.inputGroup}>
+              <View style={styles.labelRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Tag size={13} color={THEME.colors.crimsonLight} />
+                  <Text style={[styles.label, !isDark && styles.labelLight, { marginBottom: 0 }]}>
+                    Tipo de palabra *
+                  </Text>
+                </View>
+                {isPosManuallySelected && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (previewData?.partOfSpeech) {
+                        setPartOfSpeech(previewData.partOfSpeech);
+                      }
+                      setIsPosManuallySelected(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.linkText}>↻ Auto-detectado</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Botones / Chips de las 9 opciones solicitadas */}
+              <View style={styles.posChipsContainer}>
+                {PART_OF_SPEECH_OPTIONS.map((posOption) => {
+                  const isSelected = partOfSpeech === posOption;
+                  return (
+                    <TouchableOpacity
+                      key={posOption}
+                      style={[
+                        styles.posChip,
+                        !isDark && styles.posChipLight,
+                        isSelected && styles.posChipActive,
+                      ]}
+                      onPress={() => {
+                        setPartOfSpeech(posOption);
+                        setIsPosManuallySelected(true);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      {isSelected && (
+                        <Check size={12} color="#ffffff" style={{ marginRight: 4 }} />
+                      )}
+                      <Text
+                        style={[
+                          styles.posChipText,
+                          !isDark && styles.posChipTextLight,
+                          isSelected && styles.posChipTextActive,
+                        ]}
+                      >
+                        {posOption}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* 3. Categoría (Lista Desplegable) */}
             <View style={[styles.inputGroup, { zIndex: 50 }]}>
               <View style={styles.labelRow}>
                 <Text style={[styles.label, !isDark && styles.labelLight]}>Categoría *</Text>
@@ -1134,6 +1211,70 @@ const styles = StyleSheet.create({
   },
   cancelButtonTextLight: {
     color: '#475569',
+  },
+
+  // Part of Speech Chips Styles
+  posChipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+    marginTop: 4,
+  },
+  posChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: THEME.radius.full || 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  posChipLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+  },
+  posChipActive: {
+    backgroundColor: THEME.colors.crimson,
+    borderColor: THEME.colors.crimson,
+    shadowColor: THEME.colors.crimson,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  posChipText: {
+    fontSize: 12,
+    color: THEME.colors.textMuted,
+    fontWeight: '500',
+  },
+  posChipTextLight: {
+    color: '#475569',
+  },
+  posChipTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  previewPosPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(230, 46, 76, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.3)',
+  },
+  previewPosPillLight: {
+    backgroundColor: '#ffe4e6',
+    borderColor: '#fca5a5',
+  },
+  previewPosPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#ff758c',
+    textTransform: 'uppercase',
+  },
+  previewPosPillTextLight: {
+    color: '#e11d48',
   },
 });
 

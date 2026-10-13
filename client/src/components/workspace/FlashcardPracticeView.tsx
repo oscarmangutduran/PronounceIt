@@ -150,11 +150,20 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
               </Text>
             </View>
 
-            {currentWord.level ? (
-              <View style={styles.levelBadge}>
-                <Text style={styles.levelBadgeText}>{currentWord.level}</Text>
-              </View>
-            ) : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {currentWord.level ? (
+                <View style={styles.levelBadge}>
+                  <Text style={styles.levelBadgeText}>{currentWord.level}</Text>
+                </View>
+              ) : null}
+              {currentWord.partOfSpeech ? (
+                <View style={[styles.levelBadge, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
+                  <Text style={[styles.levelBadgeText, { color: '#38bdf8' }]}>
+                    {currentWord.partOfSpeech}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
 
           {/* Front content */}

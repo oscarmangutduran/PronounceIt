@@ -1,4 +1,4 @@
-import { WordItem, WordLevel, WordStatus } from '../types';
+import { WordItem, WordLevel, WordStatus, PartOfSpeech } from '../types';
 import { appStorage } from './storage';
 import { networkService } from './networkService';
 
@@ -17,7 +17,7 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
 
 export interface AutoEnrichResult {
   word: string;
-  partOfSpeech: string;
+  partOfSpeech: PartOfSpeech;
   level: WordLevel;
   ipa: string;
   phoneticGuide: string;
@@ -30,8 +30,12 @@ export interface AutoEnrichResult {
   categorySub: string;
 }
 
+interface BuiltInVocabItem extends Omit<Partial<AutoEnrichResult>, 'partOfSpeech'> {
+  partOfSpeech?: string;
+}
+
 // Comprehensive built-in lexical database for instant offline and rich responses
-const BUILTIN_VOCABULARY: Record<string, Partial<AutoEnrichResult>> = {
+const BUILTIN_VOCABULARY: Record<string, BuiltInVocabItem> = {
   the: {
     partOfSpeech: 'article',
     level: 'A1',
@@ -419,7 +423,7 @@ CRITICAL INSTRUCTION FOR EXAMPLES:
 Respond strictly with a single JSON object with these exact keys:
 {
   "translation": "Most accurate, common and natural Spanish translation for this word",
-  "partOfSpeech": "One of: 'noun', 'verb', 'adjective', 'adverb', 'article', 'pronoun', 'preposition', 'conjunction', 'phrasal verb', 'phrase'",
+  "partOfSpeech": "One of: 'Sustantivo', 'Pronombre', 'Verbo', 'Adjetivo', 'Adverbio', 'Preposición', 'Conjunción', 'Interjección', 'Artículo/determinante'",
   "level": "CEFR level: 'A1', 'A2', 'B1', 'B2', 'C1', or 'C2'",
   "ipa": "Standard IPA phonetics with stress mark (e.g. /ˈbreɪkˌθruː/)",
   "phoneticGuide": "Friendly Spanish phonetic pronunciation approximation in quotes (e.g. \\"breik-zru\\")",
@@ -560,31 +564,48 @@ export async function fetchGoogleDictionary(
   return { translation: '' };
 }
 
-// Normalized part of speech mapping with precedence order (adv, phrasal must precede verb!)
-export function normalizePartOfSpeech(pos: string): string {
+// Normalized part of speech mapping with precedence order into the 9 Spanish categories
+export function normalizePartOfSpeech(pos: string): PartOfSpeech {
   const p = (pos || '').toLowerCase().trim();
-  if (!p) return 'noun';
-  if (p.includes('art') || p === 'determiner') return 'article';
-  if (p.includes('phrasal')) return 'phrasal verb';
-  if (p.includes('adv')) return 'adverb';
-  if (p.includes('adj')) return 'adjective';
-  if (p.includes('verb')) return 'verb';
-  if (p.includes('noun')) return 'noun';
-  if (p.includes('pron')) return 'pronoun';
-  if (p.includes('prep')) return 'preposition';
-  if (p.includes('conj')) return 'conjunction';
-  if (p.includes('interj')) return 'interjection';
-  if (p.includes('phrase') || p.includes('idiom') || p.includes('expression')) return 'phrase';
-  return p;
+  if (!p) return 'Sustantivo';
+  if (p.includes('art') || p.includes('determ')) return 'Artículo/determinante';
+  if (p.includes('adv')) return 'Adverbio';
+  if (p.includes('adj')) return 'Adjetivo';
+  if (p.includes('pron')) return 'Pronombre';
+  if (p.includes('prep')) return 'Preposición';
+  if (p.includes('conj')) return 'Conjunción';
+  if (p.includes('interj') || p.includes('exclam')) return 'Interjección';
+  if (p.includes('phrasal') || p.includes('verb')) return 'Verbo';
+  if (p.includes('noun') || p.includes('sustantiv')) return 'Sustantivo';
+  return 'Sustantivo';
 }
 
-export function detectQuickPartOfSpeech(word: string): string | null {
+export function detectQuickPartOfSpeech(word: string): PartOfSpeech | null {
   const w = word.toLowerCase().trim();
-  if (['the', 'a', 'an'].includes(w)) return 'article';
-  if (['in', 'on', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'off', 'over', 'under'].includes(w)) return 'preposition';
-  if (['and', 'but', 'or', 'so', 'because', 'although', 'since', 'unless', 'while', 'whereas', 'if'].includes(w)) return 'conjunction';
-  if (['i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'our', 'their', 'mine', 'yours', 'hers', 'ours', 'theirs', 'this', 'that', 'these', 'those'].includes(w)) return 'pronoun';
-  if (['be', 'is', 'are', 'was', 'were', 'have', 'has', 'do', 'does', 'go', 'make', 'take', 'see', 'come', 'get', 'give', 'know', 'think', 'say', 'look', 'want', 'use', 'find', 'tell', 'ask', 'work', 'seem', 'feel', 'try', 'leave', 'call', 'run', 'read', 'write', 'learn'].includes(w)) return 'verb';
+  if (['the', 'a', 'an', 'this', 'that', 'these', 'those', 'every', 'each', 'some', 'any', 'no', 'my', 'your', 'his', 'her', 'its', 'our', 'their'].includes(w)) {
+    return 'Artículo/determinante';
+  }
+  if (['in', 'on', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'off', 'over', 'under', 'toward', 'towards', 'behind', 'across', 'without'].includes(w)) {
+    return 'Preposición';
+  }
+  if (['and', 'but', 'or', 'so', 'because', 'although', 'since', 'unless', 'while', 'whereas', 'if', 'nor', 'yet', 'either', 'neither', 'whether'].includes(w)) {
+    return 'Conjunción';
+  }
+  if (['i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'mine', 'yours', 'hers', 'ours', 'theirs', 'myself', 'yourself', 'himself', 'herself', 'itself', 'ourselves', 'themselves', 'who', 'whom', 'whose', 'which', 'what', 'anyone', 'someone', 'everyone', 'nobody', 'anything', 'something', 'everything', 'nothing'].includes(w)) {
+    return 'Pronombre';
+  }
+  if (['wow', 'oh', 'hey', 'hello', 'hi', 'oops', 'ouch', 'alas', 'yay', 'hurray', 'ah', 'aha', 'bravo', 'bingo', 'hooray'].includes(w)) {
+    return 'Interjección';
+  }
+  if (['be', 'is', 'are', 'was', 'were', 'have', 'has', 'do', 'does', 'go', 'make', 'take', 'see', 'come', 'get', 'give', 'know', 'think', 'say', 'look', 'want', 'use', 'find', 'tell', 'ask', 'work', 'seem', 'feel', 'try', 'leave', 'call', 'run', 'read', 'write', 'learn', 'play', 'eat', 'drink', 'walk', 'speak', 'talk', 'listen', 'watch', 'stand', 'sit', 'buy', 'sell', 'pay', 'meet', 'send', 'build', 'understand', 'remember'].includes(w)) {
+    return 'Verbo';
+  }
+  if (['good', 'bad', 'big', 'small', 'great', 'new', 'old', 'young', 'important', 'beautiful', 'happy', 'sad', 'fast', 'slow', 'hard', 'easy', 'different', 'same', 'high', 'low', 'early', 'late', 'strong', 'weak', 'rich', 'poor'].includes(w)) {
+    return 'Adjetivo';
+  }
+  if (['quickly', 'slowly', 'always', 'never', 'often', 'sometimes', 'very', 'really', 'well', 'badly', 'already', 'now', 'then', 'here', 'there', 'together', 'quite', 'almost', 'also', 'too', 'enough', 'hardly', 'barely', 'even'].includes(w)) {
+    return 'Adverbio';
+  }
   return null;
 }
 
@@ -785,7 +806,7 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
 
   // 2. Fetch from Free Dictionary API (for real IPA, definition, and authentic dictionary example)
   let foundIpa = '';
-  let foundPos = detectQuickPartOfSpeech(clean) || '';
+  let foundPos: PartOfSpeech | null = detectQuickPartOfSpeech(clean);
   let foundDef = '';
   let foundExEn = '';
 
@@ -833,13 +854,11 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
   if (gDict.translation) {
     foundTranslation = gDict.translation;
     if (!foundPos && gDict.partOfSpeech) {
-      foundPos = gDict.partOfSpeech;
+      foundPos = normalizePartOfSpeech(gDict.partOfSpeech);
     }
   }
 
-  if (!foundPos) {
-    foundPos = detectQuickPartOfSpeech(clean) || 'noun';
-  }
+  const finalPos: PartOfSpeech = foundPos ? normalizePartOfSpeech(foundPos) : 'Sustantivo';
 
   if (!foundTranslation) {
     foundTranslation = await translateText(clean);
@@ -879,13 +898,13 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
 
   return {
     word: rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1),
-    partOfSpeech: foundPos,
+    partOfSpeech: finalPos,
     level,
     ipa: finalIpa,
     phoneticGuide: finalGuide,
     phoneticNote: 'Sílaba tónica destacada / Fonética estándar',
     translation: foundTranslation,
-    definition: foundDef || `Término utilizado como ${foundPos} en inglés`,
+    definition: foundDef || `Término utilizado como ${finalPos} en inglés`,
     exampleEn: finalExEn,
     exampleEs: finalExEs,
     categoryGroup: '',

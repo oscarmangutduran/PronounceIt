@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { WordItem } from '../types';
 import { StoredTestItem } from './testHistoryStore';
 import { appStorage } from './storage';
+import { normalizePartOfSpeech } from './dictionaryService';
 
 export const PRODUCTION_API_URL = 'https://pronounceit-sand.vercel.app/api';
 
@@ -220,7 +221,7 @@ class BackendApiClient {
         ...w,
         id: String(w.id || `w-${Math.random().toString(36).slice(2, 7)}`),
         word: String(w.word || ''),
-        partOfSpeech: w.partOfSpeech || 'noun',
+        partOfSpeech: normalizePartOfSpeech(w.partOfSpeech || 'Sustantivo'),
         level: w.level || 'B1',
         ipa: w.ipa || w.phonetic || '',
         phoneticGuide: w.phoneticGuide || `"${(w.word || '').toLowerCase()}"`,

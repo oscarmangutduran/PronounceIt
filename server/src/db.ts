@@ -42,6 +42,7 @@ export interface WordRecord {
   id: string;
   userId?: string;
   word: string;
+  partOfSpeech?: string;
   phonetic: string;
   translation: string;
   example: string;
