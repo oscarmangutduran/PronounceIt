@@ -5,6 +5,7 @@ import {
   Award,
   BookOpen,
   Zap,
+  Tag,
   CheckCircle2,
   XCircle,
   Calendar,
@@ -30,7 +31,7 @@ export const TestResultsModal: React.FC<TestResultsModalProps> = ({
   onClose,
   history,
 }) => {
-  const [activeFilter, setActiveFilter] = useState<'all' | 'vocabulary' | 'irregular_verbs'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'vocabulary' | 'part_of_speech' | 'irregular_verbs'>('all');
   const [expandedTestId, setExpandedTestId] = useState<string | null>(null);
   const [showConfirmClear, setShowConfirmClear] = useState(false);
 
@@ -45,6 +46,7 @@ export const TestResultsModal: React.FC<TestResultsModalProps> = ({
   // Calculate stats
   const totalTests = history.length;
   const vocabTests = history.filter((t) => t.type === 'vocabulary').length;
+  const posTests = history.filter((t) => t.type === 'part_of_speech').length;
   const irregularTests = history.filter((t) => t.type === 'irregular_verbs').length;
 
   const averageScore =
@@ -181,6 +183,22 @@ export const TestResultsModal: React.FC<TestResultsModalProps> = ({
                 <span>Vocabulario</span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/30 text-pink-200">
                   {vocabTests}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveFilter('part_of_speech')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeFilter === 'part_of_speech'
+                    ? 'bg-rose-500 text-white shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Tag size={13} className="text-pink-200" />
+                <span>Por Tipo</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/30 text-pink-200">
+                  {posTests}
                 </span>
               </button>
 

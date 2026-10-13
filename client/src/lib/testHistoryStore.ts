@@ -8,7 +8,7 @@ import { networkService } from './networkService';
 
 export interface StoredTestItem {
   id: string;
-  type: 'vocabulary' | 'irregular_verbs';
+  type: 'vocabulary' | 'irregular_verbs' | 'part_of_speech';
   title: string;
   level: string;
   scoreOutOfTen: number;
