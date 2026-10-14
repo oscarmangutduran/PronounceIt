@@ -30,7 +30,7 @@ import {
 } from 'lucide-react-native';
 import { WordItem, CategoryItem, PartOfSpeech, PART_OF_SPEECH_OPTIONS } from '../../types';
 import { vocabService, getWordCategories, getWordSubcategories } from '../../lib/vocabularyStore';
-import { autoEnrichWord, normalizePartOfSpeech, detectQuickPartOfSpeech, isLikelySpanish } from '../../lib/dictionaryService';
+import { autoEnrichWord, normalizePartOfSpeech, detectQuickPartOfSpeech, isLikelySpanish, getInstantEnrichmentSync } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
 
@@ -206,7 +206,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     setIsSubcategoryDropdownOpen(false);
   }, [initialWord, defaultCategoryGroup, defaultCategorySub, isOpen, allCategories]);
 
-  // Direct execution of auto-enrichment (immediate or via debounce)
+  // Direct execution of auto-enrichment (immediate local fill + fast network enrichment)
   const executeAutoEnrichNow = useCallback(async (customText?: string, customLang?: 'en' | 'es') => {
     if (initialWord) return;
     const lang = customLang || inputLanguage;
@@ -216,9 +216,26 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       return;
     }
 
+    // 0ms instant local pre-fill
+    const instant = getInstantEnrichmentSync(sourceText, lang);
+    if (instant) {
+      if (lang === 'es') {
+        if (instant.word && !hasManuallyEditedEnglish) setWord(instant.word);
+      } else {
+        if (instant.translation && !hasManuallyEditedTranslation) setTranslation(instant.translation);
+      }
+      if (instant.exampleEn && !hasManuallyEditedExamples) {
+        setExampleEn((prev) => prev || instant.exampleEn || '');
+        setExampleEs((prev) => prev || instant.exampleEs || '');
+      }
+      if (instant.phoneticGuide) setPhoneticGuide((prev) => prev || instant.phoneticGuide || '');
+      if (instant.ipa) setIpa((prev) => prev || instant.ipa || '');
+      if (instant.partOfSpeech && !isPosManuallySelected) setPartOfSpeech(instant.partOfSpeech);
+    }
+
     setLoadingAutoEnrich(true);
     try {
-      const res = await autoEnrichWord(sourceText, lang);
+      const res = await autoEnrichWord(sourceText, lang, false);
       if (res) {
         if (lang === 'es') {
           if (!hasManuallyEditedEnglish) {
@@ -255,7 +272,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     isPosManuallySelected,
   ]);
 
-  // Ultra-fast live auto-enrichment debounce (220ms)
+  // Ultra-fast live auto-enrichment debounce (100ms)
   useEffect(() => {
     if (initialWord) return;
 
@@ -267,7 +284,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
     const timer = setTimeout(() => {
       executeAutoEnrichNow(sourceText, inputLanguage);
-    }, 220);
+    }, 100);
 
     return () => clearTimeout(timer);
   }, [
@@ -292,8 +309,21 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         return;
       }
     }
+
     const clean = text.trim();
-    if (clean.length > 0 && !isPosManuallySelected && inputLanguage === 'en') {
+    if (clean.length >= 2 && !initialWord && inputLanguage === 'en') {
+      const instant = getInstantEnrichmentSync(clean, 'en');
+      if (instant) {
+        if (instant.partOfSpeech && !isPosManuallySelected) setPartOfSpeech(instant.partOfSpeech);
+        if (instant.ipa && !ipa) setIpa(instant.ipa);
+        if (instant.phoneticGuide && !phoneticGuide) setPhoneticGuide(instant.phoneticGuide);
+        if (instant.translation && !hasManuallyEditedTranslation) setTranslation(instant.translation);
+        if (instant.exampleEn && !hasManuallyEditedExamples && !exampleEn) {
+          setExampleEn(instant.exampleEn);
+          setExampleEs(instant.exampleEs || '');
+        }
+      }
+    } else if (clean.length > 0 && !isPosManuallySelected && inputLanguage === 'en') {
       const quickPos = detectQuickPartOfSpeech(clean);
       if (quickPos) {
         setPartOfSpeech(quickPos);
@@ -305,6 +335,21 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     setTranslation(text);
     if (inputLanguage === 'en') {
       setHasManuallyEditedTranslation(true);
+    }
+
+    const clean = text.trim();
+    if (clean.length >= 2 && !initialWord && inputLanguage === 'es') {
+      const instant = getInstantEnrichmentSync(clean, 'es');
+      if (instant) {
+        if (instant.word && !hasManuallyEditedEnglish) setWord(instant.word);
+        if (instant.partOfSpeech && !isPosManuallySelected) setPartOfSpeech(instant.partOfSpeech);
+        if (instant.ipa && !ipa) setIpa(instant.ipa);
+        if (instant.phoneticGuide && !phoneticGuide) setPhoneticGuide(instant.phoneticGuide);
+        if (instant.exampleEn && !hasManuallyEditedExamples && !exampleEn) {
+          setExampleEn(instant.exampleEn);
+          setExampleEs(instant.exampleEs || '');
+        }
+      }
     }
   };
 
@@ -340,7 +385,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     }
     setLoadingAutoEnrich(true);
     try {
-      const res = await autoEnrichWord(currentInput, inputLanguage);
+      const res = await autoEnrichWord(currentInput, inputLanguage, true);
       if (res) {
         if (inputLanguage === 'es') {
           setWord(res.word || '');
