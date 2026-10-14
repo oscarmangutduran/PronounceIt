@@ -1,8 +1,7 @@
 import { Platform } from 'react-native';
-import { WordItem } from '../types';
+import { WordItem, normalizePartOfSpeech } from '../types';
 import { StoredTestItem } from './testHistoryStore';
 import { appStorage } from './storage';
-import { normalizePartOfSpeech } from './dictionaryService';
 
 export const PRODUCTION_API_URL = 'https://pronounceit-sand.vercel.app/api';
 
@@ -214,6 +213,9 @@ class BackendApiClient {
         ? `${BASE_URL}/words?userId=${encodeURIComponent(userId)}`
         : `${BASE_URL}/words`;
       const res = await fetch(url, { headers: this.buildHeaders() });
+      if (res.status === 401 && this.authToken) {
+        this.setToken(null);
+      }
       if (!res.ok) return null;
       const data = await res.json();
       if (!Array.isArray(data.words)) return null;
@@ -325,6 +327,9 @@ class BackendApiClient {
         ? `${BASE_URL}/tests?userId=${encodeURIComponent(userId)}`
         : `${BASE_URL}/tests`;
       const res = await fetch(url, { headers: this.buildHeaders() });
+      if (res.status === 401 && this.authToken) {
+        this.setToken(null);
+      }
       if (!res.ok) return null;
       const data = await res.json();
       return Array.isArray(data.tests) ? data.tests : null;

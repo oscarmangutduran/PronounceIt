@@ -56,6 +56,22 @@ export const PART_OF_SPEECH_OPTIONS = [
 
 export type PartOfSpeech = (typeof PART_OF_SPEECH_OPTIONS)[number];
 
+// Normalized part of speech mapping into the standard Spanish categories
+export function normalizePartOfSpeech(pos: string): PartOfSpeech {
+  const p = (pos || '').toLowerCase().trim();
+  if (!p) return 'Sustantivo';
+  if (p.includes('art') || p.includes('determ')) return 'Artículo/determinante';
+  if (p.includes('adv')) return 'Adverbio';
+  if (p.includes('adj')) return 'Adjetivo';
+  if (p.includes('pron')) return 'Pronombre';
+  if (p.includes('prep')) return 'Preposición';
+  if (p.includes('conj')) return 'Conjunción';
+  if (p.includes('interj') || p.includes('exclam')) return 'Interjección';
+  if (p.includes('phrasal') || p.includes('verb')) return 'Verbo';
+  if (p.includes('noun') || p.includes('sustantiv')) return 'Sustantivo';
+  return 'Sustantivo';
+}
+
 export interface WordItem {
   id: string;
   word: string;

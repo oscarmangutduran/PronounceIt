@@ -33,16 +33,17 @@ class NetworkService {
   }
 
   public async checkConnectivity(): Promise<boolean> {
-    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && !navigator.onLine) {
-      this.setOnline(false);
-      return false;
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
+      const isLive = Boolean(navigator.onLine);
+      this.setOnline(isLive);
+      return isLive;
     }
 
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 2000);
 
-      // Fast, lightweight standard connectivity check (0 bytes response)
+      // Fast, lightweight connectivity check for mobile native platforms
       const res = await fetch('https://clients3.google.com/generate_204', {
         method: 'HEAD',
         signal: controller.signal,
@@ -54,12 +55,6 @@ class NetworkService {
       this.setOnline(isLive);
       return isLive;
     } catch {
-      // If generate_204 fails (e.g. strict firewall or offline), try quick fallback
-      if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
-        const isLive = Boolean(navigator.onLine);
-        this.setOnline(isLive);
-        return isLive;
-      }
       this.setOnline(false);
       return false;
     }
