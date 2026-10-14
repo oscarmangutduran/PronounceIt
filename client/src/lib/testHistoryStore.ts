@@ -162,7 +162,7 @@ class TestHistoryService {
       try {
         const isBackendLive = await backendApi.checkHealth();
         if (isBackendLive) {
-          const serverTests = await backendApi.getTests();
+          const serverTests = await backendApi.getTests(currentUser.id);
           if (serverTests && Array.isArray(serverTests)) {
             const testMap = new Map<string, StoredTestItem>();
             serverTests.forEach((t) => testMap.set(t.id, t));

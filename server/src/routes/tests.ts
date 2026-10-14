@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { getDb, saveDb, TestRecord } from '../db.js';
 import crypto from 'crypto';
-import { requireAuth } from '../middleware/auth.js';
+import { optionalAuth } from '../middleware/auth.js';
 
 const router = Router();
 
 // GET /api/tests
-router.get('/', requireAuth, async (req: Request, res: Response) => {
+router.get('/', optionalAuth, async (req: Request, res: Response) => {
   try {
     const db = await getDb();
     const { userId, type, level } = req.query;
@@ -38,7 +38,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 });
 
 // POST /api/tests
-router.post('/', requireAuth, async (req: Request, res: Response) => {
+router.post('/', optionalAuth, async (req: Request, res: Response) => {
   try {
     const db = await getDb();
     const {
@@ -88,7 +88,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 });
 
 // DELETE /api/tests/:id
-router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+router.delete('/:id', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const db = await getDb();
@@ -112,7 +112,7 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
 });
 
 // DELETE /api/tests (Clear all)
-router.delete('/', requireAuth, async (req: Request, res: Response) => {
+router.delete('/', optionalAuth, async (req: Request, res: Response) => {
   try {
     const db = await getDb();
     db.tests = [];

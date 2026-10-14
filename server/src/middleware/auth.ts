@@ -47,6 +47,28 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 }
 
 /**
+ * Middleware que verifica el token JWT si está presente.
+ * Si no está presente o no es válido, continúa sin req.user para permitir consultas por userId.
+ */
+export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next();
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as AuthPayload;
+    req.user = decoded;
+  } catch {
+    // Si el token expiró o es inválido, continúa sin req.user
+  }
+  next();
+}
+
+/**
  * Genera un token JWT firmado para un usuario.
  */
 export function signToken(payload: AuthPayload): string {
