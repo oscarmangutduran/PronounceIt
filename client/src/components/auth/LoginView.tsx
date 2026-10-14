@@ -255,10 +255,12 @@ export const LoginView: React.FC<LoginViewProps> = ({
         if (notice) {
           setWelcomeNotice(notice);
         }
-        // Cada nuevo usuario empieza con el vocabulario e historial completamente vacío
+        // Cada nuevo usuario empieza con el vocabulario, categorías e historial completamente vacío
+        vocabService.clearCurrentSession();
+        testHistoryService.clearCurrentSession();
         const newUid = (res as any).user?.id || (res as any).userId || email.trim().toLowerCase();
-        vocabService.resetForNewUser(newUid);
-        testHistoryService.resetForNewUser(newUid);
+        vocabService.resetForNewUser(newUid, email.trim().toLowerCase());
+        testHistoryService.resetForNewUser(newUid, email.trim().toLowerCase());
         setSuccess('¡Cuenta creada con éxito! Por seguridad, debes cambiar tu contraseña provisional (12345) ahora.');
         setMode('change_password');
         setNewPassword('');

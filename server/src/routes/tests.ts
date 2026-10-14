@@ -14,7 +14,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     let result = [...db.tests];
 
     if (userId && typeof userId === 'string') {
-      result = result.filter((t) => !t.userId || t.userId === userId);
+      result = result.filter((t) => t.userId === userId);
     }
     if (type && typeof type === 'string') {
       result = result.filter((t) => t.type === type);

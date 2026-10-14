@@ -106,13 +106,22 @@ class TestHistoryService {
     this.loadHistory();
   }
 
-  public resetForNewUser(userId?: string) {
+  public resetForNewUser(userId?: string, email?: string) {
     this.history = [];
-    const targetKey = userId || this.getEffectiveUserKey();
+    const keys = new Set<string>();
+    if (userId) keys.add(userId);
+    if (email) keys.add(email.trim().toLowerCase());
+    const currentKey = this.getEffectiveUserKey();
+    if (currentKey) keys.add(currentKey);
+
+    keys.forEach((k) => {
+      try {
+        appStorage.setItem(`pronounceit_test_history_u_${k}`, JSON.stringify([]));
+      } catch {}
+    });
+
+    const targetKey = userId || currentKey;
     this.lastUserId = targetKey;
-    try {
-      appStorage.setItem(`pronounceit_test_history_u_${targetKey}`, JSON.stringify([]));
-    } catch {}
     this.notify();
   }
 

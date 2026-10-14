@@ -175,16 +175,25 @@ class VocabularyService {
     }
   }
 
-  public resetForNewUser(userId?: string) {
+  public resetForNewUser(userId?: string, email?: string) {
     this.words = [];
     this.customCategories = [];
-    const targetKey = userId || this.getEffectiveUserKey();
+    const keys = new Set<string>();
+    if (userId) keys.add(userId);
+    if (email) keys.add(email.trim().toLowerCase());
+    const currentKey = this.getEffectiveUserKey();
+    if (currentKey) keys.add(currentKey);
+
+    keys.forEach((k) => {
+      try {
+        appStorage.setItem(`pronounceit_vocab_words_u_${k}`, JSON.stringify([]));
+        appStorage.setItem(`pronounceit_user_categories_u_${k}`, JSON.stringify([]));
+      } catch {}
+    });
+
+    const targetKey = userId || currentKey;
     this.lastUserId = targetKey;
-    try {
-      appStorage.setItem(`pronounceit_vocab_words_u_${targetKey}`, JSON.stringify([]));
-      appStorage.setItem(`pronounceit_user_categories_u_${targetKey}`, JSON.stringify([]));
-    } catch {}
-    if (targetKey !== 'guest') {
+    if (targetKey && targetKey !== 'guest') {
       this.setupRealtimeListeners(targetKey);
     }
     this.notify();

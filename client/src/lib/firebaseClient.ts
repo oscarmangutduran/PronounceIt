@@ -846,7 +846,14 @@ class FirebaseService {
   public async signUpWithStandardPassword(
     email: string,
     username: string
-  ): Promise<{ success: boolean; message?: string; emailNotice?: WelcomeEmailNotice; welcomeEmailNotice?: WelcomeEmailNotice; user?: UserProfile }> {
+  ): Promise<{
+    success: boolean;
+    message?: string;
+    emailNotice?: WelcomeEmailNotice;
+    welcomeEmailNotice?: WelcomeEmailNotice;
+    user?: UserProfile;
+    userId?: string;
+  }> {
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanUsername = (username || '').trim();
     const uKey = cleanUsername.toLowerCase();
@@ -920,6 +927,7 @@ class FirebaseService {
             email: cleanEmail,
             username: cleanUsername,
             full_name: cleanUsername,
+            categories: [], // Cada nuevo usuario comienza con 0 categorías y 0 subcategorías
             must_change_password: true,
             created_at: newAccount.createdAt,
             updated_at: newAccount.updatedAt,
@@ -929,6 +937,7 @@ class FirebaseService {
             email: cleanEmail,
             username: cleanUsername,
             full_name: cleanUsername,
+            categories: [],
             must_change_password: true,
             created_at: newAccount.createdAt,
             updated_at: newAccount.updatedAt,
@@ -947,9 +956,17 @@ class FirebaseService {
       }
     }
 
-    // 4. Save to local device storage
+    // 4. Save to local device storage and clear vocabulary/categories for this new user
     accounts.push(newAccount);
     this.saveStoredAccounts(accounts);
+    try {
+      appStorage.setItem(`pronounceit_vocab_words_u_${userId}`, JSON.stringify([]));
+      appStorage.setItem(`pronounceit_user_categories_u_${userId}`, JSON.stringify([]));
+      appStorage.setItem(`pronounceit_vocab_words_u_${cleanEmail}`, JSON.stringify([]));
+      appStorage.setItem(`pronounceit_user_categories_u_${cleanEmail}`, JSON.stringify([]));
+      appStorage.setItem(`pronounceit_test_history_u_${userId}`, JSON.stringify([]));
+      appStorage.setItem(`pronounceit_test_history_u_${cleanEmail}`, JSON.stringify([]));
+    } catch {}
 
     // 5. Synchronize with central backend database so user can log in on web and receives welcome email
     try {
@@ -967,11 +984,23 @@ class FirebaseService {
       sentAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
+    const userProfile: UserProfile = {
+      id: userId,
+      email: cleanEmail,
+      full_name: cleanUsername,
+      username: cleanUsername,
+      must_change_password: true,
+      role: 'user',
+      created_at: newAccount.createdAt,
+    };
+
     return {
       success: true,
       message: `Cuenta creada con éxito. Ya puedes iniciar sesión con tu usuario (${cleanUsername}) y la contraseña estándar (12345).`,
       emailNotice,
       welcomeEmailNotice: emailNotice,
+      user: userProfile,
+      userId,
     };
   }
 
@@ -1674,25 +1703,7 @@ class FirebaseService {
         } catch {}
       }
 
-      // 3. Fallback to usuario_principal if user has 0 words (automatic seamless migration)
-      if (wordsMap.size === 0) {
-        try {
-          const legacyCol = collection(this.db, 'users', 'usuario_principal', 'words');
-          const legacySnap = await getDocs(legacyCol);
-          if (!legacySnap.empty) {
-            legacySnap.forEach((d) => {
-              const w = this.parseWordDoc(d);
-              wordsMap.set(d.id, w);
-              setDoc(
-                doc(this.db!, 'users', uid, 'words', d.id),
-                { ...d.data(), user_id: uid, user_email: email || '' },
-                { merge: true }
-              ).catch(() => {});
-            });
-          }
-        } catch {}
-      }
-
+      // Return user's words (empty array if brand new user, zero words)
       return Array.from(wordsMap.values());
     } catch (err: any) {
       console.warn('[Firebase] Error al cargar palabras de Firestore:', err?.code || err?.message);
@@ -1886,12 +1897,7 @@ class FirebaseService {
 
     try {
       const testsCol = collection(this.db, 'users', uid, 'test_history');
-      let snapshot = await getDocs(testsCol);
-
-      if (snapshot.empty) {
-        const globalTestsCol = collection(this.db, 'test_history');
-        snapshot = await getDocs(globalTestsCol);
-      }
+      const snapshot = await getDocs(testsCol);
 
       const list: StoredTestItem[] = [];
       snapshot.forEach((d) => {
