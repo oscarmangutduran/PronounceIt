@@ -628,16 +628,16 @@ function MainApp() {
         {!showBottomBar && (
           <View style={[styles.footerContainer, !isDark && styles.footerContainerLight]}>
             <Text style={[styles.footerCopyright, !isDark && styles.footerTextBlack]}>
-              © PronounceIt v1.0.0 | Desarrollado con ❤️ Oscar Mangut Dev
+              © PronounceIt v1.3.0 | Desarrollado con ❤️ Oscar Mangut Dev
             </Text>
             <TouchableOpacity
               style={[styles.footerMobileBtn, !isDark && styles.footerMobileBtnLight]}
-              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.0.0/PronounceIt-v1.0.0.apk')}
+              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.3.0/PronounceIt-v1.3.0.apk')}
               activeOpacity={0.8}
             >
               <Smartphone size={15} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
               <Text style={[styles.footerMobileText, !isDark && styles.footerMobileTextLight]}>
-                Consigue la versión móvil (v1.0.0)
+                Consigue la versión móvil (v1.3.0)
               </Text>
               <Download size={13} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
             </TouchableOpacity>

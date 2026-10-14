@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Modal,
   View,
@@ -26,10 +26,11 @@ import {
   Tag,
   Languages,
   RotateCcw,
+  ArrowLeftRight,
 } from 'lucide-react-native';
 import { WordItem, CategoryItem, PartOfSpeech, PART_OF_SPEECH_OPTIONS } from '../../types';
 import { vocabService, getWordCategories, getWordSubcategories } from '../../lib/vocabularyStore';
-import { autoEnrichWord, normalizePartOfSpeech, detectQuickPartOfSpeech } from '../../lib/dictionaryService';
+import { autoEnrichWord, normalizePartOfSpeech, detectQuickPartOfSpeech, isLikelySpanish } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
 
@@ -59,6 +60,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
   const isEditing = Boolean(initialWord);
 
+  const [inputLanguage, setInputLanguage] = useState<'en' | 'es'>('en');
   const [word, setWord] = useState('');
   const [translation, setTranslation] = useState('');
   const [exampleEn, setExampleEn] = useState('');
@@ -78,6 +80,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
   // Live Auto-Enrich state
   const [loadingAutoEnrich, setLoadingAutoEnrich] = useState(false);
+  const [hasManuallyEditedEnglish, setHasManuallyEditedEnglish] = useState(false);
   const [hasManuallyEditedTranslation, setHasManuallyEditedTranslation] = useState(false);
   const [hasManuallyEditedExamples, setHasManuallyEditedExamples] = useState(false);
 
@@ -193,6 +196,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setPartOfSpeech('Sustantivo');
       setIsPosManuallySelected(false);
       setIsPosSelectorOpen(false);
+      setInputLanguage('en');
+      setHasManuallyEditedEnglish(false);
       setHasManuallyEditedTranslation(false);
       setHasManuallyEditedExamples(false);
     }
@@ -201,48 +206,94 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     setIsSubcategoryDropdownOpen(false);
   }, [initialWord, defaultCategoryGroup, defaultCategorySub, isOpen, allCategories]);
 
-  // Debounced live auto-enrichment when creating a NEW word
-  useEffect(() => {
+  // Direct execution of auto-enrichment (immediate or via debounce)
+  const executeAutoEnrichNow = useCallback(async (customText?: string, customLang?: 'en' | 'es') => {
     if (initialWord) return;
-
-    const clean = word.trim();
-    if (!clean || clean.length < 2) {
+    const lang = customLang || inputLanguage;
+    const sourceText = (customText !== undefined ? customText : (lang === 'es' ? translation : word)).trim();
+    if (!sourceText || sourceText.length < 2) {
       setLoadingAutoEnrich(false);
       return;
     }
 
-    const timer = setTimeout(async () => {
-      setLoadingAutoEnrich(true);
-      try {
-        const res = await autoEnrichWord(clean);
-        if (res) {
+    setLoadingAutoEnrich(true);
+    try {
+      const res = await autoEnrichWord(sourceText, lang);
+      if (res) {
+        if (lang === 'es') {
+          if (!hasManuallyEditedEnglish) {
+            setWord(res.word || '');
+          }
+        } else {
           if (!hasManuallyEditedTranslation) {
             setTranslation(res.translation || '');
           }
-          if (!hasManuallyEditedExamples) {
-            setExampleEn(res.exampleEn || '');
-            setExampleEs(res.exampleEs || '');
-          }
-          setPhoneticGuide((prev) => (prev ? prev : res.phoneticGuide || ''));
-          setIpa((prev) => (prev ? prev : res.ipa || ''));
-          if (!isPosManuallySelected && res.partOfSpeech) {
-            setPartOfSpeech(normalizePartOfSpeech(res.partOfSpeech));
-          }
         }
-      } catch (e) {
-        console.warn('Auto enrich preview error:', e);
-      } finally {
-        setLoadingAutoEnrich(false);
+        if (!hasManuallyEditedExamples) {
+          setExampleEn(res.exampleEn || '');
+          setExampleEs(res.exampleEs || '');
+        }
+        setPhoneticGuide((prev) => (prev ? prev : res.phoneticGuide || ''));
+        setIpa((prev) => (prev ? prev : res.ipa || ''));
+        if (!isPosManuallySelected && res.partOfSpeech) {
+          setPartOfSpeech(normalizePartOfSpeech(res.partOfSpeech));
+        }
       }
-    }, 500);
+    } catch (e) {
+      console.warn('Auto enrich preview error:', e);
+    } finally {
+      setLoadingAutoEnrich(false);
+    }
+  }, [
+    initialWord,
+    inputLanguage,
+    translation,
+    word,
+    hasManuallyEditedEnglish,
+    hasManuallyEditedTranslation,
+    hasManuallyEditedExamples,
+    isPosManuallySelected,
+  ]);
+
+  // Ultra-fast live auto-enrichment debounce (220ms)
+  useEffect(() => {
+    if (initialWord) return;
+
+    const sourceText = inputLanguage === 'es' ? translation.trim() : word.trim();
+    if (!sourceText || sourceText.length < 2) {
+      setLoadingAutoEnrich(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      executeAutoEnrichNow(sourceText, inputLanguage);
+    }, 220);
 
     return () => clearTimeout(timer);
-  }, [word, initialWord, hasManuallyEditedTranslation, hasManuallyEditedExamples, isPosManuallySelected]);
+  }, [
+    word,
+    translation,
+    inputLanguage,
+    initialWord,
+    executeAutoEnrichNow,
+  ]);
 
   const handleWordChange = (text: string) => {
     setWord(text);
+    if (inputLanguage === 'es') {
+      setHasManuallyEditedEnglish(true);
+    } else {
+      // If user typed Spanish accents in English mode, auto-switch to Spanish mode
+      if (isLikelySpanish(text) && !translation) {
+        setInputLanguage('es');
+        setTranslation(text);
+        setWord('');
+        setHasManuallyEditedEnglish(false);
+        return;
+      }
+    }
     const clean = text.trim();
-    if (clean.length > 0 && !isPosManuallySelected) {
+    if (clean.length > 0 && !isPosManuallySelected && inputLanguage === 'en') {
       const quickPos = detectQuickPartOfSpeech(clean);
       if (quickPos) {
         setPartOfSpeech(quickPos);
@@ -252,7 +303,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
   const handleTranslationChange = (text: string) => {
     setTranslation(text);
-    setHasManuallyEditedTranslation(true);
+    if (inputLanguage === 'en') {
+      setHasManuallyEditedTranslation(true);
+    }
+  };
+
+  const handleSwitchLanguage = (lang: 'en' | 'es') => {
+    if (inputLanguage === lang) return;
+    setInputLanguage(lang);
+  };
+
+  const handleSwapLanguages = () => {
+    setInputLanguage((prev) => (prev === 'en' ? 'es' : 'en'));
   };
 
   const handleExampleEnChange = (text: string) => {
@@ -267,21 +329,30 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
   // On-demand AI suggestion generator
   const handleRegenerateWithAI = async () => {
-    const clean = word.trim();
-    if (!clean) {
-      setValidationError('Por favor ingresa primero la palabra en inglés.');
+    const currentInput = inputLanguage === 'es' ? translation.trim() : word.trim();
+    if (!currentInput) {
+      setValidationError(
+        inputLanguage === 'es'
+          ? 'Por favor ingresa primero la palabra en español.'
+          : 'Por favor ingresa primero la palabra en inglés.'
+      );
       return;
     }
     setLoadingAutoEnrich(true);
     try {
-      const res = await autoEnrichWord(clean);
+      const res = await autoEnrichWord(currentInput, inputLanguage);
       if (res) {
-        setTranslation(res.translation || '');
+        if (inputLanguage === 'es') {
+          setWord(res.word || '');
+        } else {
+          setTranslation(res.translation || '');
+        }
         setExampleEn(res.exampleEn || '');
         setExampleEs(res.exampleEs || '');
         if (res.phoneticGuide) setPhoneticGuide(res.phoneticGuide);
         if (res.ipa) setIpa(res.ipa);
         if (res.partOfSpeech) setPartOfSpeech(normalizePartOfSpeech(res.partOfSpeech));
+        setHasManuallyEditedEnglish(true);
         setHasManuallyEditedTranslation(true);
         setHasManuallyEditedExamples(true);
       }
@@ -353,11 +424,58 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   };
 
   const handleSave = async () => {
-    const cleanWord = word.trim();
-    if (!cleanWord) {
-      setValidationError('Por favor ingresa la palabra en inglés.');
+    let cleanWord = word.trim();
+    let finalTranslation = translation.trim();
+
+    // If in Spanish mode and English word hasn't been set yet, resolve via Spanish
+    if (inputLanguage === 'es' && !cleanWord && finalTranslation) {
+      setSaving(true);
+      try {
+        const enriched = await autoEnrichWord(finalTranslation, 'es');
+        if (enriched?.word) {
+          cleanWord = enriched.word.trim();
+          if (!exampleEn && enriched.exampleEn) setExampleEn(enriched.exampleEn);
+          if (!exampleEs && enriched.exampleEs) setExampleEs(enriched.exampleEs);
+          if (!phoneticGuide && enriched.phoneticGuide) setPhoneticGuide(enriched.phoneticGuide);
+          if (!ipa && enriched.ipa) setIpa(enriched.ipa);
+          if (!isPosManuallySelected && enriched.partOfSpeech) {
+            setPartOfSpeech(normalizePartOfSpeech(enriched.partOfSpeech));
+          }
+        }
+      } catch (e) {
+        console.warn('Auto enrich error on save fallback (ES):', e);
+      }
+    } else if (inputLanguage === 'en' && cleanWord && !finalTranslation) {
+      setSaving(true);
+      try {
+        const enriched = await autoEnrichWord(cleanWord, 'en');
+        if (enriched) {
+          if (!finalTranslation) finalTranslation = enriched.translation;
+          if (!exampleEn && enriched.exampleEn) setExampleEn(enriched.exampleEn);
+          if (!exampleEs && enriched.exampleEs) setExampleEs(enriched.exampleEs);
+          if (!phoneticGuide && enriched.phoneticGuide) setPhoneticGuide(enriched.phoneticGuide);
+          if (!ipa && enriched.ipa) setIpa(enriched.ipa);
+          if (!isPosManuallySelected && enriched.partOfSpeech) {
+            setPartOfSpeech(normalizePartOfSpeech(enriched.partOfSpeech));
+          }
+        }
+      } catch (e) {
+        console.warn('Auto enrich error on save fallback (EN):', e);
+      }
+    }
+
+    if (!cleanWord && !finalTranslation) {
+      setValidationError(
+        inputLanguage === 'es'
+          ? 'Por favor ingresa la palabra en español.'
+          : 'Por favor ingresa la palabra en inglés.'
+      );
+      setSaving(false);
       return;
     }
+
+    if (!cleanWord) cleanWord = finalTranslation;
+    if (!finalTranslation) finalTranslation = cleanWord;
 
     // Comprobar si la palabra ya existe en el vocabulario (evitar duplicados)
     const existingWords = vocabService.getWords();
@@ -370,36 +488,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     if (isDuplicate) {
       setDuplicateWordName(cleanWord);
       setDuplicateModalOpen(true);
+      setSaving(false);
       return;
     }
 
     setSaving(true);
-    let finalTranslation = translation.trim();
     let finalExampleEn = exampleEn.trim();
     let finalExampleEs = exampleEs.trim();
     let finalPhoneticGuide = phoneticGuide.trim();
     let finalIpa = ipa.trim();
     let finalPos = partOfSpeech;
 
-    // Fallback if translation is blank
-    if (!finalTranslation) {
-      try {
-        const enriched = await autoEnrichWord(cleanWord);
-        if (enriched) {
-          if (!finalTranslation) finalTranslation = enriched.translation;
-          if (!finalExampleEn) finalExampleEn = enriched.exampleEn;
-          if (!finalExampleEs) finalExampleEs = enriched.exampleEs;
-          if (!finalPhoneticGuide) finalPhoneticGuide = enriched.phoneticGuide;
-          if (!finalIpa) finalIpa = enriched.ipa;
-          if (!isPosManuallySelected && enriched.partOfSpeech) {
-            finalPos = normalizePartOfSpeech(enriched.partOfSpeech);
-          }
-        }
-      } catch (e) {
-        console.warn('Auto enrich error on save fallback:', e);
-      }
-    }
-
+    // Final fallback if translation is somehow still blank
     if (!finalTranslation) {
       finalTranslation = cleanWord;
     }
@@ -488,15 +588,217 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               <Text style={[styles.noticeText, !isDark && styles.noticeTextLight]}>
                 {isEditing
                   ? 'Puedes modificar el significado, las dos oraciones, y asignar varias categorías y subcategorías.'
-                  : 'Escribe la palabra en inglés. Puedes asignarle múltiples categorías y subcategorías y editar todos los campos libremente.'}
+                  : inputLanguage === 'es'
+                  ? 'Escribe la palabra en español. La app buscará su traducción al inglés, su pronunciación fonética y oraciones de ejemplo automáticamente.'
+                  : 'Escribe la palabra en inglés. La app completará su traducción al español, su pronunciación fonética y oraciones de ejemplo automáticamente.'}
               </Text>
             </View>
 
-            {/* 1. Palabra en Inglés */}
-            <View style={styles.inputGroup}>
-              <View style={styles.labelActionRow}>
-                <Text style={[styles.label, !isDark && styles.labelLight]}>Palabra en Inglés *</Text>
-                <View style={styles.labelActions}>
+            {/* Language Selector Controls */}
+            {!isEditing && (
+              <View style={[styles.langSelectorCard, !isDark && styles.langSelectorCardLight]}>
+                <View style={styles.langSelectorHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Languages size={14} color={!isDark ? '#e11d48' : '#ff758c'} />
+                    <Text style={[styles.langSelectorTitle, !isDark && styles.langSelectorTitleLight]}>
+                      Ingresar palabra en:
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.langToggleRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.langPill,
+                      !isDark && styles.langPillLight,
+                      inputLanguage === 'en' && styles.langPillActive,
+                      !isDark && inputLanguage === 'en' && styles.langPillActiveLight,
+                    ]}
+                    onPress={() => handleSwitchLanguage('en')}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.langPillText,
+                        !isDark && styles.langPillTextLight,
+                        inputLanguage === 'en' && styles.langPillTextActive,
+                        !isDark && inputLanguage === 'en' && styles.langPillTextActiveLight,
+                      ]}
+                    >
+                      🇬🇧 Inglés
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.swapPillBtn, !isDark && styles.swapPillBtnLight]}
+                    onPress={handleSwapLanguages}
+                    activeOpacity={0.7}
+                    accessibilityLabel="Intercambiar idioma de entrada"
+                  >
+                    <ArrowLeftRight size={14} color={!isDark ? '#e11d48' : '#ff758c'} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.langPill,
+                      !isDark && styles.langPillLight,
+                      inputLanguage === 'es' && styles.langPillActive,
+                      !isDark && inputLanguage === 'es' && styles.langPillActiveLight,
+                    ]}
+                    onPress={() => handleSwitchLanguage('es')}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.langPillText,
+                        !isDark && styles.langPillTextLight,
+                        inputLanguage === 'es' && styles.langPillTextActive,
+                        !isDark && inputLanguage === 'es' && styles.langPillTextActiveLight,
+                      ]}
+                    >
+                      🇪🇸 Español
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* DYNAMIC FIELD 1: Primary Input based on active inputLanguage */}
+            {inputLanguage === 'es' ? (
+              // 1. Primaria en Español
+              <View style={styles.inputGroup}>
+                <View style={styles.labelActionRow}>
+                  <Text style={[styles.label, !isDark && styles.labelLight]}>Palabra en Español *</Text>
+                  <View style={styles.labelActions}>
+                    <TouchableOpacity
+                      style={[styles.aiSuggestBtn, !isDark && styles.aiSuggestBtnLight]}
+                      onPress={handleRegenerateWithAI}
+                      disabled={loadingAutoEnrich}
+                      activeOpacity={0.7}
+                    >
+                      {loadingAutoEnrich ? (
+                        <ActivityIndicator size="small" color={!isDark ? '#e11d48' : '#ff758c'} />
+                      ) : (
+                        <Sparkles size={13} color={!isDark ? '#e11d48' : '#ff758c'} />
+                      )}
+                      <Text style={[styles.aiSuggestBtnText, !isDark && styles.aiSuggestBtnTextLight]}>
+                        {loadingAutoEnrich ? 'Buscando...' : 'Sugerir con IA'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <TextInput
+                  style={[
+                    styles.input,
+                    !isDark && styles.inputLight,
+                    focusedField === 'translation' && styles.inputFocused,
+                  ]}
+                  placeholder="Ej: manzana, compromiso, desarrollo, reunión..."
+                  placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                  value={translation}
+                  onChangeText={handleTranslationChange}
+                  onFocus={() => {
+                    setFocusedField('translation');
+                    setIsCategoryDropdownOpen(false);
+                    setIsSubcategoryDropdownOpen(false);
+                  }}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    executeAutoEnrichNow();
+                  }}
+                  onSubmitEditing={() => executeAutoEnrichNow()}
+                  returnKeyType="done"
+                  autoCapitalize="none"
+                  autoFocus={!isEditing}
+                />
+
+                {loadingAutoEnrich && !isEditing && (
+                  <View style={styles.inlineLoadingBox}>
+                    <ActivityIndicator size="small" color="#ff4d6d" />
+                    <Text style={[styles.inlineLoadingText, !isDark && styles.inlineLoadingTextLight]}>
+                      Traduciendo a inglés y buscando pronunciación...
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              // 1. Primaria en Inglés
+              <View style={styles.inputGroup}>
+                <View style={styles.labelActionRow}>
+                  <Text style={[styles.label, !isDark && styles.labelLight]}>Palabra en Inglés *</Text>
+                  <View style={styles.labelActions}>
+                    {word.trim().length > 0 && (
+                      <TouchableOpacity
+                        style={[styles.speakerBtn, !isDark && styles.speakerBtnLight]}
+                        onPress={() => vocabService.speak(word)}
+                        activeOpacity={0.7}
+                      >
+                        <Volume2 size={13} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
+                        <Text style={[styles.speakerBtnText, !isDark && styles.speakerBtnTextLight]}>Escuchar</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={[styles.aiSuggestBtn, !isDark && styles.aiSuggestBtnLight]}
+                      onPress={handleRegenerateWithAI}
+                      disabled={loadingAutoEnrich}
+                      activeOpacity={0.7}
+                    >
+                      {loadingAutoEnrich ? (
+                        <ActivityIndicator size="small" color={!isDark ? '#e11d48' : '#ff758c'} />
+                      ) : (
+                        <Sparkles size={13} color={!isDark ? '#e11d48' : '#ff758c'} />
+                      )}
+                      <Text style={[styles.aiSuggestBtnText, !isDark && styles.aiSuggestBtnTextLight]}>
+                        {loadingAutoEnrich ? 'Buscando...' : 'Sugerir con IA'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <TextInput
+                  style={[
+                    styles.input,
+                    !isDark && styles.inputLight,
+                    focusedField === 'word' && styles.inputFocused,
+                  ]}
+                  placeholder="Ej: breakthrough, eloquent, serendipity..."
+                  placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                  value={word}
+                  onChangeText={handleWordChange}
+                  onFocus={() => {
+                    setFocusedField('word');
+                    setIsCategoryDropdownOpen(false);
+                    setIsSubcategoryDropdownOpen(false);
+                  }}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    executeAutoEnrichNow();
+                  }}
+                  onSubmitEditing={() => executeAutoEnrichNow()}
+                  returnKeyType="done"
+                  autoCapitalize="none"
+                  autoFocus={!isEditing}
+                />
+
+                {loadingAutoEnrich && !isEditing && (
+                  <View style={styles.inlineLoadingBox}>
+                    <ActivityIndicator size="small" color="#ff4d6d" />
+                    <Text style={[styles.inlineLoadingText, !isDark && styles.inlineLoadingTextLight]}>
+                      Buscando traducción y frases sugeridas...
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* DYNAMIC FIELD 2: Target/Secondary Input based on active inputLanguage */}
+            {inputLanguage === 'es' ? (
+              // 2. Secundaria: Traducción al Inglés (con botón escuchar)
+              <View style={styles.inputGroup}>
+                <View style={styles.labelActionRow}>
+                  <Text style={[styles.label, !isDark && styles.labelLight]}>
+                    Palabra en Inglés (Traducción) *
+                  </Text>
                   {word.trim().length > 0 && (
                     <TouchableOpacity
                       style={[styles.speakerBtn, !isDark && styles.speakerBtnLight]}
@@ -507,77 +809,50 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                       <Text style={[styles.speakerBtnText, !isDark && styles.speakerBtnTextLight]}>Escuchar</Text>
                     </TouchableOpacity>
                   )}
-                  <TouchableOpacity
-                    style={[styles.aiSuggestBtn, !isDark && styles.aiSuggestBtnLight]}
-                    onPress={handleRegenerateWithAI}
-                    disabled={loadingAutoEnrich}
-                    activeOpacity={0.7}
-                  >
-                    {loadingAutoEnrich ? (
-                      <ActivityIndicator size="small" color={!isDark ? '#e11d48' : '#ff758c'} />
-                    ) : (
-                      <Sparkles size={13} color={!isDark ? '#e11d48' : '#ff758c'} />
-                    )}
-                    <Text style={[styles.aiSuggestBtnText, !isDark && styles.aiSuggestBtnTextLight]}>
-                      {loadingAutoEnrich ? 'Buscando...' : 'Sugerir con IA'}
-                    </Text>
-                  </TouchableOpacity>
                 </View>
+                <TextInput
+                  style={[
+                    styles.input,
+                    !isDark && styles.inputLight,
+                    focusedField === 'word' && styles.inputFocused,
+                  ]}
+                  placeholder="Ej: apple, commitment, develop, meeting..."
+                  placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                  value={word}
+                  onChangeText={handleWordChange}
+                  onFocus={() => {
+                    setFocusedField('word');
+                    setIsCategoryDropdownOpen(false);
+                    setIsSubcategoryDropdownOpen(false);
+                  }}
+                  onBlur={() => setFocusedField(null)}
+                />
               </View>
-
-              <TextInput
-                style={[
-                  styles.input,
-                  !isDark && styles.inputLight,
-                  focusedField === 'word' && styles.inputFocused,
-                ]}
-                placeholder="Ej: breakthrough, eloquent, serendipity..."
-                placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                value={word}
-                onChangeText={handleWordChange}
-                onFocus={() => {
-                  setFocusedField('word');
-                  setIsCategoryDropdownOpen(false);
-                  setIsSubcategoryDropdownOpen(false);
-                }}
-                onBlur={() => setFocusedField(null)}
-                autoCapitalize="none"
-                autoFocus={!isEditing}
-              />
-
-              {loadingAutoEnrich && !isEditing && (
-                <View style={styles.inlineLoadingBox}>
-                  <ActivityIndicator size="small" color="#ff4d6d" />
-                  <Text style={[styles.inlineLoadingText, !isDark && styles.inlineLoadingTextLight]}>
-                    Buscando traducción y frases sugeridas...
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* 2. Significado / Traducción al Español */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, !isDark && styles.labelLight]}>
-                Significado / Traducción (Español) *
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  !isDark && styles.inputLight,
-                  focusedField === 'translation' && styles.inputFocused,
-                ]}
-                placeholder="Ej: gran avance, hallazgo importante, elocuente..."
-                placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                value={translation}
-                onChangeText={handleTranslationChange}
-                onFocus={() => {
-                  setFocusedField('translation');
-                  setIsCategoryDropdownOpen(false);
-                  setIsSubcategoryDropdownOpen(false);
-                }}
-                onBlur={() => setFocusedField(null)}
-              />
-            </View>
+            ) : (
+              // 2. Secundaria: Significado al Español
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, !isDark && styles.labelLight]}>
+                  Significado / Traducción (Español) *
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    !isDark && styles.inputLight,
+                    focusedField === 'translation' && styles.inputFocused,
+                  ]}
+                  placeholder="Ej: gran avance, hallazgo importante, elocuente..."
+                  placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                  value={translation}
+                  onChangeText={handleTranslationChange}
+                  onFocus={() => {
+                    setFocusedField('translation');
+                    setIsCategoryDropdownOpen(false);
+                    setIsSubcategoryDropdownOpen(false);
+                  }}
+                  onBlur={() => setFocusedField(null)}
+                />
+              </View>
+            )}
 
             {/* 3. Frase de Ejemplo en Inglés */}
             <View style={styles.inputGroup}>
@@ -1242,6 +1517,90 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#ffb3c1',
     lineHeight: 17,
+  },
+  langSelectorCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.25)',
+    borderRadius: THEME.radius.lg,
+    padding: 10,
+    gap: 8,
+    marginBottom: 4,
+  },
+  langSelectorCardLight: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fca5a5',
+  },
+  langSelectorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  langSelectorTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  langSelectorTitleLight: {
+    color: '#0f172a',
+  },
+  langToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  langPill: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: THEME.radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  langPillLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
+  },
+  langPillActive: {
+    backgroundColor: 'rgba(230, 46, 76, 0.2)',
+    borderColor: THEME.colors.crimson,
+  },
+  langPillActiveLight: {
+    backgroundColor: '#ffe4e6',
+    borderColor: '#e11d48',
+  },
+  langPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: THEME.colors.textMuted,
+  },
+  langPillTextLight: {
+    color: '#64748b',
+  },
+  langPillTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  langPillTextActiveLight: {
+    color: '#e11d48',
+    fontWeight: '700',
+  },
+  swapPillBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(230, 46, 76, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swapPillBtnLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#fca5a5',
   },
   inputGroup: {
     gap: 6,

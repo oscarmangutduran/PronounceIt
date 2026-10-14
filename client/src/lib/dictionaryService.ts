@@ -344,6 +344,10 @@ const BUILTIN_VOCABULARY: Record<string, BuiltInVocabItem> = {
 
 // Gemini API Configuration & Storage
 export const GEMINI_STORAGE_KEY = 'pronounceit_gemini_api_key';
+const DEFAULT_GEMINI_KEY = '';
+
+// In-memory cache for ultra-fast instant field auto-fill
+const ENRICHMENT_CACHE = new Map<string, AutoEnrichResult>();
 
 export function getGeminiApiKey(): string {
   try {
@@ -353,7 +357,7 @@ export function getGeminiApiKey(): string {
   return (
     process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
     process.env.VITE_GEMINI_API_KEY ||
-    ''
+    DEFAULT_GEMINI_KEY
   ).trim();
 }
 
@@ -373,12 +377,8 @@ export function isGeminiConfigured(): boolean {
 }
 
 export const GEMINI_AVAILABLE_MODELS = [
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.7-flash',
-  'gemini-3.8-flash',
-  'gemini-2.5-flash',
-  'gemini-flash-latest',
+  'gemini-flash-lite-latest',
+  'gemini-3.1-flash-lite',
 ];
 
 export async function testGeminiConnection(
@@ -394,15 +394,19 @@ export async function testGeminiConnection(
 
   for (const model of models) {
     try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2500);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           contents: [{ parts: [{ text: 'Respond strictly with valid JSON: {"status": "ok"}' }] }],
-          generationConfig: { responseMimeType: 'application/json' },
+          generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 50 },
         }),
       });
+      clearTimeout(timer);
 
       if (res.ok) {
         return { success: true, message: `Conexión exitosa con ${model} de Google AI.`, model };
@@ -419,54 +423,74 @@ export async function testGeminiConnection(
   return { success: false, message: lastError || 'No se pudo conectar con la API de Gemini.' };
 }
 
-// Queries Google Gemini free API for rich, authentic, non-repetitive lexical analysis
+// Queries Google Gemini free API for ultra-fast authentic lexical analysis (<1s)
 export async function queryGeminiForWord(
   word: string,
-  customApiKey?: string
+  customApiKey?: string,
+  sourceLang: 'en' | 'es' = 'en'
 ): Promise<AutoEnrichResult | null> {
-  const apiKey = (customApiKey !== undefined ? customApiKey : getGeminiApiKey()).trim();
-  if (!apiKey) return null;
-
   const clean = word.trim();
   if (!clean) return null;
 
-  const prompt = `You are an expert bilingual English-Spanish lexicographer and English teacher.
-Analyze this English word or phrase: "${clean}".
+  const cacheKey = `${sourceLang}:${clean.toLowerCase()}`;
+  if (ENRICHMENT_CACHE.has(cacheKey)) {
+    return ENRICHMENT_CACHE.get(cacheKey)!;
+  }
 
-CRITICAL INSTRUCTION FOR EXAMPLES:
-- Generate an authentic, realistic, context-appropriate, and engaging example sentence in English demonstrating natural usage of "${clean}".
-- NEVER use generic repetitive templates (e.g. avoid "She showed me the...", "I want to...", "It was a very..."). The sentence must be vivid, varied, natural, and directly suited to this specific word.
-- Translate that exact sentence into natural, fluent Spanish.
+  const apiKey = (customApiKey !== undefined ? customApiKey : getGeminiApiKey()).trim();
+  if (!apiKey) return null;
 
-Respond strictly with a single JSON object with these exact keys:
+  const prompt = sourceLang === 'es'
+    ? `Bilingual lexicographer task. Spanish word/phrase: "${clean}".
+Return ONLY a valid JSON object:
 {
-  "translation": "Most accurate, common and natural Spanish translation for this word",
-  "partOfSpeech": "One of: 'Sustantivo', 'Pronombre', 'Verbo', 'Adjetivo', 'Adverbio', 'Preposición', 'Conjunción', 'Interjección', 'Artículo/determinante'",
-  "level": "CEFR level: 'A1', 'A2', 'B1', 'B2', 'C1', or 'C2'",
-  "ipa": "Standard IPA phonetics with stress mark (e.g. /ˈbreɪkˌθruː/)",
-  "phoneticGuide": "Friendly Spanish phonetic pronunciation approximation in quotes (e.g. \\"breik-zru\\")",
-  "phoneticNote": "Short pronunciation tip for Spanish speakers regarding pronunciation or stress",
-  "definition": "Clear, concise Spanish definition of the word",
-  "exampleEn": "Natural, rich, non-repetitive English example sentence using the word naturally in context",
-  "exampleEs": "Natural, fluent Spanish translation of the example sentence"
+  "word": "Best single English word or short idiom (Capitalized)",
+  "translation": "${clean.charAt(0).toUpperCase() + clean.slice(1)}",
+  "partOfSpeech": "One of: Sustantivo, Verbo, Adjetivo, Adverbio, Preposición, Conjunción, Pronombre, Interjección, Artículo/determinante",
+  "level": "CEFR: A1, A2, B1, B2, C1, or C2",
+  "ipa": "/IPA phonetics for the English word/",
+  "phoneticGuide": "\\"Spanish phonetic guide approximation\\"",
+  "phoneticNote": "Short pronunciation tip",
+  "definition": "Concise Spanish definition",
+  "exampleEn": "Natural short English sentence using the word",
+  "exampleEs": "Spanish translation of the example sentence"
+}`
+    : `Bilingual lexicographer task. English word/phrase: "${clean}".
+Return ONLY a valid JSON object:
+{
+  "translation": "Best Spanish translation (Capitalized)",
+  "partOfSpeech": "One of: Sustantivo, Verbo, Adjetivo, Adverbio, Preposición, Conjunción, Pronombre, Interjección, Artículo/determinante",
+  "level": "CEFR: A1, A2, B1, B2, C1, or C2",
+  "ipa": "/IPA phonetics/",
+  "phoneticGuide": "\\"Spanish phonetic guide approximation\\"",
+  "phoneticNote": "Short pronunciation tip",
+  "definition": "Concise Spanish definition",
+  "exampleEn": "Natural short English sentence using the word",
+  "exampleEs": "Spanish translation of the example sentence"
 }`;
 
   const models = GEMINI_AVAILABLE_MODELS;
 
   for (const model of models) {
     try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2800);
+
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: 'application/json',
-            temperature: 0.5,
+            temperature: 0.1,
+            maxOutputTokens: 250,
           },
         }),
       });
+      clearTimeout(timer);
 
       if (!response.ok) {
         console.warn(`[Gemini API] Model ${model} returned HTTP ${response.status}`);
@@ -478,26 +502,33 @@ Respond strictly with a single JSON object with these exact keys:
       if (!rawText) continue;
 
       const parsed = JSON.parse(rawText);
-      const capWord = clean.charAt(0).toUpperCase() + clean.slice(1);
+      const rawEnWord = sourceLang === 'es' ? (parsed.word || clean).trim() : clean;
+      const capWord = rawEnWord.charAt(0).toUpperCase() + rawEnWord.slice(1);
       const pos = normalizePartOfSpeech(parsed.partOfSpeech || 'noun');
 
       const validLevels: WordLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
       const level: WordLevel = validLevels.includes(parsed.level) ? parsed.level : 'B1';
 
-      return {
+      const rawTrans = (parsed.translation || clean).trim();
+      const capTrans = rawTrans.charAt(0).toUpperCase() + rawTrans.slice(1);
+
+      const result: AutoEnrichResult = {
         word: capWord,
         partOfSpeech: pos,
         level,
-        ipa: (parsed.ipa || `/${clean.toLowerCase()}/`).trim(),
-        phoneticGuide: (parsed.phoneticGuide || `"${clean.toLowerCase()}"`).trim(),
+        ipa: (parsed.ipa || `/${rawEnWord.toLowerCase()}/`).trim(),
+        phoneticGuide: (parsed.phoneticGuide || `"${rawEnWord.toLowerCase()}"`).trim(),
         phoneticNote: (parsed.phoneticNote || 'Pronunciación estándar en inglés').trim(),
-        translation: (parsed.translation || clean).trim(),
+        translation: capTrans,
         definition: (parsed.definition || `Término utilizado como ${pos} en inglés`).trim(),
         exampleEn: (parsed.exampleEn || `${capWord} is used in English.`).trim(),
         exampleEs: (parsed.exampleEs || `Se utiliza en inglés.`).trim(),
         categoryGroup: '',
         categorySub: '',
       };
+
+      ENRICHMENT_CACHE.set(cacheKey, result);
+      return result;
     } catch (err) {
       console.warn(`[Gemini API] Error querying ${model}:`, err);
     }
@@ -507,14 +538,18 @@ Respond strictly with a single JSON object with these exact keys:
 }
 
 // High-accuracy Google Translate helper for single words and natural sentences
-export async function translateText(text: string): Promise<string> {
+export async function translateText(
+  text: string,
+  fromLang: 'en' | 'es' | 'auto' = 'en',
+  toLang: 'en' | 'es' = 'es'
+): Promise<string> {
   const clean = text.trim();
   if (!clean) return '';
   if (!networkService.isOnline()) return clean;
 
   try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q=${encodeURIComponent(clean)}`;
-    const res = await fetchWithTimeout(url, {}, 1500);
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${fromLang}&tl=${toLang}&dt=t&q=${encodeURIComponent(clean)}`;
+    const res = await fetchWithTimeout(url, {}, 1800);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data?.[0])) {
@@ -528,8 +563,9 @@ export async function translateText(text: string): Promise<string> {
 
   // Secondary fallback: MyMemory API
   try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean)}&langpair=en|es`;
-    const res = await fetchWithTimeout(url, {}, 1500);
+    const pair = fromLang === 'es' ? 'es|en' : 'en|es';
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean)}&langpair=${pair}`;
+    const res = await fetchWithTimeout(url, {}, 1800);
     if (res.ok) {
       const data = await res.json();
       const txt = data?.responseData?.translatedText;
@@ -544,19 +580,22 @@ export async function translateText(text: string): Promise<string> {
 
 // Retrieves accurate dictionary translation and part of speech from Google Translate Dictionary endpoint
 export async function fetchGoogleDictionary(
-  word: string
-): Promise<{ translation: string; partOfSpeech?: string; alternatives?: string[] }> {
+  word: string,
+  fromLang: 'en' | 'es' | 'auto' = 'en',
+  toLang: 'en' | 'es' = 'es'
+): Promise<{ translation: string; partOfSpeech?: string; alternatives?: string[]; detectedLang?: string }> {
   const clean = word.trim().toLowerCase();
   if (!networkService.isOnline()) return { translation: '' };
 
   try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&dt=bd&q=${encodeURIComponent(clean)}`;
-    const res = await fetchWithTimeout(url, {}, 1500);
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${fromLang}&tl=${toLang}&dt=t&dt=bd&q=${encodeURIComponent(clean)}`;
+    const res = await fetchWithTimeout(url, {}, 1800);
     if (res.ok) {
       const data = await res.json();
       let translation = '';
       let partOfSpeech: string | undefined = undefined;
       const alternatives: string[] = [];
+      const detectedLang = typeof data?.[2] === 'string' ? data[2] : undefined;
 
       if (Array.isArray(data?.[0])) {
         translation = data[0].map((x: any) => x[0]).join('').trim();
@@ -574,12 +613,28 @@ export async function fetchGoogleDictionary(
         }
       }
 
-      return { translation, partOfSpeech, alternatives };
+      return { translation, partOfSpeech, alternatives, detectedLang };
     }
   } catch (e) {
     console.warn('[fetchGoogleDictionary] Error:', e);
   }
   return { translation: '' };
+}
+
+// Check if a given text is likely Spanish
+export function isLikelySpanish(text: string): boolean {
+  const clean = text.trim().toLowerCase();
+  if (!clean) return false;
+  if (/[áéíóúñü¿¡]/.test(clean)) return true;
+  const spanishMarkers = new Set([
+    'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas',
+    'de', 'del', 'en', 'para', 'por', 'con', 'sin', 'sobre',
+    'pero', 'que', 'como', 'cuando', 'donde', 'porque',
+    'casa', 'tiempo', 'año', 'día', 'vida', 'trabajo', 'hacer',
+    'desarrollo', 'compromiso', 'reunión', 'manzana', 'perro', 'gato'
+  ]);
+  const words = clean.split(/\s+/);
+  return words.some((w) => spanishMarkers.has(w));
 }
 
 // Normalized part of speech mapping with precedence order into the 9 Spanish categories
@@ -694,20 +749,20 @@ async function fetchTatoebaSentence(word: string): Promise<{ exampleEn: string; 
   return null;
 }
 
-// Generates an authentic, grammatically correct contextual sentence pair
+const SENTENCE_PAIR_CACHE = new Map<string, { exampleEn: string; exampleEs: string }>();
+
+// Generates an authentic, grammatically correct contextual sentence pair instantly
 async function generateNaturalSentencePair(word: string, pos: string): Promise<{ exampleEn: string; exampleEs: string }> {
   const w = word.trim().toLowerCase();
   const cap = w.charAt(0).toUpperCase() + w.slice(1);
   const p = (pos || '').toLowerCase();
 
-  // 1. Try Tatoeba first for genuine human sentences
-  const tatoeba = await fetchTatoebaSentence(w);
-  if (tatoeba?.exampleEn) {
-    const es = tatoeba.exampleEs || (await translateText(tatoeba.exampleEn));
-    return { exampleEn: tatoeba.exampleEn, exampleEs: es };
+  const cacheKey = `${w}:${p}`;
+  if (SENTENCE_PAIR_CACHE.has(cacheKey)) {
+    return SENTENCE_PAIR_CACHE.get(cacheKey)!;
   }
 
-  // 2. Varied contextual templates by hash to avoid repetitive sentences across words
+  // Varied contextual templates by hash to avoid repetitive sentences across words
   const hash = w.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
   let enSentence = '';
@@ -780,9 +835,11 @@ async function generateNaturalSentencePair(word: string, pos: string): Promise<{
     enSentence = templates[hash % templates.length];
   }
 
-  // Translate sentence accurately with Google Translate
+  // Fast translation with cache
   const esSentence = await translateText(enSentence);
-  return { exampleEn: enSentence, exampleEs: esSentence };
+  const pair = { exampleEn: enSentence, exampleEs: esSentence };
+  SENTENCE_PAIR_CACHE.set(cacheKey, pair);
+  return pair;
 }
 
 // Algorithmic phonetic approximation generator
@@ -812,26 +869,182 @@ function estimateIpa(word: string): string {
   return `/${clean}/`;
 }
 
-// Main auto-enrich function
-export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult> {
+// Main auto-enrich function supporting English and Spanish input languages
+export async function autoEnrichWord(
+  rawWord: string,
+  sourceLang: 'en' | 'es' = 'en'
+): Promise<AutoEnrichResult> {
   const clean = rawWord.trim().toLowerCase();
   if (!clean) {
     throw new Error('La palabra no puede estar vacía');
   }
 
-  // 1. If Gemini API is configured, use it first for top-tier authentic AI generation!
-  if (isGeminiConfigured()) {
-    try {
-      const geminiResult = await queryGeminiForWord(clean);
-      if (geminiResult) {
-        return geminiResult;
-      }
-    } catch (e) {
-      console.warn('[autoEnrichWord] Gemini query failed, continuing with fallback:', e);
-    }
+  // Auto-detect: if language is 'en' but text contains Spanish-specific characters, switch to 'es'
+  const effectiveLang: 'en' | 'es' = sourceLang === 'en' && isLikelySpanish(clean) ? 'es' : sourceLang;
+  const cacheKey = `${effectiveLang}:${clean}`;
+
+  // 0. Instant Cache check (0ms)
+  if (ENRICHMENT_CACHE.has(cacheKey)) {
+    return ENRICHMENT_CACHE.get(cacheKey)!;
   }
 
-  // 2. Check local pre-populated database
+  // ----------------------------------------------------
+  // PATH A: Input word is in SPANISH (Español -> Inglés)
+  // ----------------------------------------------------
+  if (effectiveLang === 'es') {
+    // 1. If Gemini API is configured, use it for direct Spanish -> English enrichment (<1s)
+    if (isGeminiConfigured()) {
+      try {
+        const geminiResult = await queryGeminiForWord(clean, undefined, 'es');
+        if (geminiResult) {
+          ENRICHMENT_CACHE.set(cacheKey, geminiResult);
+          return geminiResult;
+        }
+      } catch (e) {
+        console.warn('[autoEnrichWord:es] Gemini query failed, continuing with fallback:', e);
+      }
+    }
+
+    // 2. Check local built-in database for matching Spanish translation (0ms)
+    for (const [enKey, item] of Object.entries(BUILTIN_VOCABULARY)) {
+      if (item.translation && item.translation.toLowerCase().split(/[\/,;]/).map((s) => s.trim()).includes(clean)) {
+        const capitalizedEn = enKey.charAt(0).toUpperCase() + enKey.slice(1);
+        const capitalizedEs = rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1);
+        const pos = normalizePartOfSpeech(item.partOfSpeech || 'noun');
+
+        let exEn = item.exampleEn || '';
+        let exEs = item.exampleEs || '';
+        if (!exEn) {
+          const pair = await generateNaturalSentencePair(enKey, pos);
+          exEn = pair.exampleEn;
+          exEs = pair.exampleEs;
+        } else if (!exEs) {
+          exEs = await translateText(exEn, 'en', 'es');
+        }
+
+        const result: AutoEnrichResult = {
+          word: capitalizedEn,
+          partOfSpeech: pos,
+          level: item.level || 'B1',
+          ipa: item.ipa || estimateIpa(enKey),
+          phoneticGuide: item.phoneticGuide || generatePhoneticGuide(enKey),
+          phoneticNote: item.phoneticNote || 'Sílaba tónica destacada / Fonética estándar',
+          translation: capitalizedEs,
+          definition: item.definition || `Término utilizado como ${pos} en inglés`,
+          exampleEn: exEn,
+          exampleEs: exEs,
+          categoryGroup: item.categoryGroup || '',
+          categorySub: item.categorySub || '',
+        };
+        ENRICHMENT_CACHE.set(cacheKey, result);
+        return result;
+      }
+    }
+
+    // 3. Parallelized Fallback: Translate Spanish -> English via Google Translate concurrently
+    const [gDict, rawTrans] = await Promise.all([
+      fetchGoogleDictionary(clean, 'es', 'en'),
+      translateText(clean, 'es', 'en'),
+    ]);
+
+    let englishWord = gDict.translation || rawTrans || clean;
+    let foundPos: PartOfSpeech | null = gDict.partOfSpeech ? normalizePartOfSpeech(gDict.partOfSpeech) : null;
+
+    // Clean up english candidate
+    const cleanEn = englishWord.replace(/^to\s+/i, '').replace(/[.!,?]$/, '').trim().toLowerCase();
+    const finalEnWord = cleanEn || clean;
+    const capitalizedEn = finalEnWord.charAt(0).toUpperCase() + finalEnWord.slice(1);
+    const capitalizedEs = rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1);
+
+    // 4. Enrich resolved English word with authentic dictionary data & phonetics
+    let foundIpa = '';
+    let foundDef = '';
+    let foundExEn = '';
+
+    if (networkService.isOnline()) {
+      try {
+        const dictRes = await fetchWithTimeout(
+          `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(finalEnWord)}`,
+          {},
+          1200
+        );
+        if (dictRes.ok) {
+          const dictData = await dictRes.json();
+          if (Array.isArray(dictData) && dictData.length > 0) {
+            const item = dictData[0];
+            if (item.phonetic) {
+              foundIpa = item.phonetic;
+            } else if (item.phonetics && Array.isArray(item.phonetics)) {
+              const withText = item.phonetics.find((p: any) => p.text);
+              if (withText) foundIpa = withText.text;
+            }
+
+            if (item.meanings && Array.isArray(item.meanings) && item.meanings.length > 0) {
+              const firstMeaning = item.meanings[0];
+              if (firstMeaning.partOfSpeech && !foundPos) {
+                foundPos = normalizePartOfSpeech(firstMeaning.partOfSpeech);
+              }
+              if (firstMeaning.definitions && firstMeaning.definitions[0]) {
+                foundDef = firstMeaning.definitions[0].definition || '';
+                const candExample = firstMeaning.definitions[0].example || '';
+                if (candExample && new RegExp(`\\b${finalEnWord}`, 'i').test(candExample)) {
+                  foundExEn = candExample;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Dictionary API fetch failed for translated English word', e);
+      }
+    }
+
+    const finalPos: PartOfSpeech = foundPos ? normalizePartOfSpeech(foundPos) : 'Sustantivo';
+    const finalIpa = foundIpa || estimateIpa(finalEnWord);
+    const finalGuide = generatePhoneticGuide(finalEnWord);
+
+    let finalExEn = '';
+    let finalExEs = '';
+    if (foundExEn) {
+      finalExEn = foundExEn;
+      finalExEs = await translateText(foundExEn, 'en', 'es');
+    } else {
+      const pair = await generateNaturalSentencePair(finalEnWord, finalPos);
+      finalExEn = pair.exampleEn;
+      finalExEs = pair.exampleEs;
+    }
+
+    let level: WordLevel = 'B1';
+    if (finalEnWord.length > 9 || finalEnWord.endsWith('tion') || finalEnWord.endsWith('ism') || finalEnWord.endsWith('ment')) {
+      level = 'B2';
+    }
+    if (finalEnWord.length > 11 || ['leverage', 'resilience', 'ubiquitous', 'paradigm', 'empirical', 'benchmark'].includes(finalEnWord)) {
+      level = 'C1';
+    }
+
+    const result: AutoEnrichResult = {
+      word: capitalizedEn,
+      partOfSpeech: finalPos,
+      level,
+      ipa: finalIpa,
+      phoneticGuide: finalGuide,
+      phoneticNote: 'Sílaba tónica destacada / Fonética estándar',
+      translation: capitalizedEs,
+      definition: foundDef || `Término utilizado como ${finalPos} en inglés`,
+      exampleEn: finalExEn,
+      exampleEs: finalExEs,
+      categoryGroup: '',
+      categorySub: '',
+    };
+    ENRICHMENT_CACHE.set(cacheKey, result);
+    return result;
+  }
+
+  // ----------------------------------------------------
+  // PATH B: Input word is in ENGLISH (Inglés -> Español)
+  // ----------------------------------------------------
+
+  // 1. Check local pre-populated database first for instant 0ms response!
   if (BUILTIN_VOCABULARY[clean]) {
     const data = BUILTIN_VOCABULARY[clean];
     const capitalizedWord = rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1);
@@ -845,10 +1058,10 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
       exEn = pair.exampleEn;
       exEs = pair.exampleEs;
     } else if (!exEs) {
-      exEs = await translateText(exEn);
+      exEs = await translateText(exEn, 'en', 'es');
     }
 
-    return {
+    const result: AutoEnrichResult = {
       word: capitalizedWord,
       partOfSpeech: pos,
       level: data.level || 'B2',
@@ -862,55 +1075,67 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
       categoryGroup: data.categoryGroup || '',
       categorySub: data.categorySub || '',
     };
+    ENRICHMENT_CACHE.set(cacheKey, result);
+    return result;
   }
 
-  // 2. Fetch from Free Dictionary API (for real IPA, definition, and authentic dictionary example)
+  // 2. If Gemini API is configured, use it first for top-tier authentic AI generation (<1s)
+  if (isGeminiConfigured()) {
+    try {
+      const geminiResult = await queryGeminiForWord(clean, undefined, 'en');
+      if (geminiResult) {
+        ENRICHMENT_CACHE.set(cacheKey, geminiResult);
+        return geminiResult;
+      }
+    } catch (e) {
+      console.warn('[autoEnrichWord] Gemini query failed, continuing with fallback:', e);
+    }
+  }
+
+  // 3. Fallback: Fetch from Free Dictionary API & Google Translate concurrently in parallel!
   let foundIpa = '';
   let foundPos: PartOfSpeech | null = detectQuickPartOfSpeech(clean);
   let foundDef = '';
   let foundExEn = '';
+  let foundTranslation = '';
 
-  if (networkService.isOnline()) {
-    try {
-      const dictRes = await fetchWithTimeout(
-        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(clean)}`,
-        {},
-        1500
-      );
-      if (dictRes.ok) {
-        const dictData = await dictRes.json();
-        if (Array.isArray(dictData) && dictData.length > 0) {
-          const item = dictData[0];
-          if (item.phonetic) {
-            foundIpa = item.phonetic;
-          } else if (item.phonetics && Array.isArray(item.phonetics)) {
-            const withText = item.phonetics.find((p: any) => p.text);
-            if (withText) foundIpa = withText.text;
-          }
+  const [dictData, gDict] = await Promise.all([
+    networkService.isOnline()
+      ? fetchWithTimeout(
+          `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(clean)}`,
+          {},
+          1200
+        )
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null)
+      : Promise.resolve(null),
+    fetchGoogleDictionary(clean),
+  ]);
 
-          if (item.meanings && Array.isArray(item.meanings) && item.meanings.length > 0) {
-            const firstMeaning = item.meanings[0];
-            if (firstMeaning.partOfSpeech && !foundPos) {
-              foundPos = normalizePartOfSpeech(firstMeaning.partOfSpeech);
-            }
-            if (firstMeaning.definitions && firstMeaning.definitions[0]) {
-              foundDef = firstMeaning.definitions[0].definition || '';
-              const candExample = firstMeaning.definitions[0].example || '';
-              if (candExample && new RegExp(`\\b${clean}`, 'i').test(candExample)) {
-                foundExEn = candExample;
-              }
-            }
-          }
+  if (Array.isArray(dictData) && dictData.length > 0) {
+    const item = dictData[0];
+    if (item.phonetic) {
+      foundIpa = item.phonetic;
+    } else if (item.phonetics && Array.isArray(item.phonetics)) {
+      const withText = item.phonetics.find((p: any) => p.text);
+      if (withText) foundIpa = withText.text;
+    }
+
+    if (item.meanings && Array.isArray(item.meanings) && item.meanings.length > 0) {
+      const firstMeaning = item.meanings[0];
+      if (firstMeaning.partOfSpeech && !foundPos) {
+        foundPos = normalizePartOfSpeech(firstMeaning.partOfSpeech);
+      }
+      if (firstMeaning.definitions && firstMeaning.definitions[0]) {
+        foundDef = firstMeaning.definitions[0].definition || '';
+        const candExample = firstMeaning.definitions[0].example || '';
+        if (candExample && new RegExp(`\\b${clean}`, 'i').test(candExample)) {
+          foundExEn = candExample;
         }
       }
-    } catch (e) {
-      console.warn('Dictionary API fetch failed, using fallback', e);
     }
   }
 
-  // 3. Fetch high-accuracy translation & grammatical part of speech from Google Translate
-  let foundTranslation = '';
-  const gDict = await fetchGoogleDictionary(clean);
   if (gDict.translation) {
     foundTranslation = gDict.translation;
     if (!foundPos && gDict.partOfSpeech) {
@@ -939,7 +1164,7 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
     finalExEn = foundExEn;
     finalExEs = await translateText(foundExEn);
   } else {
-    const pair = await generateNaturalSentencePair(clean, foundPos);
+    const pair = await generateNaturalSentencePair(clean, finalPos);
     finalExEn = pair.exampleEn;
     finalExEs = pair.exampleEs;
   }
@@ -956,7 +1181,7 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
     level = 'C1';
   }
 
-  return {
+  const result: AutoEnrichResult = {
     word: rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1),
     partOfSpeech: finalPos,
     level,
@@ -970,4 +1195,6 @@ export async function autoEnrichWord(rawWord: string): Promise<AutoEnrichResult>
     categoryGroup: '',
     categorySub: '',
   };
+  ENRICHMENT_CACHE.set(cacheKey, result);
+  return result;
 }
