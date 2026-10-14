@@ -694,17 +694,17 @@ export const LoginView: React.FC<LoginViewProps> = ({
           <View style={styles.mobileDownloadFooter}>
             <TouchableOpacity
               style={styles.mobileDownloadBtn}
-              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.4.0/PronounceIt-v1.4.0.apk')}
+              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.5.0/PronounceIt-v1.5.0.apk')}
               activeOpacity={0.85}
             >
               <View style={styles.mobileDownloadIconBox}>
                 <Smartphone size={16} color="#ffffff" />
               </View>
-              <Text style={styles.mobileDownloadTitle}>Consigue la versión móvil (v1.4.0)</Text>
+              <Text style={styles.mobileDownloadTitle}>Consigue la versión móvil (v1.5.0)</Text>
               <Download size={15} color={THEME.colors.crimsonLight} />
             </TouchableOpacity>
             <Text style={{ fontSize: 11, color: THEME.colors.textSubtle, marginTop: 12, fontWeight: '500' }}>
-              PronounceIt v1.4.0
+              PronounceIt v1.5.0
             </Text>
           </View>
         </ScrollView>
