@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Image,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import {
   Settings,
@@ -25,10 +26,23 @@ import {
   Smartphone,
   Download,
   Trash2,
+  Languages,
+  Globe,
+  AlertCircle,
 } from 'lucide-react-native';
 import { UserProfile } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
-import { getGeminiApiKey, setGeminiApiKey } from '../../lib/dictionaryService';
+import {
+  getGeminiApiKey,
+  setGeminiApiKey,
+  testGeminiConnection,
+  getDeepLApiKey,
+  setDeepLApiKey,
+  testDeepLConnection,
+  getPreferredTranslationProvider,
+  setPreferredTranslationProvider,
+  TranslationProvider,
+} from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { useResponsive } from '../../lib/useResponsive';
@@ -54,8 +68,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const { isPhone } = useResponsive();
   const [audioSettings, setAudioSettings] = useState(() => vocabService.getAudioSettings());
+  const [translationProvider, setTranslationProvider] = useState<TranslationProvider>(() => getPreferredTranslationProvider());
   const [apiKey, setApiKey] = useState(() => getGeminiApiKey());
+  const [deepLKey, setDeepLKey] = useState(() => getDeepLApiKey());
   const [isSavedKey, setIsSavedKey] = useState(false);
+  const [isSavedDeepLKey, setIsSavedDeepLKey] = useState(false);
+  const [geminiTestStatus, setGeminiTestStatus] = useState<{ testing: boolean; message: string; success?: boolean }>({
+    testing: false,
+    message: '',
+  });
+  const [deepLTestStatus, setDeepLTestStatus] = useState<{ testing: boolean; message: string; success?: boolean }>({
+    testing: false,
+    message: '',
+  });
+
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
@@ -67,10 +93,57 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     vocabService.updateAudioSettings(updated);
   };
 
+  const handleSelectProvider = (provider: TranslationProvider) => {
+    setTranslationProvider(provider);
+    setPreferredTranslationProvider(provider);
+  };
+
   const handleSaveApiKey = () => {
     setGeminiApiKey(apiKey);
     setIsSavedKey(true);
     setTimeout(() => setIsSavedKey(false), 2000);
+  };
+
+  const handleSaveDeepLKey = () => {
+    setDeepLApiKey(deepLKey);
+    setIsSavedDeepLKey(true);
+    setTimeout(() => setIsSavedDeepLKey(false), 2000);
+  };
+
+  const handleTestGemini = async () => {
+    setGeminiTestStatus({ testing: true, message: '' });
+    try {
+      const res = await testGeminiConnection(apiKey);
+      setGeminiTestStatus({
+        testing: false,
+        message: res.message,
+        success: res.success,
+      });
+    } catch {
+      setGeminiTestStatus({
+        testing: false,
+        message: 'Error al verificar la clave de Gemini.',
+        success: false,
+      });
+    }
+  };
+
+  const handleTestDeepL = async () => {
+    setDeepLTestStatus({ testing: true, message: '' });
+    try {
+      const res = await testDeepLConnection(deepLKey);
+      setDeepLTestStatus({
+        testing: false,
+        message: res.message,
+        success: res.success,
+      });
+    } catch {
+      setDeepLTestStatus({
+        testing: false,
+        message: 'Error al verificar la clave de DeepL.',
+        success: false,
+      });
+    }
   };
 
   const testVoice = () => {
@@ -255,34 +328,183 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Gemini AI API Key */}
+      {/* Motor de Traducción & Inteligencia Artificial (IA y DeepL) */}
       <View style={[styles.card, !isDark && styles.cardLight]}>
-        <Text style={[styles.sectionTitle, !isDark && styles.titleLight]}>Clave API de Google Gemini (Opcional)</Text>
-        <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight]}>
-          Permite autocompletar fonética, definiciones y ejemplos con IA en tiempo real.
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <Languages size={18} color={THEME.colors.crimsonLight} />
+          <Text style={[styles.sectionTitle, !isDark && styles.titleLight, { marginBottom: 0 }]}>
+            Motor de Traducción & Inteligencia Artificial
+          </Text>
+        </View>
+        <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 14 }]}>
+          Elige qué servicio utilizar para traducir palabras y oraciones completas en PronounceIt.
         </Text>
 
-        <View style={styles.keyInputRow}>
-          <TextInput
-            style={[styles.keyInput, !isDark && styles.keyInputLight]}
-            placeholder="AIzaSy..."
-            placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-            value={apiKey}
-            onChangeText={setApiKey}
-            secureTextEntry
-            autoCapitalize="none"
-          />
+        {/* Selector de Proveedor: IA vs DeepL */}
+        <Text style={[styles.fieldSublabel, !isDark && styles.fieldSublabelLight]}>
+          Motor preferido para palabras y frases:
+        </Text>
+        <View style={styles.engineToggleRow}>
           <TouchableOpacity
-            style={styles.saveKeyBtn}
-            onPress={handleSaveApiKey}
+            style={[
+              styles.engineOptionBtn,
+              !isDark && styles.engineOptionBtnLight,
+              translationProvider === 'ai' && styles.engineOptionBtnActive,
+            ]}
+            onPress={() => handleSelectProvider('ai')}
             activeOpacity={0.8}
           >
-            {isSavedKey ? (
-              <Check size={18} color="#ffffff" />
-            ) : (
-              <Text style={styles.saveKeyText}>Guardar</Text>
-            )}
+            <Sparkles size={16} color={translationProvider === 'ai' ? '#ff758c' : THEME.colors.textMuted} style={{ marginRight: 8 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.engineOptionTitle, !isDark && styles.engineOptionTitleLight, translationProvider === 'ai' && styles.engineOptionTitleActive]}>
+                ✨ IA (Google Gemini)
+              </Text>
+              <Text style={[styles.engineOptionDesc, !isDark && styles.engineOptionDescLight]}>
+                Traducción inteligente, fonética, definiciones y frases
+              </Text>
+            </View>
+            {translationProvider === 'ai' && <Check size={16} color="#ff758c" />}
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.engineOptionBtn,
+              !isDark && styles.engineOptionBtnLight,
+              translationProvider === 'deepl' && styles.engineOptionBtnActive,
+            ]}
+            onPress={() => handleSelectProvider('deepl')}
+            activeOpacity={0.8}
+          >
+            <Globe size={16} color={translationProvider === 'deepl' ? '#0284c7' : THEME.colors.textMuted} style={{ marginRight: 8 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.engineOptionTitle, !isDark && styles.engineOptionTitleLight, translationProvider === 'deepl' && styles.engineOptionTitleActive]}>
+                🌐 DeepL API
+              </Text>
+              <Text style={[styles.engineOptionDesc, !isDark && styles.engineOptionDescLight]}>
+                Traducción neuronal de alta fidelidad para palabras y frases
+              </Text>
+            </View>
+            {translationProvider === 'deepl' && <Check size={16} color="#0284c7" />}
+          </TouchableOpacity>
+        </View>
+
+        {/* Configuración DeepL API */}
+        <View style={[styles.subApiBox, !isDark && styles.subApiBoxLight]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <Text style={[styles.apiBoxTitle, !isDark && styles.titleLight]}>
+              Clave API de DeepL (Free o Pro)
+            </Text>
+            {deepLKey ? (
+              <View style={[styles.apiBadge, deepLKey.endsWith(':fx') ? styles.apiBadgeFree : styles.apiBadgePro]}>
+                <Text style={styles.apiBadgeText}>
+                  {deepLKey.endsWith(':fx') ? 'DeepL Free (:fx)' : 'DeepL Pro'}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 10 }]}>
+            Compatible con claves gratuitas terminadas en :fx o cuentas DeepL Pro.
+          </Text>
+
+          <View style={styles.keyInputRow}>
+            <TextInput
+              style={[styles.keyInput, !isDark && styles.keyInputLight]}
+              placeholder="Ej: 00000000-0000-0000-0000-000000000000:fx"
+              placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+              value={deepLKey}
+              onChangeText={setDeepLKey}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={styles.saveKeyBtn}
+              onPress={handleSaveDeepLKey}
+              activeOpacity={0.8}
+            >
+              {isSavedDeepLKey ? <Check size={18} color="#ffffff" /> : <Text style={styles.saveKeyText}>Guardar</Text>}
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', marginTop: 8 }}>
+            <TouchableOpacity
+              style={[styles.testConnectionBtn, !isDark && styles.testConnectionBtnLight]}
+              onPress={handleTestDeepL}
+              disabled={deepLTestStatus.testing}
+              activeOpacity={0.8}
+            >
+              {deepLTestStatus.testing ? (
+                <ActivityIndicator size="small" color="#0284c7" style={{ marginRight: 6 }} />
+              ) : (
+                <Globe size={14} color="#0284c7" style={{ marginRight: 6 }} />
+              )}
+              <Text style={[styles.testConnectionBtnText, { color: '#0284c7' }]}>
+                {deepLTestStatus.testing ? 'Verificando con DeepL...' : 'Probar conexión con DeepL'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {deepLTestStatus.message ? (
+            <View style={[styles.statusMsgBox, deepLTestStatus.success ? styles.statusSuccessBox : styles.statusErrorBox]}>
+              <Text style={[styles.statusMsgText, deepLTestStatus.success ? styles.statusSuccessText : styles.statusErrorText]}>
+                {deepLTestStatus.message}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Configuración Google Gemini API */}
+        <View style={[styles.subApiBox, !isDark && styles.subApiBoxLight, { marginTop: 14 }]}>
+          <Text style={[styles.apiBoxTitle, !isDark && styles.titleLight]}>
+            Clave API de Google Gemini (Opcional)
+          </Text>
+          <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 10 }]}>
+            Permite enriquecer palabras con definiciones, oraciones y fonética usando los modelos Gemini Flash de Google.
+          </Text>
+
+          <View style={styles.keyInputRow}>
+            <TextInput
+              style={[styles.keyInput, !isDark && styles.keyInputLight]}
+              placeholder="AIzaSy..."
+              placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+              value={apiKey}
+              onChangeText={setApiKey}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={styles.saveKeyBtn}
+              onPress={handleSaveApiKey}
+              activeOpacity={0.8}
+            >
+              {isSavedKey ? <Check size={18} color="#ffffff" /> : <Text style={styles.saveKeyText}>Guardar</Text>}
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', marginTop: 8 }}>
+            <TouchableOpacity
+              style={[styles.testConnectionBtn, !isDark && styles.testConnectionBtnLight]}
+              onPress={handleTestGemini}
+              disabled={geminiTestStatus.testing}
+              activeOpacity={0.8}
+            >
+              {geminiTestStatus.testing ? (
+                <ActivityIndicator size="small" color="#e62e4c" style={{ marginRight: 6 }} />
+              ) : (
+                <Sparkles size={14} color="#e62e4c" style={{ marginRight: 6 }} />
+              )}
+              <Text style={[styles.testConnectionBtnText, { color: '#e62e4c' }]}>
+                {geminiTestStatus.testing ? 'Verificando con Gemini...' : 'Probar conexión con Gemini'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {geminiTestStatus.message ? (
+            <View style={[styles.statusMsgBox, geminiTestStatus.success ? styles.statusSuccessBox : styles.statusErrorBox]}>
+              <Text style={[styles.statusMsgText, geminiTestStatus.success ? styles.statusSuccessText : styles.statusErrorText]}>
+                {geminiTestStatus.message}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
 
@@ -641,6 +863,134 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
+  },
+  fieldSublabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 8,
+  },
+  fieldSublabelLight: {
+    color: '#0f172a',
+  },
+  engineToggleRow: {
+    flexDirection: 'column',
+    gap: 10,
+    marginBottom: 16,
+  },
+  engineOptionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1.5,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.radius.md,
+    padding: 12,
+  },
+  engineOptionBtnLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  engineOptionBtnActive: {
+    backgroundColor: 'rgba(230, 46, 76, 0.1)',
+    borderColor: THEME.colors.crimson,
+  },
+  engineOptionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 2,
+  },
+  engineOptionTitleLight: {
+    color: '#0f172a',
+  },
+  engineOptionTitleActive: {
+    color: '#ff758c',
+  },
+  engineOptionDesc: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+  },
+  engineOptionDescLight: {
+    color: '#64748b',
+  },
+  subApiBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.radius.md,
+    padding: 14,
+  },
+  subApiBoxLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
+  },
+  apiBoxTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  apiBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  apiBadgeFree: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+  },
+  apiBadgePro: {
+    backgroundColor: 'rgba(2, 132, 199, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(2, 132, 199, 0.4)',
+  },
+  apiBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#10b981',
+  },
+  testConnectionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  testConnectionBtnLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
+  },
+  testConnectionBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statusMsgBox: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  statusSuccessBox: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  statusErrorBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  statusMsgText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  statusSuccessText: {
+    color: '#34d399',
+  },
+  statusErrorText: {
+    color: '#f87171',
   },
   exportDataBtn: {
     flexDirection: 'row',

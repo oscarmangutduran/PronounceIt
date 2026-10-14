@@ -2,6 +2,7 @@ import { WordItem, WordLevel, WordStatus, PartOfSpeech } from '../types';
 import { appStorage } from './storage';
 import { networkService } from './networkService';
 import { IRREGULAR_VERBS } from '../data/irregularVerbs';
+import { backendApi } from './apiClient';
 
 const IRREGULAR_VERB_SET = new Set<string>();
 IRREGULAR_VERBS.forEach((v) => {
@@ -342,8 +343,12 @@ const BUILTIN_VOCABULARY: Record<string, BuiltInVocabItem> = {
   },
 };
 
-// Gemini API Configuration & Storage
+// Translation Engine Configuration & Storage
+export type TranslationProvider = 'ai' | 'deepl';
+
 export const GEMINI_STORAGE_KEY = 'pronounceit_gemini_api_key';
+export const DEEPL_STORAGE_KEY = 'pronounceit_deepl_api_key';
+export const TRANSLATION_PROVIDER_KEY = 'pronounceit_translation_provider';
 const DEFAULT_GEMINI_KEY = '';
 
 // Reverse index for instant O(1) Spanish -> English lookup
@@ -367,6 +372,22 @@ for (const [enKey, item] of Object.entries(BUILTIN_VOCABULARY)) {
 const ENRICHMENT_CACHE = new Map<string, AutoEnrichResult>();
 const TRANSLATION_CACHE = new Map<string, string>();
 
+// ─── Preferred Provider (AI vs DeepL) ──────────────────────────────────────────
+export function getPreferredTranslationProvider(): TranslationProvider {
+  try {
+    const local = appStorage.getItem(TRANSLATION_PROVIDER_KEY);
+    if (local === 'deepl' || local === 'ai') return local;
+  } catch {}
+  return 'ai';
+}
+
+export function setPreferredTranslationProvider(provider: TranslationProvider): void {
+  try {
+    appStorage.setItem(TRANSLATION_PROVIDER_KEY, provider);
+  } catch {}
+}
+
+// ─── Gemini API Key & Helpers ──────────────────────────────────────────────────
 export function getGeminiApiKey(): string {
   try {
     const local = appStorage.getItem(GEMINI_STORAGE_KEY);
@@ -439,6 +460,284 @@ export async function testGeminiConnection(
   }
 
   return { success: false, message: lastError || 'No se pudo conectar con la API de Gemini.' };
+}
+
+// ─── DeepL API Key & Helpers ───────────────────────────────────────────────────
+export function getDeepLApiKey(): string {
+  try {
+    const local = appStorage.getItem(DEEPL_STORAGE_KEY);
+    if (local && local.trim()) return local.trim();
+  } catch {}
+  return (
+    process.env.EXPO_PUBLIC_DEEPL_API_KEY ||
+    process.env.VITE_DEEPL_API_KEY ||
+    ''
+  ).trim();
+}
+
+export function setDeepLApiKey(key: string): void {
+  try {
+    const trimmed = (key || '').trim();
+    if (trimmed) {
+      appStorage.setItem(DEEPL_STORAGE_KEY, trimmed);
+    } else {
+      appStorage.removeItem(DEEPL_STORAGE_KEY);
+    }
+  } catch {}
+}
+
+export function isDeepLConfigured(): boolean {
+  return Boolean(getDeepLApiKey());
+}
+
+export async function testDeepLConnection(
+  keyToTest?: string
+): Promise<{ success: boolean; message: string; isFree?: boolean; usage?: any }> {
+  const apiKey = (keyToTest !== undefined ? keyToTest : getDeepLApiKey()).trim();
+  if (!apiKey) {
+    return { success: false, message: 'No se ha proporcionado ninguna clave API de DeepL.' };
+  }
+
+  const isFree = apiKey.endsWith(':fx');
+  const endpoint = isFree
+    ? 'https://api-free.deepl.com/v2/usage'
+    : 'https://api.deepl.com/v2/usage';
+
+  // 1. Direct fetch (native mobile or CORS-compatible)
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Authorization': `DeepL-Auth-Key ${apiKey}`,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (res.ok) {
+      const data = await res.json();
+      const count = (data.character_count ?? 0).toLocaleString();
+      const limit = data.character_limit ? data.character_limit.toLocaleString() : 'ilimitado';
+      return {
+        success: true,
+        message: `Conexión exitosa con DeepL (${isFree ? 'DeepL Free' : 'DeepL Pro'}). Uso: ${count} / ${limit} caracteres.`,
+        isFree,
+        usage: data,
+      };
+    } else {
+      if (res.status === 403) {
+        return { success: false, message: 'Clave API de DeepL no válida (Error 403 Forbidden).' };
+      }
+      if (res.status === 456) {
+        return { success: false, message: 'Límite de cuota mensual de DeepL agotado (Error 456).' };
+      }
+    }
+  } catch {
+    // 2. Fallback to Express backend proxy (prevents Web CORS issues)
+    try {
+      const proxyRes = await backendApi.testDeepLConnection(apiKey);
+      if (proxyRes.success && proxyRes.message) {
+        return {
+          success: true,
+          message: proxyRes.message,
+          isFree,
+        };
+      } else if (proxyRes.error) {
+        return { success: false, message: proxyRes.error };
+      }
+    } catch {}
+  }
+
+  return {
+    success: false,
+    message: 'No se pudo conectar con la API de DeepL. Verifica la clave y tu conexión.',
+  };
+}
+
+export async function translateWithDeepL(
+  text: string,
+  fromLang: 'en' | 'es' | 'auto' = 'en',
+  toLang: 'en' | 'es' = 'es',
+  customApiKey?: string
+): Promise<string> {
+  const clean = text.trim();
+  if (!clean) return '';
+  if (!networkService.isOnline()) return clean;
+
+  const apiKey = (customApiKey !== undefined ? customApiKey : getDeepLApiKey()).trim();
+  if (!apiKey) return '';
+
+  const cacheKey = `deepl:${fromLang}:${toLang}:${clean.toLowerCase()}`;
+  if (TRANSLATION_CACHE.has(cacheKey)) {
+    return TRANSLATION_CACHE.get(cacheKey)!;
+  }
+
+  const isFree = apiKey.endsWith(':fx');
+  const endpoint = isFree
+    ? 'https://api-free.deepl.com/v2/translate'
+    : 'https://api.deepl.com/v2/translate';
+
+  const target_lang = toLang === 'en' ? 'EN-US' : 'ES';
+  const payload: any = {
+    text: [clean],
+    target_lang,
+  };
+  if (fromLang && fromLang !== 'auto') {
+    payload.source_lang = fromLang.toUpperCase();
+  }
+
+  // 1. Direct fetch
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `DeepL-Auth-Key ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (res.ok) {
+      const data = await res.json();
+      const translated = data?.translations?.[0]?.text;
+      if (translated && typeof translated === 'string') {
+        const result = translated.trim();
+        TRANSLATION_CACHE.set(cacheKey, result);
+        return result;
+      }
+    }
+  } catch {
+    // 2. Fallback to Express backend proxy
+    try {
+      const proxyRes = await backendApi.translateDeepL({
+        text: clean,
+        targetLang: target_lang,
+        sourceLang: fromLang !== 'auto' ? fromLang.toUpperCase() : undefined,
+        apiKey,
+      });
+      if (proxyRes.success && proxyRes.translation) {
+        const result = proxyRes.translation.trim();
+        TRANSLATION_CACHE.set(cacheKey, result);
+        return result;
+      }
+    } catch (proxyErr) {
+      console.warn('[translateWithDeepL] Proxy error:', proxyErr);
+    }
+  }
+
+  return '';
+}
+
+export async function translateWithGemini(
+  text: string,
+  fromLang: 'en' | 'es' | 'auto' = 'en',
+  toLang: 'en' | 'es' = 'es',
+  customApiKey?: string
+): Promise<string> {
+  const clean = text.trim();
+  if (!clean) return '';
+  if (!networkService.isOnline()) return clean;
+
+  const apiKey = (customApiKey !== undefined ? customApiKey : getGeminiApiKey()).trim();
+  if (!apiKey) return '';
+
+  const cacheKey = `gemini:${fromLang}:${toLang}:${clean.toLowerCase()}`;
+  if (TRANSLATION_CACHE.has(cacheKey)) {
+    return TRANSLATION_CACHE.get(cacheKey)!;
+  }
+
+  const fromLabel = fromLang === 'es' ? 'Spanish' : fromLang === 'en' ? 'English' : 'source language';
+  const toLabel = toLang === 'es' ? 'Spanish' : 'English';
+  const prompt = `You are a professional native translator. Translate the following text from ${fromLabel} to ${toLabel}.
+Return strictly ONLY the translated text without quotes, commentary, markdown formatting, or introductory phrases:
+
+${clean}`;
+
+  for (const model of GEMINI_AVAILABLE_MODELS) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3500);
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 250,
+          },
+        }),
+      });
+      clearTimeout(timer);
+
+      if (response.ok) {
+        const data = await response.json();
+        const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (raw && typeof raw === 'string') {
+          const result = raw.replace(/^["'`]|["'`]$/g, '').trim();
+          if (result) {
+            TRANSLATION_CACHE.set(cacheKey, result);
+            return result;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`[translateWithGemini] Error with model ${model}:`, e);
+    }
+  }
+
+  return '';
+}
+
+export async function translatePhrase(
+  text: string,
+  fromLang: 'en' | 'es' | 'auto' = 'en',
+  toLang: 'en' | 'es' = 'es',
+  provider?: TranslationProvider
+): Promise<{ text: string; providerUsed: TranslationProvider | 'builtin' }> {
+  const clean = text.trim();
+  if (!clean) return { text: '', providerUsed: 'builtin' };
+
+  const chosenProvider = provider || getPreferredTranslationProvider();
+
+  if (chosenProvider === 'deepl') {
+    if (isDeepLConfigured()) {
+      const deepLRes = await translateWithDeepL(clean, fromLang, toLang);
+      if (deepLRes) {
+        return { text: deepLRes, providerUsed: 'deepl' };
+      }
+    }
+    if (isGeminiConfigured()) {
+      const geminiRes = await translateWithGemini(clean, fromLang, toLang);
+      if (geminiRes) {
+        return { text: geminiRes, providerUsed: 'ai' };
+      }
+    }
+  } else {
+    if (isGeminiConfigured()) {
+      const geminiRes = await translateWithGemini(clean, fromLang, toLang);
+      if (geminiRes) {
+        return { text: geminiRes, providerUsed: 'ai' };
+      }
+    }
+    if (isDeepLConfigured()) {
+      const deepLRes = await translateWithDeepL(clean, fromLang, toLang);
+      if (deepLRes) {
+        return { text: deepLRes, providerUsed: 'deepl' };
+      }
+    }
+  }
+
+  const fallback = await translateText(clean, fromLang, toLang);
+  return { text: fallback, providerUsed: 'builtin' };
 }
 
 // Queries Google Gemini free API for ultra-fast authentic lexical analysis (<1s)
@@ -1035,7 +1334,8 @@ export function getInstantEnrichmentSync(
 export async function autoEnrichWord(
   rawWord: string,
   sourceLang: 'en' | 'es' = 'en',
-  useAi: boolean = false
+  useAi: boolean = false,
+  provider?: TranslationProvider
 ): Promise<AutoEnrichResult> {
   const clean = rawWord.trim().toLowerCase();
   if (!clean) {
@@ -1044,15 +1344,56 @@ export async function autoEnrichWord(
 
   // Auto-detect: if language is 'en' but text contains Spanish-specific characters, switch to 'es'
   const effectiveLang: 'en' | 'es' = sourceLang === 'en' && isLikelySpanish(clean) ? 'es' : sourceLang;
-  const cacheKey = `${effectiveLang}:${clean}`;
+  const activeProvider = provider || getPreferredTranslationProvider();
+  const cacheKey = `${activeProvider}:${effectiveLang}:${clean}`;
 
   // 0. Instant Cache check (0ms)
   if (ENRICHMENT_CACHE.has(cacheKey)) {
     return ENRICHMENT_CACHE.get(cacheKey)!;
   }
 
-  // 1. Optional explicit AI suggestion (only when requested by clicking "Sugerir con IA")
-  if (useAi && isGeminiConfigured()) {
+  // 1. Explicit DeepL Translation option
+  if (useAi && activeProvider === 'deepl' && isDeepLConfigured()) {
+    try {
+      const targetLang = effectiveLang === 'es' ? 'en' : 'es';
+      const deepLWord = await translateWithDeepL(clean, effectiveLang, targetLang);
+      if (deepLWord) {
+        const rawEnWord = effectiveLang === 'es' ? deepLWord.trim() : rawWord.trim();
+        const rawEsWord = effectiveLang === 'es' ? rawWord.trim() : deepLWord.trim();
+        const capEn = rawEnWord.charAt(0).toUpperCase() + rawEnWord.slice(1);
+        const capEs = rawEsWord.charAt(0).toUpperCase() + rawEsWord.slice(1);
+        const pos = detectQuickPartOfSpeech(rawEnWord.toLowerCase()) || 'Sustantivo';
+        const pair = generateNaturalSentencePairSync(rawEnWord.toLowerCase(), pos);
+        let deepLExampleEs = pair.exampleEs;
+        try {
+          const transEx = await translateWithDeepL(pair.exampleEn, 'en', 'es');
+          if (transEx) deepLExampleEs = transEx;
+        } catch {}
+
+        const result: AutoEnrichResult = {
+          word: capEn,
+          partOfSpeech: pos,
+          level: 'B1',
+          ipa: estimateIpa(rawEnWord.toLowerCase()),
+          phoneticGuide: generatePhoneticGuide(rawEnWord.toLowerCase()),
+          phoneticNote: 'Traducción precisa con DeepL API',
+          translation: capEs,
+          definition: `Término traducido con DeepL API (${pos})`,
+          exampleEn: pair.exampleEn,
+          exampleEs: deepLExampleEs,
+          categoryGroup: '',
+          categorySub: '',
+        };
+        ENRICHMENT_CACHE.set(cacheKey, result);
+        return result;
+      }
+    } catch (e) {
+      console.warn('[autoEnrichWord] DeepL translation failed, falling back to standard:', e);
+    }
+  }
+
+  // 2. Explicit AI (Gemini) suggestion (only when requested or AI provider active)
+  if (useAi && (activeProvider === 'ai' || !isDeepLConfigured()) && isGeminiConfigured()) {
     try {
       const geminiResult = await queryGeminiForWord(clean, undefined, effectiveLang);
       if (geminiResult) {
