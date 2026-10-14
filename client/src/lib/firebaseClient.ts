@@ -24,6 +24,8 @@ import {
   writeBatch,
   query,
   where,
+  onSnapshot,
+  Unsubscribe,
   Firestore,
 } from 'firebase/firestore';
 import { FirebaseConfig, UserProfile, WordItem, CategoryItem } from '../types';
@@ -1472,93 +1474,224 @@ class FirebaseService {
   }
 
   public getEffectiveUserId(userId?: string): string {
-    if (userId) return userId;
-    if (this.currentUser?.id) return this.currentUser.id;
+    if (userId && userId !== 'guest' && userId !== 'undefined') return userId;
+    if (this.currentUser?.id && this.currentUser.id !== 'guest') return this.currentUser.id;
     try {
       const stored = appStorage.getItem(STORAGE_KEY_FIREBASE_USER);
       if (stored) {
         const u = JSON.parse(stored);
-        if (u.id) return u.id;
+        if (u.id && u.id !== 'guest') return u.id;
       }
       const legacyUser = appStorage.getItem('pronounceit_user_v1');
       if (legacyUser) {
         const lu = JSON.parse(legacyUser);
-        if (lu.id) return lu.id;
+        if (lu.id && lu.id !== 'guest') return lu.id;
       }
     } catch {}
-    return 'usuario_principal';
+    return 'guest';
   }
 
   // ==========================================
   // FIRESTORE: VOCABULARY (WORDS)
   // ==========================================
+  public parseWordDoc(d: any): WordItem {
+    const data = typeof d.data === 'function' ? d.data() : d;
+    return {
+      id: d.id || data.id,
+      word: data.word || '',
+      partOfSpeech: normalizePartOfSpeech(data.partOfSpeech || 'Sustantivo'),
+      level: data.level || 'B1',
+      ipa: data.ipa || '',
+      phoneticGuide: data.phoneticGuide || '',
+      phoneticNote: data.phoneticNote || '',
+      translation: data.translation || '',
+      definition: data.definition || '',
+      exampleEn: data.exampleEn || '',
+      exampleEs: data.exampleEs || '',
+      highlightWord: data.highlightWord || '',
+      status: data.status || 'learning',
+      isFavorite: Boolean(data.isFavorite),
+      categoryGroup: data.categoryGroup || (Array.isArray(data.categoryGroups) && data.categoryGroups[0]) || 'General',
+      categoryGroups: Array.isArray(data.categoryGroups) && data.categoryGroups.length > 0
+        ? data.categoryGroups
+        : (data.categoryGroup ? [data.categoryGroup] : ['General']),
+      categorySub: data.categorySub || (Array.isArray(data.categorySubs) && data.categorySubs[0]) || 'General',
+      categorySubs: Array.isArray(data.categorySubs) && data.categorySubs.length > 0
+        ? data.categorySubs
+        : (data.categorySub ? [data.categorySub] : ['General']),
+      srsIntervalDays: data.srsIntervalDays ?? 1,
+      lastReviewedAt: data.lastReviewedAt,
+      createdAt: data.createdAt || new Date().toISOString(),
+    };
+  }
+
+  public subscribeWords(
+    userId: string | undefined,
+    callback: (words: WordItem[]) => void
+  ): () => void {
+    if (!this.db) {
+      return () => {};
+    }
+    const uid = this.getEffectiveUserId(userId);
+    if (!uid || uid === 'guest') {
+      return () => {};
+    }
+
+    try {
+      const wordsCol = collection(this.db, 'users', uid, 'words');
+      const unsubscribe = onSnapshot(
+        wordsCol,
+        (snapshot) => {
+          const words: WordItem[] = [];
+          snapshot.forEach((d) => {
+            words.push(this.parseWordDoc(d));
+          });
+          words.sort((a, b) => {
+            const timeA = new Date(a.createdAt || 0).getTime();
+            const timeB = new Date(b.createdAt || 0).getTime();
+            return timeB - timeA;
+          });
+          callback(words);
+        },
+        (error) => {
+          console.warn('[Firebase] subscribeWords onSnapshot error:', error);
+        }
+      );
+      return unsubscribe;
+    } catch (err) {
+      console.warn('[Firebase] Error iniciando subscribeWords:', err);
+      return () => {};
+    }
+  }
+
+  public subscribeCategories(
+    userId: string | undefined,
+    callback: (categories: CategoryItem[]) => void
+  ): () => void {
+    if (!this.db) {
+      return () => {};
+    }
+    const uid = this.getEffectiveUserId(userId);
+    if (!uid || uid === 'guest') {
+      return () => {};
+    }
+
+    try {
+      const userDoc = doc(this.db, 'users', uid);
+      const unsubscribe = onSnapshot(
+        userDoc,
+        (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            if (Array.isArray(data?.categories)) {
+              callback(data.categories as CategoryItem[]);
+            }
+          }
+        },
+        (error) => {
+          console.warn('[Firebase] subscribeCategories onSnapshot error:', error);
+        }
+      );
+      return unsubscribe;
+    } catch (err) {
+      console.warn('[Firebase] Error iniciando subscribeCategories:', err);
+      return () => {};
+    }
+  }
+
+  public subscribeTestHistory(
+    userId: string | undefined,
+    callback: (tests: StoredTestItem[]) => void
+  ): () => void {
+    if (!this.db) return () => {};
+    const uid = this.getEffectiveUserId(userId);
+    if (!uid || uid === 'guest') return () => {};
+
+    try {
+      const testsCol = collection(this.db, 'users', uid, 'test_history');
+      const unsubscribe = onSnapshot(
+        testsCol,
+        (snapshot) => {
+          const list: StoredTestItem[] = [];
+          snapshot.forEach((d) => {
+            const data = d.data();
+            list.push({
+              id: d.id,
+              type: data.type || 'vocabulary',
+              title: data.title || '',
+              level: data.level || '',
+              scoreOutOfTen: data.scoreOutOfTen || 0,
+              percentage: data.percentage || 0,
+              gradeLabel: data.gradeLabel || '',
+              totalQuestions: data.totalQuestions || 0,
+              correctCount: data.correctCount || 0,
+              completedAt: data.completedAt || '',
+              timestamp: data.timestamp || Date.now(),
+              vocabularyQuestions: data.vocabularyQuestions,
+              irregularVerbQuestions: data.irregularVerbQuestions,
+            });
+          });
+          list.sort((a, b) => b.timestamp - a.timestamp);
+          callback(list);
+        },
+        (error) => {
+          console.warn('[Firebase] subscribeTestHistory error:', error);
+        }
+      );
+      return unsubscribe;
+    } catch (err) {
+      console.warn('[Firebase] Error iniciando subscribeTestHistory:', err);
+      return () => {};
+    }
+  }
+
   public async fetchWords(userId?: string): Promise<WordItem[] | null> {
     if (!this.db) return null;
     const uid = this.getEffectiveUserId(userId);
+    if (!uid || uid === 'guest') return [];
     const email = this.currentUser?.email?.trim().toLowerCase();
 
     try {
       const wordsMap = new Map<string, WordItem>();
 
-      const parseWordDoc = (d: any): WordItem => {
-        const data = d.data();
-        return {
-          id: d.id,
-          word: data.word || '',
-          partOfSpeech: normalizePartOfSpeech(data.partOfSpeech || 'Sustantivo'),
-          level: data.level || 'B1',
-          ipa: data.ipa || '',
-          phoneticGuide: data.phoneticGuide || '',
-          phoneticNote: data.phoneticNote || '',
-          translation: data.translation || '',
-          definition: data.definition || '',
-          exampleEn: data.exampleEn || '',
-          exampleEs: data.exampleEs || '',
-          highlightWord: data.highlightWord || '',
-          status: data.status || 'learning',
-          isFavorite: Boolean(data.isFavorite),
-          categoryGroup: data.categoryGroup || (Array.isArray(data.categoryGroups) && data.categoryGroups[0]) || 'General',
-          categoryGroups: Array.isArray(data.categoryGroups) && data.categoryGroups.length > 0
-            ? data.categoryGroups
-            : (data.categoryGroup ? [data.categoryGroup] : ['General']),
-          categorySub: data.categorySub || (Array.isArray(data.categorySubs) && data.categorySubs[0]) || 'General',
-          categorySubs: Array.isArray(data.categorySubs) && data.categorySubs.length > 0
-            ? data.categorySubs
-            : (data.categorySub ? [data.categorySub] : ['General']),
-          srsIntervalDays: data.srsIntervalDays ?? 1,
-          lastReviewedAt: data.lastReviewedAt,
-          createdAt: data.createdAt || new Date().toISOString(),
-        };
-      };
-
-      // 1. Fetch from user ID subcollection
+      // 1. Fetch from primary user ID subcollection
       try {
         const wordsCol = collection(this.db, 'users', uid, 'words');
         const snapshot = await getDocs(wordsCol);
-        snapshot.forEach((d) => wordsMap.set(d.id, parseWordDoc(d)));
+        snapshot.forEach((d) => wordsMap.set(d.id, this.parseWordDoc(d)));
       } catch {}
 
-      // 2. Fetch from user email subcollection if available and different
-      if (email && email !== uid) {
+      // 2. If user ID collection was empty, check email subcollection
+      if (wordsMap.size === 0 && email && email !== uid) {
         try {
           const emailWordsCol = collection(this.db, 'users', email, 'words');
           const emailSnap = await getDocs(emailWordsCol);
           emailSnap.forEach((d) => {
-            if (!wordsMap.has(d.id)) wordsMap.set(d.id, parseWordDoc(d));
+            const w = this.parseWordDoc(d);
+            wordsMap.set(d.id, w);
+            setDoc(doc(this.db!, 'users', uid, 'words', d.id), d.data(), { merge: true }).catch(() => {});
           });
         } catch {}
       }
 
-      // 3. Fallback to top-level words collection filtered by user
-      try {
-        if (email) {
-          const q = query(collection(this.db, 'words'), where('user_email', '==', email));
-          const qSnap = await getDocs(q);
-          qSnap.forEach((d) => {
-            if (!wordsMap.has(d.id)) wordsMap.set(d.id, parseWordDoc(d));
-          });
-        }
-      } catch {}
+      // 3. Fallback to usuario_principal if user has 0 words (automatic seamless migration)
+      if (wordsMap.size === 0) {
+        try {
+          const legacyCol = collection(this.db, 'users', 'usuario_principal', 'words');
+          const legacySnap = await getDocs(legacyCol);
+          if (!legacySnap.empty) {
+            legacySnap.forEach((d) => {
+              const w = this.parseWordDoc(d);
+              wordsMap.set(d.id, w);
+              setDoc(
+                doc(this.db!, 'users', uid, 'words', d.id),
+                { ...d.data(), user_id: uid, user_email: email || '' },
+                { merge: true }
+              ).catch(() => {});
+            });
+          }
+        } catch {}
+      }
 
       return Array.from(wordsMap.values());
     } catch (err: any) {

@@ -872,12 +872,12 @@ export function generateNaturalSentencePairSync(
   } else if (p.includes('conj')) {
     pair = {
       exampleEn: `We stayed inside ${w} the weather was stormy.`,
-      es: `Nos quedamos adentro ${w} el clima era tormentoso.`,
+      exampleEs: `Nos quedamos adentro ${w} el clima era tormentoso.`,
     };
   } else if (p.includes('pron')) {
     pair = {
       exampleEn: `${cap} decided to visit the local library today.`,
-      es: `${cap} decidió visitar la biblioteca local hoy.`,
+      exampleEs: `${cap} decidió visitar la biblioteca local hoy.`,
     };
   } else if (p.includes('phrasal') || p.includes('idiom') || w.includes(' ')) {
     const templates = [

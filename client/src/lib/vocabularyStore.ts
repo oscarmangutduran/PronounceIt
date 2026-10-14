@@ -49,6 +49,11 @@ class VocabularyService {
     pitch: 1.0,
     voiceName: '',
   };
+  private lastUserId: string = '';
+  private unsubscribeWords?: () => void;
+  private unsubscribeCategories?: () => void;
+  private pendingSyncIds: Set<string> = new Set();
+  private deletedWordIds: Set<string> = new Set();
 
   constructor() {
     this.init();
@@ -60,7 +65,62 @@ class VocabularyService {
     this.initCloudSync();
   }
 
-  private lastUserId: string = '';
+  private setupRealtimeListeners(userKey: string) {
+    if (this.unsubscribeWords) {
+      this.unsubscribeWords();
+      this.unsubscribeWords = undefined;
+    }
+    if (this.unsubscribeCategories) {
+      this.unsubscribeCategories();
+      this.unsubscribeCategories = undefined;
+    }
+
+    if (!userKey || userKey === 'guest') return;
+
+    this.unsubscribeWords = firebaseService.subscribeWords(userKey, (remoteWords) => {
+      if (!remoteWords) return;
+
+      const remoteIds = new Set(remoteWords.map((w) => w.id));
+      const pendingLocalWords = this.words.filter(
+        (w) => this.pendingSyncIds.has(w.id) && !remoteIds.has(w.id) && !this.deletedWordIds.has(w.id)
+      );
+
+      const merged = [...pendingLocalWords, ...remoteWords];
+      merged.sort((a, b) => {
+        const timeA = new Date(a.createdAt || 0).getTime();
+        const timeB = new Date(b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+
+      this.words = merged;
+      this.saveWordsToDisk();
+      this.notify();
+    });
+
+    this.unsubscribeCategories = firebaseService.subscribeCategories(userKey, (remoteCats) => {
+      if (remoteCats && Array.isArray(remoteCats)) {
+        this.customCategories = remoteCats;
+        this.saveCategoriesToDisk();
+        this.notify();
+      }
+    });
+  }
+
+  private saveWordsToDisk() {
+    try {
+      appStorage.setItem(this.getWordsStorageKey(), JSON.stringify(this.words));
+    } catch (e) {
+      console.error('Error saving words to storage', e);
+    }
+  }
+
+  private saveCategoriesToDisk() {
+    try {
+      appStorage.setItem(this.getCategoriesStorageKey(), JSON.stringify(this.customCategories));
+    } catch (e) {
+      console.error('Error saving categories to storage', e);
+    }
+  }
 
   private getEffectiveUserKey(): string {
     const user = firebaseService.getCurrentUser();
@@ -78,17 +138,30 @@ class VocabularyService {
   }
 
   private initCloudSync() {
+    const userKey = this.getEffectiveUserKey();
+    if (userKey !== 'guest') {
+      this.setupRealtimeListeners(userKey);
+    }
     this.syncWithCloud();
+
     firebaseService.subscribe((user) => {
       const currentKey = user?.id || user?.email?.trim().toLowerCase() || 'guest';
       if (currentKey !== this.lastUserId) {
         this.lastUserId = currentKey;
         this.loadInitialData();
+        if (currentKey !== 'guest') {
+          this.setupRealtimeListeners(currentKey);
+        }
       }
       this.syncWithCloud();
     });
+
     networkService.subscribe((isOnline) => {
       if (isOnline) {
+        const currentKey = this.getEffectiveUserKey();
+        if (currentKey !== 'guest') {
+          this.setupRealtimeListeners(currentKey);
+        }
         this.syncWithCloud();
       }
     });
@@ -96,6 +169,10 @@ class VocabularyService {
 
   public reloadFromStorage() {
     this.loadInitialData();
+    const currentKey = this.getEffectiveUserKey();
+    if (currentKey !== 'guest') {
+      this.setupRealtimeListeners(currentKey);
+    }
   }
 
   public resetForNewUser(userId?: string) {
@@ -107,13 +184,26 @@ class VocabularyService {
       appStorage.setItem(`pronounceit_vocab_words_u_${targetKey}`, JSON.stringify([]));
       appStorage.setItem(`pronounceit_user_categories_u_${targetKey}`, JSON.stringify([]));
     } catch {}
+    if (targetKey !== 'guest') {
+      this.setupRealtimeListeners(targetKey);
+    }
     this.notify();
   }
 
   public clearCurrentSession() {
+    if (this.unsubscribeWords) {
+      this.unsubscribeWords();
+      this.unsubscribeWords = undefined;
+    }
+    if (this.unsubscribeCategories) {
+      this.unsubscribeCategories();
+      this.unsubscribeCategories = undefined;
+    }
     this.words = [];
     this.customCategories = [];
     this.lastUserId = '';
+    this.pendingSyncIds.clear();
+    this.deletedWordIds.clear();
     this.notify();
   }
 
@@ -123,24 +213,48 @@ class VocabularyService {
     }
 
     const currentUser = firebaseService.getCurrentUser();
+    if (!currentUser) return;
+
+    const userKey = this.getEffectiveUserKey();
+
+    // Ensure real-time listeners are attached
+    if (!this.unsubscribeWords && userKey !== 'guest') {
+      this.setupRealtimeListeners(userKey);
+    }
 
     // 1. Primary Cloud Sync via Firestore
-    if (firebaseService.isFirebaseConnected() && currentUser) {
+    if (firebaseService.isFirebaseConnected() && userKey !== 'guest') {
       try {
-        const remoteWords = await firebaseService.fetchWords(currentUser.id);
+        const remoteWords = await firebaseService.fetchWords(userKey);
         if (remoteWords && Array.isArray(remoteWords)) {
-          const wordsMap = new Map<string, WordItem>();
-          remoteWords.forEach((w: WordItem) => wordsMap.set(w.id, w));
-          this.words.forEach((w) => wordsMap.set(w.id, w));
-          this.words = Array.from(wordsMap.values());
+          const remoteIds = new Set(remoteWords.map((w) => w.id));
+
+          // Find locally added words that are still pending sync to Firestore
+          const localOnlyPending = this.words.filter(
+            (w) => this.pendingSyncIds.has(w.id) && !remoteIds.has(w.id) && !this.deletedWordIds.has(w.id)
+          );
+
+          // Push pending offline words to Firestore
+          for (const localWord of localOnlyPending) {
+            await firebaseService.upsertWord(localWord).catch(() => {});
+            this.pendingSyncIds.delete(localWord.id);
+          }
+
+          const merged = [...localOnlyPending, ...remoteWords];
+          merged.sort((a, b) => {
+            const timeA = new Date(a.createdAt || 0).getTime();
+            const timeB = new Date(b.createdAt || 0).getTime();
+            return timeB - timeA;
+          });
+
+          this.words = merged;
+          this.saveWordsToDisk();
         }
 
-        const remoteCats = await firebaseService.fetchCategories();
+        const remoteCats = await firebaseService.fetchCategories(userKey);
         if (remoteCats && Array.isArray(remoteCats) && remoteCats.length > 0) {
-          const catMap = new Map<string, CategoryItem>();
-          remoteCats.forEach((c) => catMap.set(c.id, c));
-          this.customCategories.forEach((c) => catMap.set(c.id, c));
-          this.customCategories = Array.from(catMap.values());
+          this.customCategories = remoteCats;
+          this.saveCategoriesToDisk();
         }
       } catch (e) {
         console.warn('[VocabStore] Error syncing with Firestore:', e);
@@ -153,10 +267,15 @@ class VocabularyService {
         const isBackendLive = await backendApi.checkHealth();
         if (isBackendLive) {
           const serverWords = await backendApi.getWords(currentUser.id);
-          if (serverWords && Array.isArray(serverWords)) {
+          if (serverWords && Array.isArray(serverWords) && serverWords.length > 0) {
             const wordsMap = new Map<string, WordItem>();
-            serverWords.forEach((w) => wordsMap.set(w.id, w));
             this.words.forEach((w) => wordsMap.set(w.id, w));
+            serverWords.forEach((w) => {
+              if (!this.deletedWordIds.has(w.id) && !wordsMap.has(w.id)) {
+                wordsMap.set(w.id, w);
+                firebaseService.upsertWord(w).catch(() => {});
+              }
+            });
             this.words = Array.from(wordsMap.values());
           }
         }
@@ -165,20 +284,9 @@ class VocabularyService {
       }
     }
 
-    // 3. Update local state
     this.saveWords();
     this.saveCategories();
-    this.notify();
-
-    // 4. Push combined words back to Firestore if user has words
-    if (firebaseService.isFirebaseConnected() && currentUser && this.words.length > 0) {
-      firebaseService.syncAllWords(this.words).catch(() => {});
-      if (this.customCategories.length > 0) {
-        firebaseService.saveCategories(this.customCategories).catch(() => {});
-      }
-    }
   }
-
   private loadInitialData() {
     try {
       const userKey = this.getEffectiveUserKey();
@@ -495,13 +603,21 @@ class VocabularyService {
       srsIntervalDays: wordData.srsIntervalDays ?? 1,
     };
 
+    this.pendingSyncIds.add(newWord.id);
+    this.deletedWordIds.delete(newWord.id);
+
     this.words = [newWord, ...this.words];
     this.saveWords();
 
     backendApi.saveWord(newWord).catch((e) => console.warn('Backend saveWord error', e));
 
     if (firebaseService.isFirebaseConnected()) {
-      firebaseService.upsertWord(newWord).catch((e) => console.warn('Firebase upsertWord error', e));
+      firebaseService
+        .upsertWord(newWord)
+        .then(() => {
+          this.pendingSyncIds.delete(newWord.id);
+        })
+        .catch((e) => console.warn('Firebase upsertWord error', e));
     }
 
     return newWord;
@@ -533,6 +649,8 @@ class VocabularyService {
     if (idx === -1) return false;
 
     this.words = this.words.filter((w) => w.id !== id);
+    this.pendingSyncIds.delete(id);
+    this.deletedWordIds.add(id);
     this.saveWords();
 
     backendApi.deleteWord(id).catch((e) => console.warn('Backend deleteWord error', e));

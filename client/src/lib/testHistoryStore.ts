@@ -30,9 +30,29 @@ class TestHistoryService {
   private history: StoredTestItem[] = [];
   private listeners: (() => void)[] = [];
   private lastUserId: string = '';
+  private unsubscribeTests?: () => void;
 
   constructor() {
     this.init();
+  }
+
+  private setupRealtimeListeners(userKey: string) {
+    if (this.unsubscribeTests) {
+      this.unsubscribeTests();
+      this.unsubscribeTests = undefined;
+    }
+    if (!userKey || userKey === 'guest') return;
+
+    this.unsubscribeTests = firebaseService.subscribeTestHistory(userKey, (remoteTests) => {
+      if (remoteTests && Array.isArray(remoteTests)) {
+        this.history = remoteTests;
+        try {
+          appStorage.setItem(this.getHistoryStorageKey(), JSON.stringify(this.history));
+          appStorage.setItem(STORAGE_KEY_TEST_HISTORY, JSON.stringify(this.history));
+        } catch {}
+        this.notify();
+      }
+    });
   }
 
   public async init() {
@@ -53,17 +73,30 @@ class TestHistoryService {
   }
 
   private initCloudSync() {
+    const userKey = this.getEffectiveUserKey();
+    if (userKey !== 'guest') {
+      this.setupRealtimeListeners(userKey);
+    }
     this.syncWithCloud();
+
     firebaseService.subscribe((user) => {
       const currentKey = user?.id || user?.email?.trim().toLowerCase() || 'guest';
       if (currentKey !== this.lastUserId) {
         this.lastUserId = currentKey;
         this.loadHistory();
+        if (currentKey !== 'guest') {
+          this.setupRealtimeListeners(currentKey);
+        }
       }
       this.syncWithCloud();
     });
+
     networkService.subscribe((isOnline) => {
       if (isOnline) {
+        const currentKey = this.getEffectiveUserKey();
+        if (currentKey !== 'guest') {
+          this.setupRealtimeListeners(currentKey);
+        }
         this.syncWithCloud();
       }
     });
@@ -84,6 +117,10 @@ class TestHistoryService {
   }
 
   public clearCurrentSession() {
+    if (this.unsubscribeTests) {
+      this.unsubscribeTests();
+      this.unsubscribeTests = undefined;
+    }
     this.history = [];
     this.lastUserId = '';
     this.notify();
@@ -160,6 +197,7 @@ class TestHistoryService {
 
   private saveHistory() {
     try {
+      appStorage.setItem(this.getHistoryStorageKey(), JSON.stringify(this.history));
       appStorage.setItem(STORAGE_KEY_TEST_HISTORY, JSON.stringify(this.history));
     } catch {}
     this.notify();
