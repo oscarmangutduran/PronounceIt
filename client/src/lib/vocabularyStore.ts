@@ -418,21 +418,38 @@ class VocabularyService {
     });
   }
 
-  public addCategory(name: string): CategoryItem {
+  public addCategory(name: string, initialSubcategories: string[] = []): CategoryItem {
     const trimmed = name.trim();
     if (!trimmed) throw new Error('El nombre de la categoría es requerido.');
 
     const existing = this.customCategories.find(
       (c) => c.name.toLowerCase() === trimmed.toLowerCase()
     );
-    if (existing) return existing;
+    if (existing) {
+      if (initialSubcategories && initialSubcategories.length > 0) {
+        this.addSubcategories(existing.id, initialSubcategories);
+      }
+      return existing;
+    }
+
+    const validSubs = Array.from(
+      new Set(
+        initialSubcategories
+          .map((s) => s.trim())
+          .filter(Boolean)
+      )
+    ).map((subName, idx) => ({
+      id: `sub_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
+      name: subName,
+      count: 0,
+    }));
 
     const newCat: CategoryItem = {
       id: `cat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       name: trimmed,
       icon: 'Folder',
       count: 0,
-      subcategories: [],
+      subcategories: validSubs,
     };
     this.customCategories = [...this.customCategories, newCat];
     this.saveCategories();
@@ -518,6 +535,34 @@ class VocabularyService {
 
     this.saveCategories();
     return true;
+  }
+
+  public addSubcategories(categoryId: string, subNames: string[]): boolean {
+    const cat = this.customCategories.find((c) => c.id === categoryId);
+    if (!cat) return false;
+    if (!cat.subcategories) cat.subcategories = [];
+
+    let addedAny = false;
+    subNames.forEach((subName) => {
+      const trimmed = subName.trim();
+      if (!trimmed) return;
+      const exists = cat.subcategories!.some(
+        (s) => s.name.toLowerCase() === trimmed.toLowerCase()
+      );
+      if (!exists) {
+        cat.subcategories!.push({
+          id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          name: trimmed,
+          count: 0,
+        });
+        addedAny = true;
+      }
+    });
+
+    if (addedAny) {
+      this.saveCategories();
+    }
+    return addedAny;
   }
 
   public editSubcategory(categoryId: string, subId: string, newName: string): boolean {

@@ -89,6 +89,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [isSubcategoryDropdownOpen, setIsSubcategoryDropdownOpen] = useState(false);
   const [isCustomCategoryMode, setIsCustomCategoryMode] = useState(false);
   const [customCategoryInput, setCustomCategoryInput] = useState('');
+  const [customCategorySubInput, setCustomCategorySubInput] = useState('');
   const [isCustomSubcategoryMode, setIsCustomSubcategoryMode] = useState(false);
   const [customSubcategoryInput, setCustomSubcategoryInput] = useState('');
 
@@ -169,6 +170,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setIsCustomCategoryMode(false);
       setIsCustomSubcategoryMode(false);
       setCustomCategoryInput('');
+      setCustomCategorySubInput('');
       setCustomSubcategoryInput('');
 
       const initialPos = normalizePartOfSpeech(initialWord.partOfSpeech || 'Sustantivo');
@@ -191,6 +193,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setIsCustomCategoryMode(false);
       setIsCustomSubcategoryMode(false);
       setCustomCategoryInput('');
+      setCustomCategorySubInput('');
       setCustomSubcategoryInput('');
 
       setPartOfSpeech('Sustantivo');
@@ -430,13 +433,28 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
   const handleAddCustomCategory = () => {
     const clean = customCategoryInput.trim();
-    if (clean) {
-      if (!selectedCategories.some((c) => c.toLowerCase() === clean.toLowerCase())) {
-        setSelectedCategories((prev) => [...prev, clean]);
-      }
-      setCustomCategoryInput('');
-      setIsCustomCategoryMode(false);
+    const cleanSub = customCategorySubInput.trim();
+    if (!clean) return;
+
+    // 1. Registrar formalmente en vocabService la categoría con su subcategoría asociada
+    const subsToRegister = cleanSub ? [cleanSub] : [];
+    vocabService.addCategory(clean, subsToRegister);
+
+    // 2. Seleccionar la categoría creada
+    if (!selectedCategories.some((c) => c.toLowerCase() === clean.toLowerCase())) {
+      setSelectedCategories((prev) => [...prev, clean]);
     }
+
+    // 3. Seleccionar la subcategoría si fue proporcionada
+    if (cleanSub) {
+      if (!selectedSubcategories.some((s) => s.toLowerCase() === cleanSub.toLowerCase())) {
+        setSelectedSubcategories((prev) => [...prev, cleanSub]);
+      }
+    }
+
+    setCustomCategoryInput('');
+    setCustomCategorySubInput('');
+    setIsCustomCategoryMode(false);
   };
 
   // Subcategory Multi-Select Helpers
@@ -463,6 +481,14 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       if (!selectedSubcategories.some((s) => s.toLowerCase() === clean.toLowerCase())) {
         setSelectedSubcategories((prev) => [...prev, clean]);
       }
+      // Asociar la nueva subcategoría a las categorías actualmente seleccionadas en vocabService
+      const currentCats = vocabService.getCategories();
+      selectedCategories.forEach((catName) => {
+        const found = currentCats.find((c) => c.name.toLowerCase() === catName.toLowerCase());
+        if (found) {
+          vocabService.addSubcategory(found.id, clean);
+        }
+      });
       setCustomSubcategoryInput('');
       setIsCustomSubcategoryMode(false);
     }
@@ -1115,23 +1141,56 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 ))}
               </View>
 
-              {/* Input para agregar nueva categoría personalizada */}
+              {/* Input para agregar nueva categoría personalizada y subcategoría asociada */}
               {isCustomCategoryMode ? (
-                <View style={styles.customInputRow}>
-                  <TextInput
-                    style={[styles.input, !isDark && styles.inputLight, { flex: 1 }]}
-                    placeholder="Nombre de la nueva categoría..."
-                    placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                    value={customCategoryInput}
-                    onChangeText={setCustomCategoryInput}
-                    autoFocus
-                  />
-                  <TouchableOpacity
-                    style={[styles.saveCustomBtn]}
-                    onPress={handleAddCustomCategory}
-                  >
-                    <Text style={styles.saveCustomBtnText}>Agregar</Text>
-                  </TouchableOpacity>
+                <View style={[styles.customCategoryCard, !isDark && styles.customCategoryCardLight]}>
+                  <View style={styles.customCategoryHeader}>
+                    <Folder size={14} color="#e62e4c" />
+                    <Text style={[styles.customCategoryCardTitle, !isDark && styles.customCategoryCardTitleLight]}>
+                      Nueva Categoría y Subcategoría asociada
+                    </Text>
+                  </View>
+
+                  <View style={styles.customInputRow}>
+                    <TextInput
+                      style={[styles.input, !isDark && styles.inputLight, { flex: 1 }]}
+                      placeholder="Nombre de la nueva categoría principal *"
+                      placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                      value={customCategoryInput}
+                      onChangeText={setCustomCategoryInput}
+                      autoFocus
+                    />
+                  </View>
+
+                  <View style={[styles.customInputRow, { marginTop: 6 }]}>
+                    <TextInput
+                      style={[styles.input, !isDark && styles.inputLight, { flex: 1 }]}
+                      placeholder="Subcategoría asociada (opcional)..."
+                      placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                      value={customCategorySubInput}
+                      onChangeText={setCustomCategorySubInput}
+                      onSubmitEditing={handleAddCustomCategory}
+                    />
+                    <TouchableOpacity
+                      style={[
+                        styles.saveCustomBtn,
+                        !customCategoryInput.trim() && { opacity: 0.5 },
+                      ]}
+                      onPress={handleAddCustomCategory}
+                      disabled={!customCategoryInput.trim()}
+                    >
+                      <Sparkles size={13} color="#ffffff" style={{ marginRight: 4 }} />
+                      <Text style={styles.saveCustomBtnText}>Asociar</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {customCategoryInput.trim() ? (
+                    <Text style={[styles.customCategoryHint, !isDark && styles.customCategoryHintLight]}>
+                      {customCategorySubInput.trim()
+                        ? `✓ «${customCategorySubInput.trim()}» quedará asociada a la categoría «${customCategoryInput.trim()}».`
+                        : `✓ Se registrará la categoría «${customCategoryInput.trim()}».`}
+                    </Text>
+                  ) : null}
                 </View>
               ) : (
                 <View style={styles.dropdownContainer}>
@@ -1779,6 +1838,43 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '700',
+  },
+  customCategoryCard: {
+    backgroundColor: 'rgba(230, 46, 76, 0.05)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.25)',
+    padding: 12,
+    gap: 8,
+  },
+  customCategoryCardLight: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fecdd3',
+  },
+  customCategoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  customCategoryCardTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  customCategoryCardTitleLight: {
+    color: '#9f1239',
+  },
+  customCategoryHint: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#ff758c',
+    marginTop: 2,
+  },
+  customCategoryHintLight: {
+    color: '#b91c1c',
   },
 
   // Tags Pill Container

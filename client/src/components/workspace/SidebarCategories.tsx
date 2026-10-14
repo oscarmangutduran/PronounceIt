@@ -76,10 +76,12 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
     subId?: string;
     categoryName?: string;
     initialValue: string;
+    initialSubcategories?: string[];
   }>({
     isOpen: false,
     mode: 'create_category',
     initialValue: '',
+    initialSubcategories: [],
   });
 
   const [deleteCategoryTarget, setDeleteCategoryTarget] = useState<CategoryItem | null>(null);
@@ -100,6 +102,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
       isOpen: true,
       mode: 'create_category',
       initialValue: '',
+      initialSubcategories: [],
     });
   };
 
@@ -109,6 +112,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
       mode: 'edit_category',
       categoryId: cat.id,
       initialValue: cat.name,
+      initialSubcategories: cat.subcategories?.map((s) => s.name) || [],
     });
   };
 
@@ -119,6 +123,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
       categoryId: cat.id,
       categoryName: cat.name,
       initialValue: '',
+      initialSubcategories: [],
     });
   };
 
@@ -133,15 +138,20 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
       subId: sub.id,
       categoryName: cat.name,
       initialValue: sub.name,
+      initialSubcategories: [],
     });
   };
 
-  const handleFormSubmit = (name: string) => {
+  const handleFormSubmit = (name: string, subcategories?: string[]) => {
     if (formModal.mode === 'create_category') {
-      const created = vocabService.addCategory(name);
+      const created = vocabService.addCategory(name, subcategories || []);
       setExpandedGroups((prev) => ({ ...prev, [created.name]: true }));
     } else if (formModal.mode === 'edit_category' && formModal.categoryId) {
       vocabService.editCategory(formModal.categoryId, name);
+      if (subcategories && subcategories.length > 0) {
+        vocabService.addSubcategories(formModal.categoryId, subcategories);
+      }
+      setExpandedGroups((prev) => ({ ...prev, [name.trim()]: true }));
     } else if (formModal.mode === 'create_subcategory' && formModal.categoryId) {
       vocabService.addSubcategory(formModal.categoryId, name);
       if (formModal.categoryName) {
@@ -269,7 +279,9 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
           isOpen={formModal.isOpen}
           mode={formModal.mode}
           initialValue={formModal.initialValue}
+          initialSubcategories={formModal.initialSubcategories}
           categoryName={formModal.categoryName}
+          isDark={isDark}
           onClose={() => setFormModal((prev) => ({ ...prev, isOpen: false }))}
           onSubmit={handleFormSubmit}
         />
@@ -729,7 +741,9 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
         isOpen={formModal.isOpen}
         mode={formModal.mode}
         initialValue={formModal.initialValue}
+        initialSubcategories={formModal.initialSubcategories}
         categoryName={formModal.categoryName}
+        isDark={isDark}
         onClose={() => setFormModal((prev) => ({ ...prev, isOpen: false }))}
         onSubmit={handleFormSubmit}
       />
