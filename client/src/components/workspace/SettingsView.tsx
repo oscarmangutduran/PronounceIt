@@ -24,6 +24,7 @@ import {
   Moon,
   Smartphone,
   Download,
+  Trash2,
 } from 'lucide-react-native';
 import { UserProfile } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
@@ -57,6 +58,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isSavedKey, setIsSavedKey] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const handleUpdateRate = (rate: number) => {
     const updated = { ...audioSettings, rate };
@@ -325,6 +328,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <FileSpreadsheet size={16} color="#ffffff" style={{ marginRight: 8 }} />
             <Text style={styles.exportDataBtnText}>Exportar / Importar Vocabulario (.CSV)</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.clearDataBtn, !isDark && styles.clearDataBtnLight]}
+            onPress={() => setShowClearModal(true)}
+            activeOpacity={0.85}
+          >
+            <Trash2 size={16} color="#ef4444" style={{ marginRight: 8 }} />
+            <Text style={styles.clearDataBtnText}>Vaciar Palabras y Categorías</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -386,6 +398,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           onDeleteAccount?.();
         }}
         onCancel={() => setShowDeleteModal(false)}
+        isDark={isDark}
+      />
+
+      <ConfirmModal
+        isOpen={showClearModal}
+        title="Eliminar Palabras y Categorías"
+        message="¿Estás seguro de que deseas eliminar todas las palabras, categorías y subcategorías? Esta acción vaciará completamente tu lista de vocabulario en todos tus dispositivos y no se puede deshacer."
+        confirmText={isClearing ? "Vaciando..." : "Sí, vaciar todo"}
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={async () => {
+          setIsClearing(true);
+          try {
+            await vocabService.clearAllWords();
+          } finally {
+            setIsClearing(false);
+            setShowClearModal(false);
+          }
+        }}
+        onCancel={() => setShowClearModal(false)}
         isDark={isDark}
       />
     </ScrollView>
@@ -626,6 +658,26 @@ const styles = StyleSheet.create({
   },
   exportDataBtnText: {
     color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  clearDataBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    paddingVertical: 12,
+    borderRadius: THEME.radius.md,
+    marginTop: 10,
+  },
+  clearDataBtnLight: {
+    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+  },
+  clearDataBtnText: {
+    color: '#ef4444',
     fontSize: 13,
     fontWeight: '700',
   },

@@ -261,7 +261,7 @@ class VocabularyService {
         }
 
         const remoteCats = await firebaseService.fetchCategories(userKey);
-        if (remoteCats && Array.isArray(remoteCats) && remoteCats.length > 0) {
+        if (remoteCats && Array.isArray(remoteCats)) {
           this.customCategories = remoteCats;
           this.saveCategoriesToDisk();
         }
@@ -748,12 +748,23 @@ class VocabularyService {
   public async clearAllWords() {
     this.words = [];
     this.customCategories = [];
+    this.pendingSyncIds.clear();
+    this.deletedWordIds.clear();
+
+    try {
+      appStorage.removeMatching(/^pronounceit_vocab_words_/);
+      appStorage.removeMatching(/^pronounceit_user_categories_/);
+    } catch {}
+
     this.saveWords();
     this.saveCategories();
+
     await backendApi.clearAllWords().catch((e) => console.warn('Backend clear error', e));
+
     if (firebaseService.isFirebaseConnected()) {
-      await firebaseService.syncAllWords([]).catch((e) => console.warn('Firebase reset sync error', e));
+      await firebaseService.clearAllWordsAndCategories().catch((e) => console.warn('Firebase clearAllWordsAndCategories error', e));
     }
+
     this.notify();
   }
 
@@ -809,11 +820,11 @@ class VocabularyService {
   public clearAll(): void {
     this.words = [];
     this.customCategories = [];
+    this.pendingSyncIds.clear();
+    this.deletedWordIds.clear();
     try {
-      appStorage.removeItem(this.getWordsStorageKey());
-      appStorage.removeItem(this.getCategoriesStorageKey());
-      appStorage.removeItem('pronounceit_vocab_words_v5');
-      appStorage.removeItem('pronounceit_user_categories_v4');
+      appStorage.removeMatching(/^pronounceit_vocab_words_/);
+      appStorage.removeMatching(/^pronounceit_user_categories_/);
     } catch {}
     this.notify();
   }

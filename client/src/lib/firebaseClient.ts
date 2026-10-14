@@ -1782,8 +1782,61 @@ class FirebaseService {
     }
   }
 
+  public async clearAllWords(userId?: string): Promise<boolean> {
+    if (!this.db) return false;
+    const uid = this.getEffectiveUserId(userId);
+    const email = this.currentUser?.email?.trim().toLowerCase();
+
+    try {
+      const userWordsCol = collection(this.db, 'users', uid, 'words');
+      const snap = await getDocs(userWordsCol);
+      if (snap.size > 0) {
+        const batch = writeBatch(this.db);
+        snap.forEach((d) => {
+          batch.delete(d.ref);
+          batch.delete(doc(this.db!, 'words', d.id));
+        });
+        await batch.commit();
+      }
+
+      if (email && email !== uid) {
+        try {
+          const emailWordsCol = collection(this.db, 'users', email, 'words');
+          const emailSnap = await getDocs(emailWordsCol);
+          if (emailSnap.size > 0) {
+            const emailBatch = writeBatch(this.db);
+            emailSnap.forEach((d) => {
+              emailBatch.delete(d.ref);
+              emailBatch.delete(doc(this.db!, 'words', d.id));
+            });
+            await emailBatch.commit();
+          }
+        } catch {}
+      }
+
+      return true;
+    } catch (err) {
+      console.warn('[Firebase] Error al vaciar palabras de Firestore:', err);
+      return false;
+    }
+  }
+
+  public async clearAllCategories(userId?: string): Promise<boolean> {
+    return this.saveCategories([], userId);
+  }
+
+  public async clearAllWordsAndCategories(userId?: string): Promise<boolean> {
+    const pWords = this.clearAllWords(userId);
+    const pCats = this.clearAllCategories(userId);
+    const [okWords, okCats] = await Promise.all([pWords, pCats]);
+    return okWords && okCats;
+  }
+
   public async syncAllWords(words: WordItem[], userId?: string): Promise<boolean> {
     if (!this.db || !words) return false;
+    if (words.length === 0) {
+      return this.clearAllWords(userId);
+    }
     const uid = this.getEffectiveUserId(userId);
     const email = this.currentUser?.email?.trim().toLowerCase();
 

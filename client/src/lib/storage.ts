@@ -98,6 +98,21 @@ class AppStorage {
     );
   }
 
+  public getAllKeys(): string[] {
+    return Array.from(this.cache.keys());
+  }
+
+  public removeMatching(pattern: RegExp): void {
+    const matchedKeys: string[] = [];
+    this.cache.forEach((_, key) => {
+      if (pattern.test(key)) {
+        matchedKeys.push(key);
+      }
+    });
+
+    matchedKeys.forEach((k) => this.removeItem(k));
+  }
+
   public clear(): void {
     this.cache.clear();
 
