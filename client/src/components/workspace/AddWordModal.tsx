@@ -27,7 +27,6 @@ import {
   Languages,
   RotateCcw,
   ArrowLeftRight,
-  Globe,
 } from 'lucide-react-native';
 import { WordItem, CategoryItem, PartOfSpeech, PART_OF_SPEECH_OPTIONS } from '../../types';
 import { vocabService, getWordCategories, getWordSubcategories } from '../../lib/vocabularyStore';
@@ -37,11 +36,8 @@ import {
   detectQuickPartOfSpeech,
   isLikelySpanish,
   getInstantEnrichmentSync,
-  TranslationProvider,
-  getPreferredTranslationProvider,
-  setPreferredTranslationProvider,
+  getPhoneticsForEnglishWord,
   translatePhrase,
-  isDeepLConfigured,
   isGeminiConfigured,
 } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
@@ -80,6 +76,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [exampleEs, setExampleEs] = useState('');
   const [phoneticGuide, setPhoneticGuide] = useState('');
   const [ipa, setIpa] = useState('');
+  const [hasManuallyEditedPhoneticGuide, setHasManuallyEditedPhoneticGuide] = useState(false);
+  const [hasManuallyEditedIpa, setHasManuallyEditedIpa] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
   const [partOfSpeech, setPartOfSpeech] = useState<PartOfSpeech>('Sustantivo');
@@ -91,13 +89,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [duplicateWordName, setDuplicateWordName] = useState('');
 
-  // Translation engine choice: 'ai' (Gemini) vs 'deepl' (DeepL API)
-  const [translationEngine, setTranslationEngine] = useState<TranslationProvider>(() => getPreferredTranslationProvider());
-  const [translatingSentence, setTranslatingSentence] = useState<{
-    direction: 'en_to_es' | 'es_to_en';
-    engine: TranslationProvider;
-  } | null>(null);
-  const [translatingWordWithEngine, setTranslatingWordWithEngine] = useState<TranslationProvider | null>(null);
+  const [translatingSentence, setTranslatingSentence] = useState<'en_to_es' | 'es_to_en' | null>(null);
 
   // Live Auto-Enrich state
   const [loadingAutoEnrich, setLoadingAutoEnrich] = useState(false);
@@ -182,6 +174,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setExampleEs(initialWord.exampleEs || (initialWord as any).exampleTranslation || '');
       setPhoneticGuide(initialWord.phoneticGuide || '');
       setIpa(initialWord.ipa || '');
+      setHasManuallyEditedPhoneticGuide(Boolean(initialWord.phoneticGuide));
+      setHasManuallyEditedIpa(Boolean(initialWord.ipa));
 
       const initCats = getWordCategories(initialWord);
       const initSubs = getWordSubcategories(initialWord);
@@ -206,6 +200,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setExampleEs('');
       setPhoneticGuide('');
       setIpa('');
+      setHasManuallyEditedPhoneticGuide(false);
+      setHasManuallyEditedIpa(false);
 
       const defaultGroup = defaultCategoryGroup || (allCategories[0]?.name || 'General');
       setSelectedCategories([defaultGroup]);
@@ -228,9 +224,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     setLoadingAutoEnrich(false);
     setIsCategoryDropdownOpen(false);
     setIsSubcategoryDropdownOpen(false);
-    setTranslationEngine(getPreferredTranslationProvider());
   }, [initialWord, defaultCategoryGroup, defaultCategorySub, isOpen, allCategories]);
 
+  // Direct execution of auto-enrichment (immediate local fill + fast network enrichment)
   // Direct execution of auto-enrichment (immediate local fill + fast network enrichment)
   const executeAutoEnrichNow = useCallback(async (customText?: string, customLang?: 'en' | 'es') => {
     if (initialWord) return;
@@ -245,26 +241,33 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     const instant = getInstantEnrichmentSync(sourceText, lang);
     if (instant) {
       if (lang === 'es') {
-        if (instant.word && !hasManuallyEditedEnglish) setWord(instant.word);
+        if (instant.word && !hasManuallyEditedEnglish) {
+          setWord(instant.word);
+          const phon = getPhoneticsForEnglishWord(instant.word);
+          if (!hasManuallyEditedPhoneticGuide && phon.phoneticGuide) setPhoneticGuide(phon.phoneticGuide);
+          if (!hasManuallyEditedIpa && phon.ipa) setIpa(phon.ipa);
+        }
       } else {
         if (instant.translation && !hasManuallyEditedTranslation) setTranslation(instant.translation);
+        if (!hasManuallyEditedPhoneticGuide && instant.phoneticGuide) setPhoneticGuide(instant.phoneticGuide);
+        if (!hasManuallyEditedIpa && instant.ipa) setIpa(instant.ipa);
       }
       if (instant.exampleEn && !hasManuallyEditedExamples) {
         setExampleEn((prev) => prev || instant.exampleEn || '');
         setExampleEs((prev) => prev || instant.exampleEs || '');
       }
-      if (instant.phoneticGuide) setPhoneticGuide((prev) => prev || instant.phoneticGuide || '');
-      if (instant.ipa) setIpa((prev) => prev || instant.ipa || '');
       if (instant.partOfSpeech && !isPosManuallySelected) setPartOfSpeech(instant.partOfSpeech);
     }
 
     setLoadingAutoEnrich(true);
     try {
-      const res = await autoEnrichWord(sourceText, lang, false, translationEngine);
+      const res = await autoEnrichWord(sourceText, lang, false);
       if (res) {
+        let currentEnWord = word;
         if (lang === 'es') {
-          if (!hasManuallyEditedEnglish) {
-            setWord(res.word || '');
+          if (!hasManuallyEditedEnglish && res.word) {
+            setWord(res.word);
+            currentEnWord = res.word;
           }
         } else {
           if (!hasManuallyEditedTranslation) {
@@ -275,8 +278,22 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           setExampleEn(res.exampleEn || '');
           setExampleEs(res.exampleEs || '');
         }
-        setPhoneticGuide((prev) => (prev ? prev : res.phoneticGuide || ''));
-        setIpa((prev) => (prev ? prev : res.ipa || ''));
+
+        // Always update phonetics from the English word if not manually edited by the user
+        if (!hasManuallyEditedPhoneticGuide) {
+          if (res.phoneticGuide) {
+            setPhoneticGuide(res.phoneticGuide);
+          } else if (currentEnWord) {
+            setPhoneticGuide(getPhoneticsForEnglishWord(currentEnWord).phoneticGuide);
+          }
+        }
+        if (!hasManuallyEditedIpa) {
+          if (res.ipa) {
+            setIpa(res.ipa);
+          } else if (currentEnWord) {
+            setIpa(getPhoneticsForEnglishWord(currentEnWord).ipa);
+          }
+        }
         if (!isPosManuallySelected && res.partOfSpeech) {
           setPartOfSpeech(normalizePartOfSpeech(res.partOfSpeech));
         }
@@ -294,8 +311,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     hasManuallyEditedEnglish,
     hasManuallyEditedTranslation,
     hasManuallyEditedExamples,
+    hasManuallyEditedPhoneticGuide,
+    hasManuallyEditedIpa,
     isPosManuallySelected,
-    translationEngine,
   ]);
 
   // Ultra-fast live auto-enrichment debounce (100ms)
@@ -337,23 +355,35 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     }
 
     const clean = text.trim();
-    if (clean.length >= 2 && !initialWord && inputLanguage === 'en') {
-      const instant = getInstantEnrichmentSync(clean, 'en');
-      if (instant) {
-        if (instant.partOfSpeech && !isPosManuallySelected) setPartOfSpeech(instant.partOfSpeech);
-        if (instant.ipa && !ipa) setIpa(instant.ipa);
-        if (instant.phoneticGuide && !phoneticGuide) setPhoneticGuide(instant.phoneticGuide);
-        if (instant.translation && !hasManuallyEditedTranslation) setTranslation(instant.translation);
-        if (instant.exampleEn && !hasManuallyEditedExamples && !exampleEn) {
-          setExampleEn(instant.exampleEn);
-          setExampleEs(instant.exampleEs || '');
+    if (clean.length > 0) {
+      // Immediately calculate authentic English phonetics (both IPA and Spanish phonetic guide)
+      const phon = getPhoneticsForEnglishWord(clean);
+      if (!hasManuallyEditedPhoneticGuide && phon.phoneticGuide) {
+        setPhoneticGuide(phon.phoneticGuide);
+      }
+      if (!hasManuallyEditedIpa && phon.ipa) {
+        setIpa(phon.ipa);
+      }
+
+      if (clean.length >= 2 && !initialWord && inputLanguage === 'en') {
+        const instant = getInstantEnrichmentSync(clean, 'en');
+        if (instant) {
+          if (instant.partOfSpeech && !isPosManuallySelected) setPartOfSpeech(instant.partOfSpeech);
+          if (instant.translation && !hasManuallyEditedTranslation) setTranslation(instant.translation);
+          if (instant.exampleEn && !hasManuallyEditedExamples && !exampleEn) {
+            setExampleEn(instant.exampleEn);
+            setExampleEs(instant.exampleEs || '');
+          }
+        }
+      } else if (clean.length > 0 && !isPosManuallySelected && inputLanguage === 'en') {
+        const quickPos = detectQuickPartOfSpeech(clean);
+        if (quickPos) {
+          setPartOfSpeech(quickPos);
         }
       }
-    } else if (clean.length > 0 && !isPosManuallySelected && inputLanguage === 'en') {
-      const quickPos = detectQuickPartOfSpeech(clean);
-      if (quickPos) {
-        setPartOfSpeech(quickPos);
-      }
+    } else {
+      if (!hasManuallyEditedPhoneticGuide) setPhoneticGuide('');
+      if (!hasManuallyEditedIpa) setIpa('');
     }
   };
 
@@ -367,10 +397,17 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     if (clean.length >= 2 && !initialWord && inputLanguage === 'es') {
       const instant = getInstantEnrichmentSync(clean, 'es');
       if (instant) {
-        if (instant.word && !hasManuallyEditedEnglish) setWord(instant.word);
+        if (instant.word && !hasManuallyEditedEnglish) {
+          setWord(instant.word);
+          const phon = getPhoneticsForEnglishWord(instant.word);
+          if (!hasManuallyEditedPhoneticGuide && phon.phoneticGuide) {
+            setPhoneticGuide(phon.phoneticGuide);
+          }
+          if (!hasManuallyEditedIpa && phon.ipa) {
+            setIpa(phon.ipa);
+          }
+        }
         if (instant.partOfSpeech && !isPosManuallySelected) setPartOfSpeech(instant.partOfSpeech);
-        if (instant.ipa && !ipa) setIpa(instant.ipa);
-        if (instant.phoneticGuide && !phoneticGuide) setPhoneticGuide(instant.phoneticGuide);
         if (instant.exampleEn && !hasManuallyEditedExamples && !exampleEn) {
           setExampleEn(instant.exampleEn);
           setExampleEs(instant.exampleEs || '');
@@ -398,14 +435,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     setHasManuallyEditedExamples(true);
   };
 
-  const handleSelectEngine = (engine: TranslationProvider) => {
-    setTranslationEngine(engine);
-    setPreferredTranslationProvider(engine);
-  };
-
-  // On-demand AI / DeepL suggestion generator for word
-  const handleRegenerateWithAI = async (forcedEngine?: TranslationProvider) => {
-    const engineToUse = forcedEngine || translationEngine;
+  // On-demand AI suggestion generator for word
+  const handleRegenerateWithAI = async () => {
     const currentInput = inputLanguage === 'es' ? translation.trim() : word.trim();
     if (!currentInput) {
       setValidationError(
@@ -416,20 +447,15 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       return;
     }
 
-    if (engineToUse === 'deepl' && !isDeepLConfigured()) {
-      setValidationError('La API de DeepL no está configurada. Puedes añadir tu clave en Ajustes.');
-      return;
-    }
-    if (engineToUse === 'ai' && !isGeminiConfigured()) {
+    if (!isGeminiConfigured()) {
       setValidationError('La API de Google Gemini no está configurada. Puedes añadir tu clave en Ajustes.');
       return;
     }
 
     setLoadingAutoEnrich(true);
-    setTranslatingWordWithEngine(engineToUse);
     setValidationError(null);
     try {
-      const res = await autoEnrichWord(currentInput, inputLanguage, true, engineToUse);
+      const res = await autoEnrichWord(currentInput, inputLanguage, true);
       if (res) {
         if (inputLanguage === 'es') {
           setWord(res.word || '');
@@ -438,8 +464,14 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         }
         setExampleEn(res.exampleEn || '');
         setExampleEs(res.exampleEs || '');
-        if (res.phoneticGuide) setPhoneticGuide(res.phoneticGuide);
-        if (res.ipa) setIpa(res.ipa);
+        if (res.phoneticGuide) {
+          setPhoneticGuide(res.phoneticGuide);
+          setHasManuallyEditedPhoneticGuide(false);
+        }
+        if (res.ipa) {
+          setIpa(res.ipa);
+          setHasManuallyEditedIpa(false);
+        }
         if (res.partOfSpeech) setPartOfSpeech(normalizePartOfSpeech(res.partOfSpeech));
         setHasManuallyEditedEnglish(true);
         setHasManuallyEditedTranslation(true);
@@ -447,19 +479,25 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       }
     } catch (e: any) {
       console.warn('Error al autocompletar con traducción:', e);
-      setValidationError(`Error al traducir con ${engineToUse === 'deepl' ? 'DeepL' : 'IA'}: ${e?.message || 'Error de conexión'}`);
+      setValidationError(`Error al traducir con IA: ${e?.message || 'Error de conexión'}`);
     } finally {
       setLoadingAutoEnrich(false);
-      setTranslatingWordWithEngine(null);
     }
   };
 
-  // Translate example phrases (sentences) with either AI or DeepL
-  const handleTranslateSentence = async (
-    direction: 'en_to_es' | 'es_to_en',
-    forcedEngine?: TranslationProvider
-  ) => {
-    const engineToUse = forcedEngine || translationEngine;
+  // Recalculate phonetics for the current English word on demand
+  const handleRecalculatePhonetics = (forcedWord?: string) => {
+    const targetWord = (forcedWord || word).trim();
+    if (!targetWord) return;
+    const phon = getPhoneticsForEnglishWord(targetWord);
+    setPhoneticGuide(phon.phoneticGuide);
+    setIpa(phon.ipa);
+    setHasManuallyEditedPhoneticGuide(false);
+    setHasManuallyEditedIpa(false);
+  };
+
+  // Translate example phrases (sentences) with AI
+  const handleTranslateSentence = async (direction: 'en_to_es' | 'es_to_en') => {
     const sourceText = direction === 'en_to_es' ? exampleEn.trim() : exampleEs.trim();
 
     if (!sourceText) {
@@ -471,22 +509,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       return;
     }
 
-    if (engineToUse === 'deepl' && !isDeepLConfigured()) {
-      setValidationError('La API de DeepL no está configurada. Puedes añadir tu clave en Ajustes.');
-      return;
-    }
-    if (engineToUse === 'ai' && !isGeminiConfigured()) {
+    if (!isGeminiConfigured()) {
       setValidationError('La API de Google Gemini no está configurada. Puedes añadir tu clave en Ajustes.');
       return;
     }
 
-    setTranslatingSentence({ direction, engine: engineToUse });
+    setTranslatingSentence(direction);
     setValidationError(null);
 
     try {
       const fromLang = direction === 'en_to_es' ? 'en' : 'es';
       const toLang = direction === 'en_to_es' ? 'es' : 'en';
-      const result = await translatePhrase(sourceText, fromLang, toLang, engineToUse);
+      const result = await translatePhrase(sourceText, fromLang, toLang);
       if (result && result.text) {
         if (direction === 'en_to_es') {
           setExampleEs(result.text);
@@ -594,7 +628,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     if (inputLanguage === 'es' && !cleanWord && finalTranslation) {
       setSaving(true);
       try {
-        const enriched = await autoEnrichWord(finalTranslation, 'es', false, translationEngine);
+        const enriched = await autoEnrichWord(finalTranslation, 'es', false);
         if (enriched?.word) {
           cleanWord = enriched.word.trim();
           if (!exampleEn && enriched.exampleEn) setExampleEn(enriched.exampleEn);
@@ -611,7 +645,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     } else if (inputLanguage === 'en' && cleanWord && !finalTranslation) {
       setSaving(true);
       try {
-        const enriched = await autoEnrichWord(cleanWord, 'en', false, translationEngine);
+        const enriched = await autoEnrichWord(cleanWord, 'en', false);
         if (enriched) {
           if (!finalTranslation) finalTranslation = enriched.translation;
           if (!exampleEn && enriched.exampleEn) setExampleEn(enriched.exampleEn);
@@ -662,6 +696,17 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     let finalIpa = ipa.trim();
     let finalPos = partOfSpeech;
 
+    // Ensure phonetics are always computed from the English word if empty
+    if (cleanWord) {
+      const autoPhon = getPhoneticsForEnglishWord(cleanWord);
+      if (!finalPhoneticGuide) {
+        finalPhoneticGuide = autoPhon.phoneticGuide;
+      }
+      if (!finalIpa) {
+        finalIpa = autoPhon.ipa;
+      }
+    }
+
     // Final fallback if translation is somehow still blank
     if (!finalTranslation) {
       finalTranslation = cleanWord;
@@ -689,8 +734,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     onSave({
       word: cleanWord,
       translation: finalTranslation,
-      phoneticGuide: finalPhoneticGuide || `"${cleanWord.toLowerCase()}"`,
-      ipa: finalIpa || '',
+      phoneticGuide: finalPhoneticGuide || (cleanWord ? getPhoneticsForEnglishWord(cleanWord).phoneticGuide : `"${cleanWord.toLowerCase()}"`),
+      ipa: finalIpa || (cleanWord ? getPhoneticsForEnglishWord(cleanWord).ipa : ''),
       definition: finalTranslation,
       exampleEn: finalExampleEn,
       exampleEs: finalExampleEs,
@@ -755,78 +800,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   ? 'Escribe la palabra en español. La app buscará su traducción al inglés, su pronunciación fonética y oraciones de ejemplo automáticamente.'
                   : 'Escribe la palabra en inglés. La app completará su traducción al español, su pronunciación fonética y oraciones de ejemplo automáticamente.'}
               </Text>
-            </View>
-
-            {/* Translation Engine Selector (IA vs DeepL) */}
-            <View style={[styles.engineSelectorCard, !isDark && styles.engineSelectorCardLight]}>
-              <View style={styles.engineSelectorHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  {translationEngine === 'ai' ? (
-                    <Sparkles size={14} color={!isDark ? '#e11d48' : '#ff758c'} />
-                  ) : (
-                    <Globe size={14} color="#0ea5e9" />
-                  )}
-                  <Text style={[styles.engineSelectorTitle, !isDark && styles.engineSelectorTitleLight]}>
-                    Motor de Traducción:
-                  </Text>
-                </View>
-                <Text style={[styles.engineBadgeNotice, !isDark && styles.engineBadgeNoticeLight]}>
-                  {translationEngine === 'ai' ? 'Google Gemini' : 'DeepL API'}
-                </Text>
-              </View>
-              <View style={styles.engineToggleRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.enginePill,
-                    !isDark && styles.enginePillLight,
-                    translationEngine === 'ai' && styles.enginePillActiveAi,
-                    !isDark && translationEngine === 'ai' && styles.enginePillActiveAiLight,
-                  ]}
-                  onPress={() => handleSelectEngine('ai')}
-                  activeOpacity={0.8}
-                >
-                  <Sparkles
-                    size={13}
-                    color={translationEngine === 'ai' ? (!isDark ? '#e11d48' : '#ff758c') : (!isDark ? '#64748b' : THEME.colors.textMuted)}
-                  />
-                  <Text
-                    style={[
-                      styles.enginePillText,
-                      !isDark && styles.enginePillTextLight,
-                      translationEngine === 'ai' && styles.enginePillTextActiveAi,
-                      !isDark && translationEngine === 'ai' && styles.enginePillTextActiveAiLight,
-                    ]}
-                  >
-                    ✨ IA (Gemini)
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.enginePill,
-                    !isDark && styles.enginePillLight,
-                    translationEngine === 'deepl' && styles.enginePillActiveDeepL,
-                    !isDark && translationEngine === 'deepl' && styles.enginePillActiveDeepLLight,
-                  ]}
-                  onPress={() => handleSelectEngine('deepl')}
-                  activeOpacity={0.8}
-                >
-                  <Globe
-                    size={13}
-                    color={translationEngine === 'deepl' ? '#0ea5e9' : (!isDark ? '#64748b' : THEME.colors.textMuted)}
-                  />
-                  <Text
-                    style={[
-                      styles.enginePillText,
-                      !isDark && styles.enginePillTextLight,
-                      translationEngine === 'deepl' && styles.enginePillTextActiveDeepL,
-                      !isDark && translationEngine === 'deepl' && styles.enginePillTextActiveDeepLLight,
-                    ]}
-                  >
-                    🌐 DeepL API
-                  </Text>
-                </TouchableOpacity>
-              </View>
             </View>
 
             {/* Language Selector Controls */}
@@ -908,39 +881,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                       style={[
                         styles.aiSuggestBtn,
                         !isDark && styles.aiSuggestBtnLight,
-                        translationEngine === 'ai' && styles.actionBtnActive,
                       ]}
-                      onPress={() => handleRegenerateWithAI('ai')}
+                      onPress={() => handleRegenerateWithAI()}
                       disabled={loadingAutoEnrich}
                       activeOpacity={0.7}
                     >
-                      {loadingAutoEnrich && translatingWordWithEngine === 'ai' ? (
+                      {loadingAutoEnrich ? (
                         <ActivityIndicator size="small" color={!isDark ? '#e11d48' : '#ff758c'} />
                       ) : (
                         <Sparkles size={12} color={!isDark ? '#e11d48' : '#ff758c'} />
                       )}
                       <Text style={[styles.aiSuggestBtnText, !isDark && styles.aiSuggestBtnTextLight]}>
-                        {loadingAutoEnrich && translatingWordWithEngine === 'ai' ? 'Traduciendo...' : 'IA'}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.deeplSuggestBtn,
-                        !isDark && styles.deeplSuggestBtnLight,
-                        translationEngine === 'deepl' && styles.actionBtnActive,
-                      ]}
-                      onPress={() => handleRegenerateWithAI('deepl')}
-                      disabled={loadingAutoEnrich}
-                      activeOpacity={0.7}
-                    >
-                      {loadingAutoEnrich && translatingWordWithEngine === 'deepl' ? (
-                        <ActivityIndicator size="small" color="#0ea5e9" />
-                      ) : (
-                        <Globe size={12} color="#0ea5e9" />
-                      )}
-                      <Text style={[styles.deeplSuggestBtnText, !isDark && styles.deeplSuggestBtnTextLight]}>
-                        {loadingAutoEnrich && translatingWordWithEngine === 'deepl' ? 'Traduciendo...' : 'DeepL'}
+                        {loadingAutoEnrich ? 'Traduciendo...' : 'IA'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -975,7 +927,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   <View style={styles.inlineLoadingBox}>
                     <ActivityIndicator size="small" color="#ff4d6d" />
                     <Text style={[styles.inlineLoadingText, !isDark && styles.inlineLoadingTextLight]}>
-                      Traduciendo con {translationEngine === 'deepl' ? 'DeepL' : 'IA'} y buscando datos...
+                      Traduciendo con IA y buscando datos...
                     </Text>
                   </View>
                 )}
@@ -1000,39 +952,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                       style={[
                         styles.aiSuggestBtn,
                         !isDark && styles.aiSuggestBtnLight,
-                        translationEngine === 'ai' && styles.actionBtnActive,
                       ]}
-                      onPress={() => handleRegenerateWithAI('ai')}
+                      onPress={() => handleRegenerateWithAI()}
                       disabled={loadingAutoEnrich}
                       activeOpacity={0.7}
                     >
-                      {loadingAutoEnrich && translatingWordWithEngine === 'ai' ? (
+                      {loadingAutoEnrich ? (
                         <ActivityIndicator size="small" color={!isDark ? '#e11d48' : '#ff758c'} />
                       ) : (
                         <Sparkles size={12} color={!isDark ? '#e11d48' : '#ff758c'} />
                       )}
                       <Text style={[styles.aiSuggestBtnText, !isDark && styles.aiSuggestBtnTextLight]}>
-                        {loadingAutoEnrich && translatingWordWithEngine === 'ai' ? 'Traduciendo...' : 'IA'}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.deeplSuggestBtn,
-                        !isDark && styles.deeplSuggestBtnLight,
-                        translationEngine === 'deepl' && styles.actionBtnActive,
-                      ]}
-                      onPress={() => handleRegenerateWithAI('deepl')}
-                      disabled={loadingAutoEnrich}
-                      activeOpacity={0.7}
-                    >
-                      {loadingAutoEnrich && translatingWordWithEngine === 'deepl' ? (
-                        <ActivityIndicator size="small" color="#0ea5e9" />
-                      ) : (
-                        <Globe size={12} color="#0ea5e9" />
-                      )}
-                      <Text style={[styles.deeplSuggestBtnText, !isDark && styles.deeplSuggestBtnTextLight]}>
-                        {loadingAutoEnrich && translatingWordWithEngine === 'deepl' ? 'Traduciendo...' : 'DeepL'}
+                        {loadingAutoEnrich ? 'Traduciendo...' : 'IA'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -1067,7 +998,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   <View style={styles.inlineLoadingBox}>
                     <ActivityIndicator size="small" color="#ff4d6d" />
                     <Text style={[styles.inlineLoadingText, !isDark && styles.inlineLoadingTextLight]}>
-                      Traduciendo con {translationEngine === 'deepl' ? 'DeepL' : 'IA'} y buscando datos...
+                      Traduciendo con IA y buscando datos...
                     </Text>
                   </View>
                 )}
@@ -1158,42 +1089,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     style={[
                       styles.aiSuggestBtn,
                       !isDark && styles.aiSuggestBtnLight,
-                      translationEngine === 'ai' && styles.actionBtnActive,
                     ]}
-                    onPress={() => handleTranslateSentence('en_to_es', 'ai')}
+                    onPress={() => handleTranslateSentence('en_to_es')}
                     disabled={Boolean(translatingSentence)}
                     activeOpacity={0.7}
                   >
-                    {translatingSentence?.direction === 'en_to_es' && translatingSentence.engine === 'ai' ? (
+                    {translatingSentence === 'en_to_es' ? (
                       <ActivityIndicator size="small" color={!isDark ? '#e11d48' : '#ff758c'} />
                     ) : (
                       <Sparkles size={12} color={!isDark ? '#e11d48' : '#ff758c'} />
                     )}
                     <Text style={[styles.aiSuggestBtnText, !isDark && styles.aiSuggestBtnTextLight]}>
-                      {translatingSentence?.direction === 'en_to_es' && translatingSentence.engine === 'ai'
-                        ? 'Traduciendo...'
-                        : 'IA'}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.deeplSuggestBtn,
-                      !isDark && styles.deeplSuggestBtnLight,
-                      translationEngine === 'deepl' && styles.actionBtnActive,
-                    ]}
-                    onPress={() => handleTranslateSentence('en_to_es', 'deepl')}
-                    disabled={Boolean(translatingSentence)}
-                    activeOpacity={0.7}
-                  >
-                    {translatingSentence?.direction === 'en_to_es' && translatingSentence.engine === 'deepl' ? (
-                      <ActivityIndicator size="small" color="#0ea5e9" />
-                    ) : (
-                      <Globe size={12} color="#0ea5e9" />
-                    )}
-                    <Text style={[styles.deeplSuggestBtnText, !isDark && styles.deeplSuggestBtnTextLight]}>
-                      {translatingSentence?.direction === 'en_to_es' && translatingSentence.engine === 'deepl'
-                        ? 'Traduciendo...'
-                        : 'DeepL'}
+                      {translatingSentence === 'en_to_es' ? 'Traduciendo...' : 'IA'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1231,42 +1138,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     style={[
                       styles.aiSuggestBtn,
                       !isDark && styles.aiSuggestBtnLight,
-                      translationEngine === 'ai' && styles.actionBtnActive,
                     ]}
-                    onPress={() => handleTranslateSentence('es_to_en', 'ai')}
+                    onPress={() => handleTranslateSentence('es_to_en')}
                     disabled={Boolean(translatingSentence)}
                     activeOpacity={0.7}
                   >
-                    {translatingSentence?.direction === 'es_to_en' && translatingSentence.engine === 'ai' ? (
+                    {translatingSentence === 'es_to_en' ? (
                       <ActivityIndicator size="small" color={!isDark ? '#e11d48' : '#ff758c'} />
                     ) : (
                       <Sparkles size={12} color={!isDark ? '#e11d48' : '#ff758c'} />
                     )}
                     <Text style={[styles.aiSuggestBtnText, !isDark && styles.aiSuggestBtnTextLight]}>
-                      {translatingSentence?.direction === 'es_to_en' && translatingSentence.engine === 'ai'
-                        ? 'Traduciendo...'
-                        : 'IA'}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.deeplSuggestBtn,
-                      !isDark && styles.deeplSuggestBtnLight,
-                      translationEngine === 'deepl' && styles.actionBtnActive,
-                    ]}
-                    onPress={() => handleTranslateSentence('es_to_en', 'deepl')}
-                    disabled={Boolean(translatingSentence)}
-                    activeOpacity={0.7}
-                  >
-                    {translatingSentence?.direction === 'es_to_en' && translatingSentence.engine === 'deepl' ? (
-                      <ActivityIndicator size="small" color="#0ea5e9" />
-                    ) : (
-                      <Globe size={12} color="#0ea5e9" />
-                    )}
-                    <Text style={[styles.deeplSuggestBtnText, !isDark && styles.deeplSuggestBtnTextLight]}>
-                      {translatingSentence?.direction === 'es_to_en' && translatingSentence.engine === 'deepl'
-                        ? 'Traduciendo...'
-                        : 'DeepL'}
+                      {translatingSentence === 'es_to_en' ? 'Traduciendo...' : 'IA'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1294,51 +1177,93 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             </View>
 
             {/* 5. Pronunciación Fonética (Guía & IPA) */}
-            <View style={styles.rowCols}>
-              <View style={styles.colHalf}>
-                <Text style={[styles.label, !isDark && styles.labelLight]}>
-                  Guía Fonética (Aprox.)
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    !isDark && styles.inputLight,
-                    focusedField === 'phoneticGuide' && styles.inputFocused,
-                  ]}
-                  placeholder='Ej: "breik-zru"'
-                  placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                  value={phoneticGuide}
-                  onChangeText={setPhoneticGuide}
-                  onFocus={() => {
-                    setFocusedField('phoneticGuide');
-                    setIsCategoryDropdownOpen(false);
-                    setIsSubcategoryDropdownOpen(false);
-                  }}
-                  onBlur={() => setFocusedField(null)}
-                />
+            <View style={styles.inputGroup}>
+              <View style={styles.labelActionRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[styles.label, !isDark && styles.labelLight]}>
+                    Pronunciación Fonética (cómo se dice en inglés)
+                  </Text>
+                </View>
+                <View style={styles.labelActions}>
+                  {word.trim().length > 0 && (
+                    <TouchableOpacity
+                      style={[styles.speakerBtn, !isDark && styles.speakerBtnLight]}
+                      onPress={() => vocabService.speak(word)}
+                      activeOpacity={0.7}
+                    >
+                      <Volume2 size={13} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
+                      <Text style={[styles.speakerBtnText, !isDark && styles.speakerBtnTextLight]}>Escuchar</Text>
+                    </TouchableOpacity>
+                  )}
+                  {word.trim().length > 0 && (
+                    <TouchableOpacity
+                      style={[styles.aiSuggestBtn, !isDark && styles.aiSuggestBtnLight]}
+                      onPress={() => handleRecalculatePhonetics()}
+                      activeOpacity={0.7}
+                    >
+                      <RotateCcw size={12} color={!isDark ? '#e11d48' : '#ff758c'} />
+                      <Text style={[styles.aiSuggestBtnText, !isDark && styles.aiSuggestBtnTextLight]}>Recalcular</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
 
-              <View style={styles.colHalf}>
-                <Text style={[styles.label, !isDark && styles.labelLight]}>
-                  Fonética IPA
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    !isDark && styles.inputLight,
-                    focusedField === 'ipa' && styles.inputFocused,
-                  ]}
-                  placeholder="Ej: /ˈbreɪkˌθruː/"
-                  placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                  value={ipa}
-                  onChangeText={setIpa}
-                  onFocus={() => {
-                    setFocusedField('ipa');
-                    setIsCategoryDropdownOpen(false);
-                    setIsSubcategoryDropdownOpen(false);
-                  }}
-                  onBlur={() => setFocusedField(null)}
-                />
+              <Text style={[styles.autoPosSubtext, !isDark && styles.autoPosSubtextLight, { marginTop: -2, marginBottom: 2 }]}>
+                ✨ Se completa automáticamente de cómo se dice la palabra en inglés (leído en español e IPA).
+              </Text>
+
+              <View style={styles.rowCols}>
+                <View style={styles.colHalf}>
+                  <Text style={[styles.subLabel, !isDark && styles.subLabelLight]}>
+                    Guía Fonética (Lectura en español)
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      !isDark && styles.inputLight,
+                      focusedField === 'phoneticGuide' && styles.inputFocused,
+                    ]}
+                    placeholder='Ej: "breik-zru", "áp-l"'
+                    placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                    value={phoneticGuide}
+                    onChangeText={(text) => {
+                      setPhoneticGuide(text);
+                      setHasManuallyEditedPhoneticGuide(true);
+                    }}
+                    onFocus={() => {
+                      setFocusedField('phoneticGuide');
+                      setIsCategoryDropdownOpen(false);
+                      setIsSubcategoryDropdownOpen(false);
+                    }}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                </View>
+
+                <View style={styles.colHalf}>
+                  <Text style={[styles.subLabel, !isDark && styles.subLabelLight]}>
+                    Fonética IPA (Internacional)
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      !isDark && styles.inputLight,
+                      focusedField === 'ipa' && styles.inputFocused,
+                    ]}
+                    placeholder="Ej: /ˈbreɪkˌθruː/, /ˈæp.əl/"
+                    placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                    value={ipa}
+                    onChangeText={(text) => {
+                      setIpa(text);
+                      setHasManuallyEditedIpa(true);
+                    }}
+                    onFocus={() => {
+                      setFocusedField('ipa');
+                      setIsCategoryDropdownOpen(false);
+                      setIsSubcategoryDropdownOpen(false);
+                    }}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                </View>
               </View>
             </View>
 
@@ -2029,6 +1954,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
   },
+  subLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: THEME.colors.textMuted,
+  },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2087,128 +2017,9 @@ const styles = StyleSheet.create({
   aiSuggestBtnTextLight: {
     color: '#e11d48',
   },
-  deeplSuggestBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: 'rgba(14, 165, 233, 0.12)',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(14, 165, 233, 0.3)',
-  },
-  deeplSuggestBtnLight: {
-    backgroundColor: '#f0f9ff',
-    borderColor: '#7dd3fc',
-  },
-  deeplSuggestBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#38bdf8',
-  },
-  deeplSuggestBtnTextLight: {
-    color: '#0284c7',
-  },
   actionBtnActive: {
     borderWidth: 1.5,
     borderColor: '#ff4d6d',
-  },
-  engineSelectorCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: THEME.radius.lg,
-    padding: 10,
-    gap: 8,
-    marginBottom: 4,
-  },
-  engineSelectorCardLight: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#e2e8f0',
-  },
-  engineSelectorHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  engineSelectorTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  engineSelectorTitleLight: {
-    color: '#0f172a',
-  },
-  engineToggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  enginePill: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    borderRadius: THEME.radius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  enginePillLight: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e2e8f0',
-  },
-  enginePillActiveAi: {
-    backgroundColor: 'rgba(230, 46, 76, 0.18)',
-    borderColor: THEME.colors.crimson,
-  },
-  enginePillActiveAiLight: {
-    backgroundColor: '#ffe4e6',
-    borderColor: '#e11d48',
-  },
-  enginePillActiveDeepL: {
-    backgroundColor: 'rgba(14, 165, 233, 0.18)',
-    borderColor: '#0ea5e9',
-  },
-  enginePillActiveDeepLLight: {
-    backgroundColor: '#e0f2fe',
-    borderColor: '#0284c7',
-  },
-  enginePillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: THEME.colors.textMuted,
-  },
-  enginePillTextLight: {
-    color: '#64748b',
-  },
-  enginePillTextActiveAi: {
-    color: '#ff758c',
-    fontWeight: '700',
-  },
-  enginePillTextActiveAiLight: {
-    color: '#e11d48',
-    fontWeight: '700',
-  },
-  enginePillTextActiveDeepL: {
-    color: '#38bdf8',
-    fontWeight: '700',
-  },
-  enginePillTextActiveDeepLLight: {
-    color: '#0284c7',
-    fontWeight: '700',
-  },
-  engineBadgeNotice: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: THEME.colors.textSubtle,
-  },
-  engineBadgeNoticeLight: {
-    color: '#94a3b8',
   },
   inlineLoadingBox: {
     flexDirection: 'row',
@@ -2497,6 +2308,9 @@ const styles = StyleSheet.create({
   },
   labelLight: {
     color: '#0f172a',
+  },
+  subLabelLight: {
+    color: '#64748b',
   },
   inputLight: {
     backgroundColor: '#f8fafc',

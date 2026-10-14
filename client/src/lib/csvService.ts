@@ -3,7 +3,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { WordItem, WordLevel, WordStatus } from '../types';
-import { normalizePartOfSpeech } from './dictionaryService';
+import { normalizePartOfSpeech, getPhoneticsForEnglishWord } from './dictionaryService';
 
 /**
  * Escapes a single CSV value according to RFC 4180
@@ -463,6 +463,8 @@ export function parseCsvToWords(csvText: string): WordItem[] {
     const cleanWord = word.charAt(0).toUpperCase() + word.slice(1);
     const cleanLower = word.toLowerCase();
 
+    const phon = getPhoneticsForEnglishWord(cleanLower);
+
     const wordItem: WordItem = {
       id: `${Date.now()}_${rowIndex}_${Math.random().toString(36).substr(2, 5)}`,
       word: cleanWord,
@@ -471,8 +473,8 @@ export function parseCsvToWords(csvText: string): WordItem[] {
       categorySub: getVal('categorySub') || '',
       level,
       partOfSpeech: normalizePartOfSpeech(getVal('partOfSpeech') || 'Sustantivo'),
-      ipa: getVal('ipa') || `/${cleanLower}/`,
-      phoneticGuide: getVal('phoneticGuide') || `"${cleanLower}"`,
+      ipa: getVal('ipa') || phon.ipa || `/${cleanLower}/`,
+      phoneticGuide: getVal('phoneticGuide') || phon.phoneticGuide || `"${cleanLower}"`,
       phoneticNote: getVal('phoneticNote') || 'Pronunciación estándar',
       exampleEn: getVal('exampleEn') || `${cleanWord} is useful in daily conversations.`,
       exampleEs: getVal('exampleEs') || `Se utiliza en conversaciones cotidianas.`,

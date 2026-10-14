@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
 import wordsRoutes from './routes/words.js';
 import testsRoutes from './routes/tests.js';
-import translateRoutes from './routes/translate.js';
 import { initDb } from './db.js';
 
 dotenv.config();
@@ -50,7 +49,6 @@ app.get('/api/health', (_req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/words', wordsRoutes);
 app.use('/api/tests', testsRoutes);
-app.use('/api/translate', translateRoutes);
 
 // 404 Handler
 app.use((_req: Request, res: Response) => {

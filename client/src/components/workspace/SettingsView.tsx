@@ -27,7 +27,6 @@ import {
   Download,
   Trash2,
   Languages,
-  Globe,
   AlertCircle,
 } from 'lucide-react-native';
 import { UserProfile } from '../../types';
@@ -36,12 +35,6 @@ import {
   getGeminiApiKey,
   setGeminiApiKey,
   testGeminiConnection,
-  getDeepLApiKey,
-  setDeepLApiKey,
-  testDeepLConnection,
-  getPreferredTranslationProvider,
-  setPreferredTranslationProvider,
-  TranslationProvider,
 } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
@@ -68,16 +61,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const { isPhone } = useResponsive();
   const [audioSettings, setAudioSettings] = useState(() => vocabService.getAudioSettings());
-  const [translationProvider, setTranslationProvider] = useState<TranslationProvider>(() => getPreferredTranslationProvider());
   const [apiKey, setApiKey] = useState(() => getGeminiApiKey());
-  const [deepLKey, setDeepLKey] = useState(() => getDeepLApiKey());
   const [isSavedKey, setIsSavedKey] = useState(false);
-  const [isSavedDeepLKey, setIsSavedDeepLKey] = useState(false);
   const [geminiTestStatus, setGeminiTestStatus] = useState<{ testing: boolean; message: string; success?: boolean }>({
-    testing: false,
-    message: '',
-  });
-  const [deepLTestStatus, setDeepLTestStatus] = useState<{ testing: boolean; message: string; success?: boolean }>({
     testing: false,
     message: '',
   });
@@ -93,21 +79,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     vocabService.updateAudioSettings(updated);
   };
 
-  const handleSelectProvider = (provider: TranslationProvider) => {
-    setTranslationProvider(provider);
-    setPreferredTranslationProvider(provider);
-  };
-
   const handleSaveApiKey = () => {
     setGeminiApiKey(apiKey);
     setIsSavedKey(true);
     setTimeout(() => setIsSavedKey(false), 2000);
-  };
-
-  const handleSaveDeepLKey = () => {
-    setDeepLApiKey(deepLKey);
-    setIsSavedDeepLKey(true);
-    setTimeout(() => setIsSavedDeepLKey(false), 2000);
   };
 
   const handleTestGemini = async () => {
@@ -123,24 +98,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setGeminiTestStatus({
         testing: false,
         message: 'Error al verificar la clave de Gemini.',
-        success: false,
-      });
-    }
-  };
-
-  const handleTestDeepL = async () => {
-    setDeepLTestStatus({ testing: true, message: '' });
-    try {
-      const res = await testDeepLConnection(deepLKey);
-      setDeepLTestStatus({
-        testing: false,
-        message: res.message,
-        success: res.success,
-      });
-    } catch {
-      setDeepLTestStatus({
-        testing: false,
-        message: 'Error al verificar la clave de DeepL.',
         success: false,
       });
     }
@@ -328,132 +285,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Motor de Traducción & Inteligencia Artificial (IA y DeepL) */}
+      {/* Inteligencia Artificial (Google Gemini) */}
       <View style={[styles.card, !isDark && styles.cardLight]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <Languages size={18} color={THEME.colors.crimsonLight} />
+          <Sparkles size={18} color={THEME.colors.crimsonLight} />
           <Text style={[styles.sectionTitle, !isDark && styles.titleLight, { marginBottom: 0 }]}>
-            Motor de Traducción & Inteligencia Artificial
+            Inteligencia Artificial (Google Gemini)
           </Text>
         </View>
         <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 14 }]}>
-          Elige qué servicio utilizar para traducir palabras y oraciones completas en PronounceIt.
+          Configura tu clave de Google Gemini para traducir palabras, generar oraciones y enriquecer vocabulario con IA.
         </Text>
-
-        {/* Selector de Proveedor: IA vs DeepL */}
-        <Text style={[styles.fieldSublabel, !isDark && styles.fieldSublabelLight]}>
-          Motor preferido para palabras y frases:
-        </Text>
-        <View style={styles.engineToggleRow}>
-          <TouchableOpacity
-            style={[
-              styles.engineOptionBtn,
-              !isDark && styles.engineOptionBtnLight,
-              translationProvider === 'ai' && styles.engineOptionBtnActive,
-            ]}
-            onPress={() => handleSelectProvider('ai')}
-            activeOpacity={0.8}
-          >
-            <Sparkles size={16} color={translationProvider === 'ai' ? '#ff758c' : THEME.colors.textMuted} style={{ marginRight: 8 }} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.engineOptionTitle, !isDark && styles.engineOptionTitleLight, translationProvider === 'ai' && styles.engineOptionTitleActive]}>
-                ✨ IA (Google Gemini)
-              </Text>
-              <Text style={[styles.engineOptionDesc, !isDark && styles.engineOptionDescLight]}>
-                Traducción inteligente, fonética, definiciones y frases
-              </Text>
-            </View>
-            {translationProvider === 'ai' && <Check size={16} color="#ff758c" />}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.engineOptionBtn,
-              !isDark && styles.engineOptionBtnLight,
-              translationProvider === 'deepl' && styles.engineOptionBtnActive,
-            ]}
-            onPress={() => handleSelectProvider('deepl')}
-            activeOpacity={0.8}
-          >
-            <Globe size={16} color={translationProvider === 'deepl' ? '#0284c7' : THEME.colors.textMuted} style={{ marginRight: 8 }} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.engineOptionTitle, !isDark && styles.engineOptionTitleLight, translationProvider === 'deepl' && styles.engineOptionTitleActive]}>
-                🌐 DeepL API
-              </Text>
-              <Text style={[styles.engineOptionDesc, !isDark && styles.engineOptionDescLight]}>
-                Traducción neuronal de alta fidelidad para palabras y frases
-              </Text>
-            </View>
-            {translationProvider === 'deepl' && <Check size={16} color="#0284c7" />}
-          </TouchableOpacity>
-        </View>
-
-        {/* Configuración DeepL API */}
-        <View style={[styles.subApiBox, !isDark && styles.subApiBoxLight]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <Text style={[styles.apiBoxTitle, !isDark && styles.titleLight]}>
-              Clave API de DeepL (Free o Pro)
-            </Text>
-            {deepLKey ? (
-              <View style={[styles.apiBadge, deepLKey.endsWith(':fx') ? styles.apiBadgeFree : styles.apiBadgePro]}>
-                <Text style={styles.apiBadgeText}>
-                  {deepLKey.endsWith(':fx') ? 'DeepL Free (:fx)' : 'DeepL Pro'}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-          <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 10 }]}>
-            Compatible con claves gratuitas terminadas en :fx o cuentas DeepL Pro.
-          </Text>
-
-          <View style={styles.keyInputRow}>
-            <TextInput
-              style={[styles.keyInput, !isDark && styles.keyInputLight]}
-              placeholder="Ej: 00000000-0000-0000-0000-000000000000:fx"
-              placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-              value={deepLKey}
-              onChangeText={setDeepLKey}
-              secureTextEntry
-              autoCapitalize="none"
-            />
-            <TouchableOpacity
-              style={styles.saveKeyBtn}
-              onPress={handleSaveDeepLKey}
-              activeOpacity={0.8}
-            >
-              {isSavedDeepLKey ? <Check size={18} color="#ffffff" /> : <Text style={styles.saveKeyText}>Guardar</Text>}
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', marginTop: 8 }}>
-            <TouchableOpacity
-              style={[styles.testConnectionBtn, !isDark && styles.testConnectionBtnLight]}
-              onPress={handleTestDeepL}
-              disabled={deepLTestStatus.testing}
-              activeOpacity={0.8}
-            >
-              {deepLTestStatus.testing ? (
-                <ActivityIndicator size="small" color="#0284c7" style={{ marginRight: 6 }} />
-              ) : (
-                <Globe size={14} color="#0284c7" style={{ marginRight: 6 }} />
-              )}
-              <Text style={[styles.testConnectionBtnText, { color: '#0284c7' }]}>
-                {deepLTestStatus.testing ? 'Verificando con DeepL...' : 'Probar conexión con DeepL'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {deepLTestStatus.message ? (
-            <View style={[styles.statusMsgBox, deepLTestStatus.success ? styles.statusSuccessBox : styles.statusErrorBox]}>
-              <Text style={[styles.statusMsgText, deepLTestStatus.success ? styles.statusSuccessText : styles.statusErrorText]}>
-                {deepLTestStatus.message}
-              </Text>
-            </View>
-          ) : null}
-        </View>
 
         {/* Configuración Google Gemini API */}
-        <View style={[styles.subApiBox, !isDark && styles.subApiBoxLight, { marginTop: 14 }]}>
+        <View style={[styles.subApiBox, !isDark && styles.subApiBoxLight]}>
           <Text style={[styles.apiBoxTitle, !isDark && styles.titleLight]}>
             Clave API de Google Gemini (Opcional)
           </Text>

@@ -5,21 +5,246 @@ import { IRREGULAR_VERBS } from '../data/irregularVerbs';
 import { backendApi } from './apiClient';
 
 const IRREGULAR_VERB_SET = new Set<string>();
+const IRREGULAR_VERB_PHONETICS: Record<string, string> = {};
 IRREGULAR_VERBS.forEach((v) => {
-  if (v.infinitive) IRREGULAR_VERB_SET.add(v.infinitive.toLowerCase().trim());
+  if (v.infinitive) {
+    const inf = v.infinitive.toLowerCase().trim();
+    IRREGULAR_VERB_SET.add(inf);
+    if (v.phonetics?.infinitive) {
+      IRREGULAR_VERB_PHONETICS[inf] = v.phonetics.infinitive.trim();
+    }
+  }
   if (v.pastSimple) {
-    v.pastSimple.split(/[\/,]/).forEach((s) => {
+    const parts = v.pastSimple.split(/[\/,]/);
+    const ipaParts = (v.phonetics?.pastSimple || '').split(/[\/,]|\s+-\s+/);
+    parts.forEach((s, idx) => {
       const c = s.trim().toLowerCase();
-      if (c) IRREGULAR_VERB_SET.add(c);
+      if (c) {
+        IRREGULAR_VERB_SET.add(c);
+        if (ipaParts[idx]?.trim() || v.phonetics?.pastSimple) {
+          IRREGULAR_VERB_PHONETICS[c] = (ipaParts[idx]?.trim() || v.phonetics!.pastSimple).trim();
+        }
+      }
     });
   }
   if (v.pastParticiple) {
-    v.pastParticiple.split(/[\/,]/).forEach((s) => {
+    const parts = v.pastParticiple.split(/[\/,]/);
+    const ipaParts = (v.phonetics?.pastParticiple || '').split(/[\/,]|\s+-\s+/);
+    parts.forEach((s, idx) => {
       const c = s.trim().toLowerCase();
-      if (c) IRREGULAR_VERB_SET.add(c);
+      if (c) {
+        IRREGULAR_VERB_SET.add(c);
+        if (ipaParts[idx]?.trim() || v.phonetics?.pastParticiple) {
+          IRREGULAR_VERB_PHONETICS[c] = (ipaParts[idx]?.trim() || v.phonetics!.pastParticiple).trim();
+        }
+      }
     });
   }
 });
+
+// Curated high-frequency English lexical phonetics for 0ms instant, authentic transcription
+export const COMMON_ENGLISH_PHONETICS: Record<string, { ipa: string; phoneticGuide: string }> = {
+  the: { ipa: '/ðiː/', phoneticGuide: '"de"' },
+  a: { ipa: '/eɪ/', phoneticGuide: '"ei"' },
+  an: { ipa: '/æn/', phoneticGuide: '"an"' },
+  to: { ipa: '/tuː/', phoneticGuide: '"tu"' },
+  of: { ipa: '/ʌv/', phoneticGuide: '"ov"' },
+  and: { ipa: '/ænd/', phoneticGuide: '"and"' },
+  in: { ipa: '/ɪn/', phoneticGuide: '"in"' },
+  is: { ipa: '/ɪz/', phoneticGuide: '"is"' },
+  it: { ipa: '/ɪt/', phoneticGuide: '"it"' },
+  you: { ipa: '/juː/', phoneticGuide: '"yu"' },
+  that: { ipa: '/ðæt/', phoneticGuide: '"dat"' },
+  he: { ipa: '/hiː/', phoneticGuide: '"jii"' },
+  was: { ipa: '/wɒz/', phoneticGuide: '"uos"' },
+  for: { ipa: '/fɔːr/', phoneticGuide: '"for"' },
+  on: { ipa: '/ɒn/', phoneticGuide: '"on"' },
+  are: { ipa: '/ɑːr/', phoneticGuide: '"aar"' },
+  as: { ipa: '/æz/', phoneticGuide: '"as"' },
+  with: { ipa: '/wɪð/', phoneticGuide: '"uid"' },
+  his: { ipa: '/hɪz/', phoneticGuide: '"jis"' },
+  they: { ipa: '/ðeɪ/', phoneticGuide: '"dei"' },
+  i: { ipa: '/aɪ/', phoneticGuide: '"ai"' },
+  at: { ipa: '/æt/', phoneticGuide: '"at"' },
+  be: { ipa: '/biː/', phoneticGuide: '"bii"' },
+  this: { ipa: '/ðɪs/', phoneticGuide: '"dis"' },
+  have: { ipa: '/hæv/', phoneticGuide: '"jav"' },
+  from: { ipa: '/frɒm/', phoneticGuide: '"from"' },
+  or: { ipa: '/ɔːr/', phoneticGuide: '"or"' },
+  one: { ipa: '/wʌn/', phoneticGuide: '"uan"' },
+  had: { ipa: '/hæd/', phoneticGuide: '"jad"' },
+  by: { ipa: '/baɪ/', phoneticGuide: '"bai"' },
+  word: { ipa: '/wɜːrd/', phoneticGuide: '"uerd"' },
+  but: { ipa: '/bʌt/', phoneticGuide: '"bat"' },
+  not: { ipa: '/nɒt/', phoneticGuide: '"not"' },
+  what: { ipa: '/wɒt/', phoneticGuide: '"uot"' },
+  all: { ipa: '/ɔːl/', phoneticGuide: '"ool"' },
+  were: { ipa: '/wɜːr/', phoneticGuide: '"uer"' },
+  we: { ipa: '/wiː/', phoneticGuide: '"uii"' },
+  when: { ipa: '/wen/', phoneticGuide: '"uen"' },
+  your: { ipa: '/jɔːr/', phoneticGuide: '"yor"' },
+  can: { ipa: '/kæn/', phoneticGuide: '"kan"' },
+  said: { ipa: '/sed/', phoneticGuide: '"sed"' },
+  there: { ipa: '/ðeər/', phoneticGuide: '"der"' },
+  use: { ipa: '/juːz/', phoneticGuide: '"yus"' },
+  each: { ipa: '/iːtʃ/', phoneticGuide: '"iich"' },
+  which: { ipa: '/wɪtʃ/', phoneticGuide: '"uich"' },
+  she: { ipa: '/ʃiː/', phoneticGuide: '"shii"' },
+  do: { ipa: '/duː/', phoneticGuide: '"du"' },
+  how: { ipa: '/haʊ/', phoneticGuide: '"jau"' },
+  their: { ipa: '/ðeər/', phoneticGuide: '"der"' },
+  if: { ipa: '/ɪf/', phoneticGuide: '"if"' },
+  will: { ipa: '/wɪl/', phoneticGuide: '"uil"' },
+  up: { ipa: '/ʌp/', phoneticGuide: '"ap"' },
+  other: { ipa: '/ˈʌð.ər/', phoneticGuide: '"á-der"' },
+  about: { ipa: '/əˈbaʊt/', phoneticGuide: '"e-báut"' },
+  out: { ipa: '/aʊt/', phoneticGuide: '"aut"' },
+  many: { ipa: '/ˈmen.i/', phoneticGuide: '"mé-ni"' },
+  then: { ipa: '/ðen/', phoneticGuide: '"den"' },
+  them: { ipa: '/ðem/', phoneticGuide: '"dem"' },
+  these: { ipa: '/ðiːz/', phoneticGuide: '"diis"' },
+  so: { ipa: '/soʊ/', phoneticGuide: '"sou"' },
+  some: { ipa: '/sʌm/', phoneticGuide: '"sam"' },
+  her: { ipa: '/hɜːr/', phoneticGuide: '"jer"' },
+  would: { ipa: '/wʊd/', phoneticGuide: '"uud"' },
+  could: { ipa: '/kʊd/', phoneticGuide: '"kud"' },
+  should: { ipa: '/ʃʊd/', phoneticGuide: '"shud"' },
+  make: { ipa: '/meɪk/', phoneticGuide: '"meik"' },
+  like: { ipa: '/laɪk/', phoneticGuide: '"laik"' },
+  him: { ipa: '/hɪm/', phoneticGuide: '"jim"' },
+  into: { ipa: '/ˈɪn.tuː/', phoneticGuide: '"ín-tu"' },
+  time: { ipa: '/taɪm/', phoneticGuide: '"taim"' },
+  has: { ipa: '/hæz/', phoneticGuide: '"jas"' },
+  look: { ipa: '/lʊk/', phoneticGuide: '"luk"' },
+  two: { ipa: '/tuː/', phoneticGuide: '"tu"' },
+  more: { ipa: '/mɔːr/', phoneticGuide: '"mor"' },
+  write: { ipa: '/raɪt/', phoneticGuide: '"rait"' },
+  go: { ipa: '/ɡoʊ/', phoneticGuide: '"gou"' },
+  see: { ipa: '/siː/', phoneticGuide: '"sii"' },
+  number: { ipa: '/ˈnʌm.bər/', phoneticGuide: '"nám-ber"' },
+  no: { ipa: '/noʊ/', phoneticGuide: '"nou"' },
+  way: { ipa: '/weɪ/', phoneticGuide: '"uei"' },
+  people: { ipa: '/ˈpiː.pəl/', phoneticGuide: '"píi-pl"' },
+  my: { ipa: '/maɪ/', phoneticGuide: '"mai"' },
+  than: { ipa: '/ðæn/', phoneticGuide: '"dan"' },
+  first: { ipa: '/fɜːrst/', phoneticGuide: '"ferst"' },
+  water: { ipa: '/ˈwɔː.tər/', phoneticGuide: '"uó-ter"' },
+  been: { ipa: '/biːn/', phoneticGuide: '"biin"' },
+  call: { ipa: '/kɔːl/', phoneticGuide: '"kool"' },
+  who: { ipa: '/huː/', phoneticGuide: '"ju"' },
+  oil: { ipa: '/ɔɪl/', phoneticGuide: '"oil"' },
+  its: { ipa: '/ɪts/', phoneticGuide: '"its"' },
+  now: { ipa: '/naʊ/', phoneticGuide: '"nau"' },
+  find: { ipa: '/faɪnd/', phoneticGuide: '"faind"' },
+  long: { ipa: '/lɒŋ/', phoneticGuide: '"long"' },
+  down: { ipa: '/daʊn/', phoneticGuide: '"daun"' },
+  day: { ipa: '/deɪ/', phoneticGuide: '"dei"' },
+  did: { ipa: '/dɪd/', phoneticGuide: '"did"' },
+  get: { ipa: '/ɡet/', phoneticGuide: '"guet"' },
+  come: { ipa: '/kʌm/', phoneticGuide: '"kam"' },
+  made: { ipa: '/meɪd/', phoneticGuide: '"meid"' },
+  may: { ipa: '/meɪ/', phoneticGuide: '"mei"' },
+  part: { ipa: '/pɑːrt/', phoneticGuide: '"paart"' },
+  apple: { ipa: '/ˈæp.əl/', phoneticGuide: '"áp-l"' },
+  beautiful: { ipa: '/ˈbjuː.tɪ.fəl/', phoneticGuide: '"biú-ti-ful"' },
+  hello: { ipa: '/həˈloʊ/', phoneticGuide: '"je-lóu"' },
+  good: { ipa: '/ɡʊd/', phoneticGuide: '"gud"' },
+  morning: { ipa: '/ˈmɔːr.nɪŋ/', phoneticGuide: '"móor-ning"' },
+  night: { ipa: '/naɪt/', phoneticGuide: '"nait"' },
+  tomorrow: { ipa: '/təˈmɒr.oʊ/', phoneticGuide: '"tu-mó-rou"' },
+  yesterday: { ipa: '/ˈjes.tər.deɪ/', phoneticGuide: '"yés-ter-dei"' },
+  today: { ipa: '/təˈdeɪ/', phoneticGuide: '"tu-déi"' },
+  family: { ipa: '/ˈfæm.əl.i/', phoneticGuide: '"fá-mi-li"' },
+  friend: { ipa: '/frend/', phoneticGuide: '"frend"' },
+  school: { ipa: '/skuːl/', phoneticGuide: '"skuul"' },
+  house: { ipa: '/haʊs/', phoneticGuide: '"jaus"' },
+  work: { ipa: '/wɜːrk/', phoneticGuide: '"uerk"' },
+  world: { ipa: '/wɜːrld/', phoneticGuide: '"uerld"' },
+  thank: { ipa: '/θæŋk/', phoneticGuide: '"zank"' },
+  thanks: { ipa: '/θæŋks/', phoneticGuide: '"zanks"' },
+  please: { ipa: '/pliːz/', phoneticGuide: '"pliis"' },
+  sorry: { ipa: '/ˈsɒr.i/', phoneticGuide: '"só-ri"' },
+  welcome: { ipa: '/ˈwel.kəm/', phoneticGuide: '"uél-kam"' },
+  because: { ipa: '/bɪˈkəz/', phoneticGuide: '"bi-kóos"' },
+  always: { ipa: '/ˈɔːl.weɪz/', phoneticGuide: '"óol-ueis"' },
+  sometimes: { ipa: '/ˈsʌm.taɪmz/', phoneticGuide: '"sám-taims"' },
+  never: { ipa: '/ˈnev.ər/', phoneticGuide: '"né-ver"' },
+  together: { ipa: '/təˈɡeð.ər/', phoneticGuide: '"tu-gué-der"' },
+  weather: { ipa: '/ˈweð.ər/', phoneticGuide: '"ué-der"' },
+  knowledge: { ipa: '/ˈnɒl.ɪdʒ/', phoneticGuide: '"nó-lidy"' },
+  language: { ipa: '/ˈlæŋ.ɡwɪdʒ/', phoneticGuide: '"láng-guedy"' },
+  business: { ipa: '/ˈbɪz.nɪs/', phoneticGuide: '"bíz-nes"' },
+  question: { ipa: '/ˈkwes.tʃən/', phoneticGuide: '"kués-chon"' },
+  answer: { ipa: '/ˈɑːn.sər/', phoneticGuide: '"áan-ser"' },
+  listen: { ipa: '/ˈlɪs.ən/', phoneticGuide: '"lís-n"' },
+  talk: { ipa: '/tɔːk/', phoneticGuide: '"took"' },
+  walk: { ipa: '/wɔːk/', phoneticGuide: '"uook"' },
+  daughter: { ipa: '/ˈdɔː.tər/', phoneticGuide: '"dóo-ter"' },
+  laugh: { ipa: '/lɑːf/', phoneticGuide: '"laaf"' },
+  enough: { ipa: '/ɪˈnʌf/', phoneticGuide: '"i-náf"' },
+  thought: { ipa: '/θɔːt/', phoneticGuide: '"zoot"' },
+  through: { ipa: '/θruː/', phoneticGuide: '"zruu"' },
+  thoughtful: { ipa: '/ˈθɔːt.fəl/', phoneticGuide: '"zóot-ful"' },
+  heart: { ipa: '/hɑːrt/', phoneticGuide: '"jaart"' },
+  coffee: { ipa: '/ˈkɒf.i/', phoneticGuide: '"kó-fi"' },
+  orange: { ipa: '/ˈɒr.ɪndʒ/', phoneticGuide: '"ó-rindy"' },
+  sugar: { ipa: '/ˈʃʊɡ.ər/', phoneticGuide: '"shú-gar"' },
+  sure: { ipa: '/ʃɔːr/', phoneticGuide: '"shur"' },
+  comfortable: { ipa: '/ˈkʌm.fər.tə.bəl/', phoneticGuide: '"kámf-ter-bl"' },
+  chocolate: { ipa: '/ˈtʃɒk.lət/', phoneticGuide: '"chók-lit"' },
+  wednesday: { ipa: '/ˈwenz.deɪ/', phoneticGuide: '"uéns-dei"' },
+  tuesday: { ipa: '/ˈtjuːz.deɪ/', phoneticGuide: '"tiús-dei"' },
+  thursday: { ipa: '/ˈθɜːrz.deɪ/', phoneticGuide: '"zérs-dei"' },
+  saturday: { ipa: '/ˈsæt.ər.deɪ/', phoneticGuide: '"sá-ter-dei"' },
+  father: { ipa: '/ˈfɑː.ðər/', phoneticGuide: '"fáa-der"' },
+  mother: { ipa: '/ˈmʌð.ər/', phoneticGuide: '"má-der"' },
+  brother: { ipa: '/ˈbrʌð.ər/', phoneticGuide: '"brá-der"' },
+  sister: { ipa: '/ˈsɪs.tər/', phoneticGuide: '"sís-ter"' },
+  love: { ipa: '/lʌv/', phoneticGuide: '"lav"' },
+  live: { ipa: '/lɪv/', phoneticGuide: '"liv"' },
+  life: { ipa: '/laɪf/', phoneticGuide: '"laif"' },
+  dog: { ipa: '/dɒɡ/', phoneticGuide: '"dog"' },
+  cat: { ipa: '/kæt/', phoneticGuide: '"kat"' },
+  car: { ipa: '/kɑːr/', phoneticGuide: '"kaar"' },
+  computer: { ipa: '/kəmˈpjuː.tər/', phoneticGuide: '"kam-piú-ter"' },
+  phone: { ipa: '/foʊn/', phoneticGuide: '"foun"' },
+  meeting: { ipa: '/ˈmiː.tɪŋ/', phoneticGuide: '"míi-ting"' },
+  money: { ipa: '/ˈmʌn.i/', phoneticGuide: '"má-ni"' },
+  city: { ipa: '/ˈsɪt.i/', phoneticGuide: '"sí-ti"' },
+  country: { ipa: '/ˈkʌn.tri/', phoneticGuide: '"kán-tri"' },
+  story: { ipa: '/ˈstɔːr.i/', phoneticGuide: '"stó-ri"' },
+  music: { ipa: '/ˈmjuː.zɪk/', phoneticGuide: '"miú-zik"' },
+  movie: { ipa: '/ˈmuː.vi/', phoneticGuide: '"múu-vi"' },
+  book: { ipa: '/bʊk/', phoneticGuide: '"buk"' },
+  food: { ipa: '/fuːd/', phoneticGuide: '"fuud"' },
+  tea: { ipa: '/tiː/', phoneticGuide: '"tii"' },
+  bread: { ipa: '/bred/', phoneticGuide: '"bred"' },
+  cheese: { ipa: '/tʃiːz/', phoneticGuide: '"chiis"' },
+  happy: { ipa: '/ˈhæp.i/', phoneticGuide: '"já-pi"' },
+  ready: { ipa: '/ˈred.i/', phoneticGuide: '"ré-di"' },
+  easy: { ipa: '/ˈiː.zi/', phoneticGuide: '"íi-si"' },
+  hard: { ipa: '/hɑːrd/', phoneticGuide: '"jaard"' },
+  great: { ipa: '/ɡreɪt/', phoneticGuide: '"greit"' },
+  small: { ipa: '/smɔːl/', phoneticGuide: '"smool"' },
+  big: { ipa: '/bɪɡ/', phoneticGuide: '"big"' },
+  high: { ipa: '/haɪ/', phoneticGuide: '"jai"' },
+  deep: { ipa: '/diːp/', phoneticGuide: '"diip"' },
+  right: { ipa: '/raɪt/', phoneticGuide: '"rait"' },
+  wrong: { ipa: '/rɒŋ/', phoneticGuide: '"rong"' },
+  change: { ipa: '/tʃeɪndʒ/', phoneticGuide: '"cheindy"' },
+  open: { ipa: '/ˈoʊ.pən/', phoneticGuide: '"óu-pen"' },
+  close: { ipa: '/kloʊz/', phoneticGuide: '"klous"' },
+  help: { ipa: '/help/', phoneticGuide: '"jelp"' },
+  learn: { ipa: '/lɜːrn/', phoneticGuide: '"lern"' },
+  study: { ipa: '/ˈstʌd.i/', phoneticGuide: '"stá-di"' },
+  system: { ipa: '/ˈsɪs.təm/', phoneticGuide: '"sís-tem"' },
+  develop: { ipa: '/dɪˈvel.əp/', phoneticGuide: '"di-vé-lap"' },
+  development: { ipa: '/dɪˈvel.əp.mənt/', phoneticGuide: '"di-vé-lap-ment"' },
+  important: { ipa: '/ɪmˈpɔːr.tənt/', phoneticGuide: '"im-póor-tant"' },
+  different: { ipa: '/ˈdɪf.ər.ənt/', phoneticGuide: '"díf-rent"' },
+  possible: { ipa: '/ˈpɒs.ə.bəl/', phoneticGuide: '"pó-si-bl"' },
+  impossible: { ipa: '/ɪmˈpɒs.ə.bəl/', phoneticGuide: '"im-pó-si-bl"' },
+};
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 1500): Promise<Response> {
   const controller = new AbortController();
@@ -344,11 +569,9 @@ const BUILTIN_VOCABULARY: Record<string, BuiltInVocabItem> = {
 };
 
 // Translation Engine Configuration & Storage
-export type TranslationProvider = 'ai' | 'deepl';
+export type TranslationProvider = 'ai';
 
 export const GEMINI_STORAGE_KEY = 'pronounceit_gemini_api_key';
-export const DEEPL_STORAGE_KEY = 'pronounceit_deepl_api_key';
-export const TRANSLATION_PROVIDER_KEY = 'pronounceit_translation_provider';
 const DEFAULT_GEMINI_KEY = '';
 
 // Reverse index for instant O(1) Spanish -> English lookup
@@ -372,19 +595,13 @@ for (const [enKey, item] of Object.entries(BUILTIN_VOCABULARY)) {
 const ENRICHMENT_CACHE = new Map<string, AutoEnrichResult>();
 const TRANSLATION_CACHE = new Map<string, string>();
 
-// ─── Preferred Provider (AI vs DeepL) ──────────────────────────────────────────
+// ─── Preferred Provider (AI) ───────────────────────────────────────────────────
 export function getPreferredTranslationProvider(): TranslationProvider {
-  try {
-    const local = appStorage.getItem(TRANSLATION_PROVIDER_KEY);
-    if (local === 'deepl' || local === 'ai') return local;
-  } catch {}
   return 'ai';
 }
 
-export function setPreferredTranslationProvider(provider: TranslationProvider): void {
-  try {
-    appStorage.setItem(TRANSLATION_PROVIDER_KEY, provider);
-  } catch {}
+export function setPreferredTranslationProvider(_provider: TranslationProvider): void {
+  // AI is the dedicated translation provider
 }
 
 // ─── Gemini API Key & Helpers ──────────────────────────────────────────────────
@@ -462,178 +679,6 @@ export async function testGeminiConnection(
   return { success: false, message: lastError || 'No se pudo conectar con la API de Gemini.' };
 }
 
-// ─── DeepL API Key & Helpers ───────────────────────────────────────────────────
-export function getDeepLApiKey(): string {
-  try {
-    const local = appStorage.getItem(DEEPL_STORAGE_KEY);
-    if (local && local.trim()) return local.trim();
-  } catch {}
-  return (
-    process.env.EXPO_PUBLIC_DEEPL_API_KEY ||
-    process.env.VITE_DEEPL_API_KEY ||
-    ''
-  ).trim();
-}
-
-export function setDeepLApiKey(key: string): void {
-  try {
-    const trimmed = (key || '').trim();
-    if (trimmed) {
-      appStorage.setItem(DEEPL_STORAGE_KEY, trimmed);
-    } else {
-      appStorage.removeItem(DEEPL_STORAGE_KEY);
-    }
-  } catch {}
-}
-
-export function isDeepLConfigured(): boolean {
-  return Boolean(getDeepLApiKey());
-}
-
-export async function testDeepLConnection(
-  keyToTest?: string
-): Promise<{ success: boolean; message: string; isFree?: boolean; usage?: any }> {
-  const apiKey = (keyToTest !== undefined ? keyToTest : getDeepLApiKey()).trim();
-  if (!apiKey) {
-    return { success: false, message: 'No se ha proporcionado ninguna clave API de DeepL.' };
-  }
-
-  const isFree = apiKey.endsWith(':fx');
-  const endpoint = isFree
-    ? 'https://api-free.deepl.com/v2/usage'
-    : 'https://api.deepl.com/v2/usage';
-
-  // 1. Direct fetch (native mobile or CORS-compatible)
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3500);
-    const res = await fetch(endpoint, {
-      method: 'GET',
-      headers: {
-        'Authorization': `DeepL-Auth-Key ${apiKey}`,
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-
-    if (res.ok) {
-      const data = await res.json();
-      const count = (data.character_count ?? 0).toLocaleString();
-      const limit = data.character_limit ? data.character_limit.toLocaleString() : 'ilimitado';
-      return {
-        success: true,
-        message: `Conexión exitosa con DeepL (${isFree ? 'DeepL Free' : 'DeepL Pro'}). Uso: ${count} / ${limit} caracteres.`,
-        isFree,
-        usage: data,
-      };
-    } else {
-      if (res.status === 403) {
-        return { success: false, message: 'Clave API de DeepL no válida (Error 403 Forbidden).' };
-      }
-      if (res.status === 456) {
-        return { success: false, message: 'Límite de cuota mensual de DeepL agotado (Error 456).' };
-      }
-    }
-  } catch {
-    // 2. Fallback to Express backend proxy (prevents Web CORS issues)
-    try {
-      const proxyRes = await backendApi.testDeepLConnection(apiKey);
-      if (proxyRes.success && proxyRes.message) {
-        return {
-          success: true,
-          message: proxyRes.message,
-          isFree,
-        };
-      } else if (proxyRes.error) {
-        return { success: false, message: proxyRes.error };
-      }
-    } catch {}
-  }
-
-  return {
-    success: false,
-    message: 'No se pudo conectar con la API de DeepL. Verifica la clave y tu conexión.',
-  };
-}
-
-export async function translateWithDeepL(
-  text: string,
-  fromLang: 'en' | 'es' | 'auto' = 'en',
-  toLang: 'en' | 'es' = 'es',
-  customApiKey?: string
-): Promise<string> {
-  const clean = text.trim();
-  if (!clean) return '';
-  if (!networkService.isOnline()) return clean;
-
-  const apiKey = (customApiKey !== undefined ? customApiKey : getDeepLApiKey()).trim();
-  if (!apiKey) return '';
-
-  const cacheKey = `deepl:${fromLang}:${toLang}:${clean.toLowerCase()}`;
-  if (TRANSLATION_CACHE.has(cacheKey)) {
-    return TRANSLATION_CACHE.get(cacheKey)!;
-  }
-
-  const isFree = apiKey.endsWith(':fx');
-  const endpoint = isFree
-    ? 'https://api-free.deepl.com/v2/translate'
-    : 'https://api.deepl.com/v2/translate';
-
-  const target_lang = toLang === 'en' ? 'EN-US' : 'ES';
-  const payload: any = {
-    text: [clean],
-    target_lang,
-  };
-  if (fromLang && fromLang !== 'auto') {
-    payload.source_lang = fromLang.toUpperCase();
-  }
-
-  // 1. Direct fetch
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 4000);
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `DeepL-Auth-Key ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-
-    if (res.ok) {
-      const data = await res.json();
-      const translated = data?.translations?.[0]?.text;
-      if (translated && typeof translated === 'string') {
-        const result = translated.trim();
-        TRANSLATION_CACHE.set(cacheKey, result);
-        return result;
-      }
-    }
-  } catch {
-    // 2. Fallback to Express backend proxy
-    try {
-      const proxyRes = await backendApi.translateDeepL({
-        text: clean,
-        targetLang: target_lang,
-        sourceLang: fromLang !== 'auto' ? fromLang.toUpperCase() : undefined,
-        apiKey,
-      });
-      if (proxyRes.success && proxyRes.translation) {
-        const result = proxyRes.translation.trim();
-        TRANSLATION_CACHE.set(cacheKey, result);
-        return result;
-      }
-    } catch (proxyErr) {
-      console.warn('[translateWithDeepL] Proxy error:', proxyErr);
-    }
-  }
-
-  return '';
-}
-
 export async function translateWithGemini(
   text: string,
   fromLang: 'en' | 'es' | 'auto' = 'en',
@@ -701,38 +746,15 @@ export async function translatePhrase(
   text: string,
   fromLang: 'en' | 'es' | 'auto' = 'en',
   toLang: 'en' | 'es' = 'es',
-  provider?: TranslationProvider
+  _provider?: TranslationProvider
 ): Promise<{ text: string; providerUsed: TranslationProvider | 'builtin' }> {
   const clean = text.trim();
   if (!clean) return { text: '', providerUsed: 'builtin' };
 
-  const chosenProvider = provider || getPreferredTranslationProvider();
-
-  if (chosenProvider === 'deepl') {
-    if (isDeepLConfigured()) {
-      const deepLRes = await translateWithDeepL(clean, fromLang, toLang);
-      if (deepLRes) {
-        return { text: deepLRes, providerUsed: 'deepl' };
-      }
-    }
-    if (isGeminiConfigured()) {
-      const geminiRes = await translateWithGemini(clean, fromLang, toLang);
-      if (geminiRes) {
-        return { text: geminiRes, providerUsed: 'ai' };
-      }
-    }
-  } else {
-    if (isGeminiConfigured()) {
-      const geminiRes = await translateWithGemini(clean, fromLang, toLang);
-      if (geminiRes) {
-        return { text: geminiRes, providerUsed: 'ai' };
-      }
-    }
-    if (isDeepLConfigured()) {
-      const deepLRes = await translateWithDeepL(clean, fromLang, toLang);
-      if (deepLRes) {
-        return { text: deepLRes, providerUsed: 'deepl' };
-      }
+  if (isGeminiConfigured()) {
+    const geminiRes = await translateWithGemini(clean, fromLang, toLang);
+    if (geminiRes) {
+      return { text: geminiRes, providerUsed: 'ai' };
     }
   }
 
@@ -1211,53 +1233,249 @@ export async function generateNaturalSentencePair(
   return generateNaturalSentencePairSync(word, pos);
 }
 
-// Algorithmic phonetic approximation generator (0ms)
-export function generatePhoneticGuide(word: string): string {
-  let guide = word.toLowerCase();
+// Robust converter: Turns English IPA transcriptions into natural Spanish phonetic guides
+// (how a Spanish speaker reads it to pronounce natural English)
+export function ipaToPhoneticGuide(ipa: string, wordFallback?: string): string {
+  if (!ipa || typeof ipa !== 'string') {
+    return wordFallback ? generatePhoneticGuide(wordFallback) : '""';
+  }
 
-  guide = guide
-    .replace(/tion\b/g, 'shon')
-    .replace(/sion\b/g, 'zhon')
-    .replace(/ight\b/g, 'ait')
-    .replace(/th/g, 'z')
-    .replace(/ee|ea/g, 'ii')
-    .replace(/oo/g, 'uu')
-    .replace(/ph/g, 'f')
-    .replace(/sh/g, 'sh')
-    .replace(/ch/g, 'ch')
-    .replace(/qu/g, 'ku')
-    .replace(/ck/g, 'k')
-    .replace(/w/g, 'u')
-    .replace(/y\b/g, 'i');
+  // Clean outer brackets and slashes
+  const clean = ipa.replace(/[\/\[\]]/g, '').trim();
+  if (!clean) {
+    return wordFallback ? generatePhoneticGuide(wordFallback) : '""';
+  }
 
-  return `"${guide}"`;
+  // Handle multi-word expressions
+  const words = clean.split(/\s+/);
+
+  const processWordIpa = (wIpa: string): string => {
+    // Break into syllables if periods or hyphens exist
+    const rawSyllables = wIpa.split(/[.\-]/);
+    const convertedSyllables = rawSyllables.map((syl) => {
+      const isStressed = syl.includes('ˈ') || syl.includes('ˌ');
+      let s = syl.replace(/[ˈˌ]/g, '');
+
+      // Multi-character vowels & diphthongs first
+      s = s
+        .replace(/aɪər|aɪə/g, 'aier')
+        .replace(/aʊər|aʊə/g, 'auer')
+        .replace(/eɪ/g, 'ei')
+        .replace(/aɪ/g, 'ai')
+        .replace(/ɔɪ/g, 'oi')
+        .replace(/aʊ/g, 'au')
+        .replace(/oʊ|əʊ/g, 'ou')
+        .replace(/iː/g, 'ii')
+        .replace(/uː/g, 'uu')
+        .replace(/ɜːr|ɝ|ɜː|ɜr/g, 'er')
+        .replace(/ɔːr|ɔr/g, 'oor')
+        .replace(/ɑːr|ɑr/g, 'aar')
+        .replace(/ɪər|iər/g, 'ier')
+        .replace(/eər|ɛər/g, 'er')
+        .replace(/ʊər/g, 'uer')
+        .replace(/ər|ɚ/g, 'er')
+        .replace(/ɑː|ɑ/g, 'aa')
+        .replace(/ɔː|ɔ/g, 'oo')
+        .replace(/ɪ/g, 'i')
+        .replace(/ʊ/g, 'u')
+        .replace(/ɛ|e/g, 'e')
+        .replace(/æ/g, 'a')
+        .replace(/ʌ/g, 'a')
+        .replace(/ɒ/g, 'o')
+        .replace(/əl/g, 'l')
+        .replace(/ən/g, 'n')
+        .replace(/əm/g, 'm')
+        .replace(/ə/g, 'e');
+
+      // Consonants
+      s = s
+        .replace(/tʃ/g, 'ch')
+        .replace(/dʒ/g, 'dy')
+        .replace(/θ/g, 'z')
+        .replace(/ð/g, 'd')
+        .replace(/ʃ/g, 'sh')
+        .replace(/ʒ/g, 'zh')
+        .replace(/ŋ/g, 'ng')
+        .replace(/j/g, 'y')
+        .replace(/w/g, 'u')
+        .replace(/h/g, 'j')
+        .replace(/ɡ/g, 'g')
+        .replace(/ɹ/g, 'r');
+
+      // Spanish pronunciation safeguard: hard G before e or i must be written 'gu' (e.g. "guit", "guet")
+      s = s.replace(/g([ei])/g, 'gu$1');
+
+      // Add accent mark on primary vowel if syllable is stressed and word has multiple syllables
+      if (isStressed && rawSyllables.length > 1) {
+        if (s.includes('ei')) s = s.replace('ei', 'éi');
+        else if (s.includes('ai')) s = s.replace('ai', 'ái');
+        else if (s.includes('ou')) s = s.replace('ou', 'óu');
+        else if (s.includes('au')) s = s.replace('au', 'áu');
+        else if (s.includes('oi')) s = s.replace('oi', 'ói');
+        else if (s.includes('ii')) s = s.replace('ii', 'íi');
+        else if (s.includes('uu')) s = s.replace('uu', 'úu');
+        else if (s.includes('aa')) s = s.replace('aa', 'áa');
+        else if (s.includes('oo')) s = s.replace('oo', 'óo');
+        else if (s.includes('iu')) s = s.replace('iu', 'iú');
+        else if (s.includes('a')) s = s.replace('a', 'á');
+        else if (s.includes('e')) s = s.replace('e', 'é');
+        else if (s.includes('i')) s = s.replace('i', 'í');
+        else if (s.includes('o')) s = s.replace('o', 'ó');
+        else if (s.includes('u')) s = s.replace('u', 'ú');
+      }
+
+      return s;
+    });
+
+    return convertedSyllables.filter(Boolean).join('-');
+  };
+
+  const result = words.map(processWordIpa).join(' ').trim();
+  return result ? `"${result}"` : (wordFallback ? generatePhoneticGuide(wordFallback) : '""');
 }
 
-// Fast realistic IPA generator (0ms)
+// Algorithmic English-to-IPA generator (0ms fallback when offline or novel words)
 export function estimateIpa(word: string): string {
   const clean = word.toLowerCase().trim();
-  let ipa = clean
-    .replace(/tion\b/g, 'ʃən')
-    .replace(/sion\b/g, 'ʒən')
+  if (!clean) return '';
+
+  // Direct lookup in our lexical stores
+  if (BUILTIN_VOCABULARY[clean]?.ipa) return BUILTIN_VOCABULARY[clean].ipa!;
+  if (COMMON_ENGLISH_PHONETICS[clean]?.ipa) return COMMON_ENGLISH_PHONETICS[clean].ipa;
+  if (IRREGULAR_VERB_PHONETICS[clean]) return IRREGULAR_VERB_PHONETICS[clean];
+
+  let ipa = clean;
+
+  // 1. Silent letters & consonant combinations
+  ipa = ipa
+    .replace(/^kn/, 'n')
+    .replace(/^wr/, 'r')
+    .replace(/^ps/, 's')
+    .replace(/^gn/, 'n')
+    .replace(/mb$/, 'm')
+    .replace(/mn$/, 'm')
+    .replace(/bt$/, 't')
+    .replace(/alk\b/g, 'ɔːk')
+    .replace(/alf\b/g, 'ɑːf')
+    .replace(/alm\b/g, 'ɑːm')
+    .replace(/ould\b/g, 'ʊd');
+
+  // 2. Common suffixes & digraphs
+  ipa = ipa
+    .replace(/tion\b/g, '.ʃən')
+    .replace(/sion\b/g, '.ʒən')
+    .replace(/ture\b/g, '.tʃər')
+    .replace(/sure\b/g, '.ʒər')
+    .replace(/cious\b|tious\b/g, '.ʃəs')
+    .replace(/cial\b|tial\b/g, '.ʃəl')
+    .replace(/ought\b|aught\b/g, 'ɔːt')
     .replace(/ight\b/g, 'aɪt')
-    .replace(/th/g, 'θ')
-    .replace(/sh/g, 'ʃ')
-    .replace(/ch/g, 'tʃ')
-    .replace(/ph/g, 'f')
+    .replace(/igh\b/g, 'aɪ')
+    .replace(/ing\b/g, '.ɪŋ')
+    .replace(/ness\b/g, '.nɪs')
+    .replace(/ment\b/g, '.mənt')
+    .replace(/able\b/g, '.ə.bəl')
+    .replace(/ible\b/g, '.ɪ.bəl')
+    .replace(/ful\b/g, '.fʊl')
+    .replace(/less\b/g, '.lɪs')
+    .replace(/ly\b/g, '.li')
+    .replace(/ity\b/g, '.ɪ.ti');
+
+  // 3. Vowel patterns
+  ipa = ipa
     .replace(/ee|ea/g, 'iː')
     .replace(/oo/g, 'uː')
     .replace(/all\b/g, 'ɔːl')
-    .replace(/ing\b/g, 'ɪŋ')
     .replace(/ar\b/g, 'ɑːr')
     .replace(/or\b/g, 'ɔːr')
     .replace(/er\b|ir\b|ur\b/g, 'ɜːr')
     .replace(/ay\b|ai/g, 'eɪ')
     .replace(/oy\b|oi/g, 'ɔɪ')
     .replace(/ow\b|ou/g, 'aʊ')
+    .replace(/au|aw/g, 'ɔː');
+
+  // 4. Magic-e rule: vowel + consonant + e at word boundary
+  ipa = ipa
+    .replace(/([bcdfghjklmnpqrstvwxyz])a([bcdfghjklmnpqrstvwxyz])e\b/g, '$1eɪ$2')
+    .replace(/([bcdfghjklmnpqrstvwxyz])i([bcdfghjklmnpqrstvwxyz])e\b/g, '$1aɪ$2')
+    .replace(/([bcdfghjklmnpqrstvwxyz])o([bcdfghjklmnpqrstvwxyz])e\b/g, '$1oʊ$2')
+    .replace(/([bcdfghjklmnpqrstvwxyz])u([bcdfghjklmnpqrstvwxyz])e\b/g, '$1juː$2');
+
+  // 5. Consonants
+  ipa = ipa
+    .replace(/th/g, 'θ')
+    .replace(/sh/g, 'ʃ')
+    .replace(/ch/g, 'tʃ')
+    .replace(/ph/g, 'f')
     .replace(/ck/g, 'k')
-    .replace(/qu/g, 'kw');
+    .replace(/qu/g, 'kw')
+    .replace(/wh/g, 'w')
+    .replace(/x/g, 'ks')
+    .replace(/c([eiy])/g, 's$1')
+    .replace(/c/g, 'k');
+
+  // Add primary stress mark on the first syllable if not already present
+  if (!ipa.includes('ˈ') && !ipa.includes('ˌ')) {
+    ipa = 'ˈ' + ipa;
+  }
 
   return `/${ipa}/`;
+}
+
+// Algorithmic phonetic approximation generator (0ms)
+export function generatePhoneticGuide(word: string, ipaHint?: string): string {
+  const clean = word.toLowerCase().trim();
+  if (!clean) return '""';
+
+  // 1. Direct lexical lookup
+  if (BUILTIN_VOCABULARY[clean]?.phoneticGuide) return BUILTIN_VOCABULARY[clean].phoneticGuide!;
+  if (COMMON_ENGLISH_PHONETICS[clean]?.phoneticGuide) return COMMON_ENGLISH_PHONETICS[clean].phoneticGuide;
+  if (IRREGULAR_VERB_PHONETICS[clean]) {
+    return ipaToPhoneticGuide(IRREGULAR_VERB_PHONETICS[clean], clean);
+  }
+
+  // 2. If IPA hint is provided, derive from it
+  if (ipaHint) {
+    return ipaToPhoneticGuide(ipaHint, clean);
+  }
+
+  // 3. Fallback: generate via estimated IPA
+  const estimated = estimateIpa(clean);
+  return ipaToPhoneticGuide(estimated, clean);
+}
+
+// Unified synchronous phonetic getter: returns both IPA and Spanish phonetic guide
+export function getPhoneticsForEnglishWord(rawWord: string): { ipa: string; phoneticGuide: string } {
+  const clean = (rawWord || '').trim().toLowerCase();
+  if (!clean) {
+    return { ipa: '', phoneticGuide: '' };
+  }
+
+  // 1. Built-in vocabulary
+  if (BUILTIN_VOCABULARY[clean]) {
+    const item = BUILTIN_VOCABULARY[clean];
+    const ipa = item.ipa || estimateIpa(clean);
+    const phoneticGuide = item.phoneticGuide || ipaToPhoneticGuide(ipa, clean);
+    return { ipa, phoneticGuide };
+  }
+
+  // 2. Common English phonetics map
+  if (COMMON_ENGLISH_PHONETICS[clean]) {
+    const item = COMMON_ENGLISH_PHONETICS[clean];
+    return { ipa: item.ipa, phoneticGuide: item.phoneticGuide };
+  }
+
+  // 3. Irregular verbs
+  if (IRREGULAR_VERB_PHONETICS[clean]) {
+    const ipa = IRREGULAR_VERB_PHONETICS[clean];
+    const phoneticGuide = ipaToPhoneticGuide(ipa, clean);
+    return { ipa, phoneticGuide };
+  }
+
+  // 4. Algorithmic estimation
+  const ipa = estimateIpa(clean);
+  const phoneticGuide = ipaToPhoneticGuide(ipa, clean);
+  return { ipa, phoneticGuide };
 }
 
 // Synchronous instant predictor for 0ms immediate UI auto-fill while typing
@@ -1282,12 +1500,13 @@ export function getInstantEnrichmentSync(
       const item = match.item;
       const pos = normalizePartOfSpeech(item.partOfSpeech || 'noun');
       const pair = generateNaturalSentencePairSync(enKey, pos);
+      const phon = getPhoneticsForEnglishWord(enKey);
       return {
         word: enKey.charAt(0).toUpperCase() + enKey.slice(1),
         partOfSpeech: pos,
         level: item.level || 'B1',
-        ipa: item.ipa || estimateIpa(enKey),
-        phoneticGuide: item.phoneticGuide || generatePhoneticGuide(enKey),
+        ipa: phon.ipa,
+        phoneticGuide: phon.phoneticGuide,
         phoneticNote: item.phoneticNote || 'Sílaba tónica destacada / Fonética estándar',
         translation: rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1),
         definition: item.definition || `Término utilizado como ${pos} en inglés`,
@@ -1299,6 +1518,7 @@ export function getInstantEnrichmentSync(
   }
 
   // English:
+  const phon = getPhoneticsForEnglishWord(clean);
   if (BUILTIN_VOCABULARY[clean]) {
     const item = BUILTIN_VOCABULARY[clean];
     const pos = normalizePartOfSpeech(item.partOfSpeech || 'noun');
@@ -1307,8 +1527,8 @@ export function getInstantEnrichmentSync(
       word: rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1),
       partOfSpeech: pos,
       level: item.level || 'B1',
-      ipa: item.ipa || estimateIpa(clean),
-      phoneticGuide: item.phoneticGuide || generatePhoneticGuide(clean),
+      ipa: phon.ipa,
+      phoneticGuide: phon.phoneticGuide,
       phoneticNote: item.phoneticNote || 'Sílaba tónica destacada / Fonética estándar',
       translation: item.translation || '',
       definition: item.definition || `Término utilizado como ${pos} en inglés`,
@@ -1323,8 +1543,8 @@ export function getInstantEnrichmentSync(
   return {
     word: rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1),
     partOfSpeech: pos,
-    ipa: estimateIpa(clean),
-    phoneticGuide: generatePhoneticGuide(clean),
+    ipa: phon.ipa,
+    phoneticGuide: phon.phoneticGuide,
     exampleEn: pair.exampleEn,
     exampleEs: pair.exampleEs,
   };
@@ -1335,7 +1555,7 @@ export async function autoEnrichWord(
   rawWord: string,
   sourceLang: 'en' | 'es' = 'en',
   useAi: boolean = false,
-  provider?: TranslationProvider
+  _provider?: TranslationProvider
 ): Promise<AutoEnrichResult> {
   const clean = rawWord.trim().toLowerCase();
   if (!clean) {
@@ -1344,56 +1564,15 @@ export async function autoEnrichWord(
 
   // Auto-detect: if language is 'en' but text contains Spanish-specific characters, switch to 'es'
   const effectiveLang: 'en' | 'es' = sourceLang === 'en' && isLikelySpanish(clean) ? 'es' : sourceLang;
-  const activeProvider = provider || getPreferredTranslationProvider();
-  const cacheKey = `${activeProvider}:${effectiveLang}:${clean}`;
+  const cacheKey = `ai:${effectiveLang}:${clean}`;
 
   // 0. Instant Cache check (0ms)
   if (ENRICHMENT_CACHE.has(cacheKey)) {
     return ENRICHMENT_CACHE.get(cacheKey)!;
   }
 
-  // 1. Explicit DeepL Translation option
-  if (useAi && activeProvider === 'deepl' && isDeepLConfigured()) {
-    try {
-      const targetLang = effectiveLang === 'es' ? 'en' : 'es';
-      const deepLWord = await translateWithDeepL(clean, effectiveLang, targetLang);
-      if (deepLWord) {
-        const rawEnWord = effectiveLang === 'es' ? deepLWord.trim() : rawWord.trim();
-        const rawEsWord = effectiveLang === 'es' ? rawWord.trim() : deepLWord.trim();
-        const capEn = rawEnWord.charAt(0).toUpperCase() + rawEnWord.slice(1);
-        const capEs = rawEsWord.charAt(0).toUpperCase() + rawEsWord.slice(1);
-        const pos = detectQuickPartOfSpeech(rawEnWord.toLowerCase()) || 'Sustantivo';
-        const pair = generateNaturalSentencePairSync(rawEnWord.toLowerCase(), pos);
-        let deepLExampleEs = pair.exampleEs;
-        try {
-          const transEx = await translateWithDeepL(pair.exampleEn, 'en', 'es');
-          if (transEx) deepLExampleEs = transEx;
-        } catch {}
-
-        const result: AutoEnrichResult = {
-          word: capEn,
-          partOfSpeech: pos,
-          level: 'B1',
-          ipa: estimateIpa(rawEnWord.toLowerCase()),
-          phoneticGuide: generatePhoneticGuide(rawEnWord.toLowerCase()),
-          phoneticNote: 'Traducción precisa con DeepL API',
-          translation: capEs,
-          definition: `Término traducido con DeepL API (${pos})`,
-          exampleEn: pair.exampleEn,
-          exampleEs: deepLExampleEs,
-          categoryGroup: '',
-          categorySub: '',
-        };
-        ENRICHMENT_CACHE.set(cacheKey, result);
-        return result;
-      }
-    } catch (e) {
-      console.warn('[autoEnrichWord] DeepL translation failed, falling back to standard:', e);
-    }
-  }
-
-  // 2. Explicit AI (Gemini) suggestion (only when requested or AI provider active)
-  if (useAi && (activeProvider === 'ai' || !isDeepLConfigured()) && isGeminiConfigured()) {
+  // 1. Explicit AI (Gemini) suggestion (only when requested)
+  if (useAi && isGeminiConfigured()) {
     try {
       const geminiResult = await queryGeminiForWord(clean, undefined, effectiveLang);
       if (geminiResult) {
@@ -1418,13 +1597,14 @@ export async function autoEnrichWord(
       const capitalizedEs = rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1);
       const pos = normalizePartOfSpeech(item.partOfSpeech || 'noun');
       const pair = generateNaturalSentencePairSync(enKey, pos);
+      const phon = getPhoneticsForEnglishWord(enKey);
 
       const result: AutoEnrichResult = {
         word: capitalizedEn,
         partOfSpeech: pos,
         level: item.level || 'B1',
-        ipa: item.ipa || estimateIpa(enKey),
-        phoneticGuide: item.phoneticGuide || generatePhoneticGuide(enKey),
+        ipa: item.ipa || phon.ipa,
+        phoneticGuide: item.phoneticGuide || phon.phoneticGuide,
         phoneticNote: item.phoneticNote || 'Sílaba tónica destacada / Fonética estándar',
         translation: capitalizedEs,
         definition: item.definition || `Término utilizado como ${pos} en inglés`,
@@ -1445,8 +1625,9 @@ export async function autoEnrichWord(
     const capitalizedEs = rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1);
 
     const finalPos: PartOfSpeech = detectQuickPartOfSpeech(finalEnWord) || 'Sustantivo';
-    const finalIpa = estimateIpa(finalEnWord);
-    const finalGuide = generatePhoneticGuide(finalEnWord);
+    const phon = getPhoneticsForEnglishWord(finalEnWord);
+    const finalIpa = phon.ipa;
+    const finalGuide = phon.phoneticGuide;
     const pair = generateNaturalSentencePairSync(finalEnWord, finalPos);
 
     let level: WordLevel = 'B1';
@@ -1485,13 +1666,14 @@ export async function autoEnrichWord(
     const capitalizedWord = rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1);
     const pos = normalizePartOfSpeech(data.partOfSpeech || 'noun');
     const pair = generateNaturalSentencePairSync(clean, pos);
+    const phon = getPhoneticsForEnglishWord(clean);
 
     const result: AutoEnrichResult = {
       word: capitalizedWord,
       partOfSpeech: pos,
       level: data.level || 'B2',
-      ipa: data.ipa || estimateIpa(clean),
-      phoneticGuide: data.phoneticGuide || generatePhoneticGuide(clean),
+      ipa: data.ipa || phon.ipa,
+      phoneticGuide: data.phoneticGuide || phon.phoneticGuide,
       phoneticNote: data.phoneticNote || 'Sílaba tónica destacada / Fonética estándar',
       translation: data.translation || clean,
       definition: data.definition || '',
@@ -1547,8 +1729,9 @@ export async function autoEnrichWord(
     ? translationRes.charAt(0).toUpperCase() + translationRes.slice(1)
     : clean.charAt(0).toUpperCase() + clean.slice(1);
 
-  const finalIpa = foundIpa || estimateIpa(clean);
-  const finalGuide = generatePhoneticGuide(clean);
+  const phon = getPhoneticsForEnglishWord(clean);
+  const finalIpa = foundIpa || phon.ipa;
+  const finalGuide = foundIpa ? ipaToPhoneticGuide(foundIpa, clean) : phon.phoneticGuide;
   const pair = generateNaturalSentencePairSync(clean, finalPos);
 
   let level: WordLevel = 'B1';

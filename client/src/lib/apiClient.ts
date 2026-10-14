@@ -374,38 +374,6 @@ class BackendApiClient {
       return false;
     }
   }
-
-  // ─── Translation Endpoints ───────────────────────────────────────
-  public async translateDeepL(payload: {
-    text: string;
-    targetLang?: string;
-    sourceLang?: string;
-    apiKey?: string;
-  }): Promise<{ success: boolean; translation?: string; error?: string }> {
-    try {
-      const res = await this.fetchWithTimeout(`${BASE_URL}/translate/deepl`, {
-        method: 'POST',
-        headers: this.buildHeaders(),
-        body: JSON.stringify(payload),
-      }, 10000);
-      return await res.json();
-    } catch (e: any) {
-      return { success: false, error: e?.message || 'Error de conexión con el servidor' };
-    }
-  }
-
-  public async testDeepLConnection(apiKey?: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    try {
-      const res = await this.fetchWithTimeout(`${BASE_URL}/translate/deepl/test`, {
-        method: 'POST',
-        headers: this.buildHeaders(),
-        body: JSON.stringify({ apiKey }),
-      }, 8000);
-      return await res.json();
-    } catch (e: any) {
-      return { success: false, error: e?.message || 'Error de conexión' };
-    }
-  }
 }
 
 export const backendApi = new BackendApiClient();
