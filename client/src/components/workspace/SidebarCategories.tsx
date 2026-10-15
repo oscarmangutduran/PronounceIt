@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import {
 import { CategoryItem } from '../../types';
 import { THEME } from '../../theme';
 import { vocabService } from '../../lib/vocabularyStore';
+import { deduplicateCategories } from '../../lib/categoryUtils';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { CategoryFormModal, CategoryFormMode } from './CategoryFormModal';
 import { useResponsive } from '../../lib/useResponsive';
@@ -66,6 +67,10 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
 }) => {
   const { showSidebarSplit } = useResponsive();
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const safeCategories = useMemo(() => {
+    return deduplicateCategories(categories);
+  }, [categories]);
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
@@ -243,7 +248,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
           </TouchableOpacity>
 
           {/* Categories */}
-          {categories.map((cat) => (
+          {safeCategories.map((cat) => (
             <TouchableOpacity
               key={cat.id}
               style={[styles.chip, !isDark && styles.chipLight, isSelected('category', cat.name) && styles.chipActive]}
@@ -332,7 +337,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
 
         <View style={[styles.collapsedDivider, !isDark && styles.collapsedDividerLight]} />
 
-        {categories.slice(0, 5).map((cat) => (
+        {safeCategories.slice(0, 5).map((cat) => (
           <TouchableOpacity
             key={cat.id}
             style={[
@@ -524,7 +529,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
         </View>
 
         {/* Categories Tree or Empty State */}
-        {categories.length === 0 ? (
+        {safeCategories.length === 0 ? (
           <View style={styles.emptyCategoriesBox}>
             <Folder size={22} color={THEME.colors.textSubtle} style={{ marginBottom: 6 }} />
             <Text style={styles.emptyCategoriesTitle}>Sin categorías creadas</Text>
@@ -542,7 +547,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
           </View>
         ) : (
           <View style={styles.treeList}>
-            {categories.map((cat) => {
+            {safeCategories.map((cat) => {
               const isExpanded = !!expandedGroups[cat.name];
               const groupActive = isSelected('category', cat.name);
 

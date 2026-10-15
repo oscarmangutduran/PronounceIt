@@ -32,6 +32,7 @@ import { FirebaseConfig, UserProfile, WordItem, CategoryItem } from '../types';
 import { StoredTestItem } from './testHistoryStore';
 import { backendApi } from './apiClient';
 import { normalizePartOfSpeech } from './dictionaryService';
+import { deduplicateCategories } from './categoryUtils';
 
 export interface WelcomeEmailNotice {
   to: string;
@@ -1613,7 +1614,7 @@ class FirebaseService {
           if (snapshot.exists()) {
             const data = snapshot.data();
             if (Array.isArray(data?.categories)) {
-              callback(data.categories as CategoryItem[]);
+              callback(deduplicateCategories(data.categories as CategoryItem[]));
             }
           }
         },
@@ -1904,12 +1905,12 @@ class FirebaseService {
     try {
       const uDoc = await getDoc(doc(this.db, 'users', uid));
       if (uDoc.exists() && Array.isArray(uDoc.data()?.categories)) {
-        return uDoc.data()?.categories as CategoryItem[];
+        return deduplicateCategories(uDoc.data()?.categories as CategoryItem[]);
       }
       if (email && email !== uid) {
         const eDoc = await getDoc(doc(this.db, 'users', email));
         if (eDoc.exists() && Array.isArray(eDoc.data()?.categories)) {
-          return eDoc.data()?.categories as CategoryItem[];
+          return deduplicateCategories(eDoc.data()?.categories as CategoryItem[]);
         }
       }
       return null;
@@ -1925,8 +1926,9 @@ class FirebaseService {
     const email = this.currentUser?.email?.trim().toLowerCase();
 
     try {
+      const cleanCategories = deduplicateCategories(categories);
       const payload = {
-        categories,
+        categories: cleanCategories,
         updated_at: new Date().toISOString(),
       };
       const writes = [setDoc(doc(this.db, 'users', uid), payload, { merge: true })];

@@ -3,6 +3,7 @@ import { WordItem, CategoryItem, WordStatus } from '../types';
 import { firebaseService } from './firebaseClient';
 import { backendApi } from './apiClient';
 import { appStorage } from './storage';
+import { deduplicateCategories } from './categoryUtils';
 
 import { networkService } from './networkService';
 
@@ -99,7 +100,7 @@ class VocabularyService {
 
     this.unsubscribeCategories = firebaseService.subscribeCategories(userKey, (remoteCats) => {
       if (remoteCats && Array.isArray(remoteCats)) {
-        this.customCategories = remoteCats;
+        this.customCategories = deduplicateCategories(remoteCats);
         this.saveCategoriesToDisk();
         this.notify();
       }
@@ -116,6 +117,7 @@ class VocabularyService {
 
   private saveCategoriesToDisk() {
     try {
+      this.customCategories = deduplicateCategories(this.customCategories);
       appStorage.setItem(this.getCategoriesStorageKey(), JSON.stringify(this.customCategories));
     } catch (e) {
       console.error('Error saving categories to storage', e);
@@ -262,7 +264,7 @@ class VocabularyService {
 
         const remoteCats = await firebaseService.fetchCategories(userKey);
         if (remoteCats && Array.isArray(remoteCats)) {
-          this.customCategories = remoteCats;
+          this.customCategories = deduplicateCategories(remoteCats);
           this.saveCategoriesToDisk();
         }
       } catch (e) {
@@ -312,7 +314,7 @@ class VocabularyService {
 
       const storedCats = appStorage.getItem(this.getCategoriesStorageKey());
       if (storedCats) {
-        this.customCategories = JSON.parse(storedCats);
+        this.customCategories = deduplicateCategories(JSON.parse(storedCats));
       } else {
         this.customCategories = [];
         this.saveCategories();
@@ -330,6 +332,7 @@ class VocabularyService {
   }
 
   private saveCategories() {
+    this.customCategories = deduplicateCategories(this.customCategories);
     try {
       appStorage.setItem(this.getCategoriesStorageKey(), JSON.stringify(this.customCategories));
     } catch (e) {
@@ -366,13 +369,19 @@ class VocabularyService {
   }
 
   public getCategories(): CategoryItem[] {
-    // Ensure any words with categoryGroup / categoryGroups are represented
+    // 1. Ensure internal list is strictly deduplicated
+    this.customCategories = deduplicateCategories(this.customCategories);
+
+    // 2. Ensure any words with categoryGroup / categoryGroups are represented
     for (const w of this.words) {
       const groups = getWordCategories(w);
       const subs = getWordSubcategories(w);
-      for (const groupTrimmed of groups) {
+      for (const groupRaw of groups) {
+        const groupTrimmed = groupRaw.trim();
+        if (!groupTrimmed) continue;
+
         let cat = this.customCategories.find(
-          (c) => c.name.toLowerCase() === groupTrimmed.toLowerCase()
+          (c) => c.name.trim().toLowerCase() === groupTrimmed.toLowerCase()
         );
         if (!cat) {
           cat = {
@@ -385,10 +394,12 @@ class VocabularyService {
           this.customCategories.push(cat);
         }
 
-        for (const subTrimmed of subs) {
+        for (const subRaw of subs) {
+          const subTrimmed = subRaw.trim();
+          if (!subTrimmed) continue;
           if (!cat.subcategories) cat.subcategories = [];
           const subExists = cat.subcategories.some(
-            (s) => s.name.toLowerCase() === subTrimmed.toLowerCase()
+            (s) => s.name.trim().toLowerCase() === subTrimmed.toLowerCase()
           );
           if (!subExists) {
             cat.subcategories.push({
@@ -400,6 +411,9 @@ class VocabularyService {
         }
       }
     }
+
+    // 3. Final deduplication pass to guarantee uniqueness
+    this.customCategories = deduplicateCategories(this.customCategories);
 
     return this.customCategories.map((cat) => {
       const groupWords = this.words.filter((w) =>
@@ -431,8 +445,10 @@ class VocabularyService {
     const trimmed = name.trim();
     if (!trimmed) throw new Error('El nombre de la categoría es requerido.');
 
+    this.customCategories = deduplicateCategories(this.customCategories);
+
     const existing = this.customCategories.find(
-      (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+      (c) => c.name.trim().toLowerCase() === trimmed.toLowerCase()
     );
     if (existing) {
       if (initialSubcategories && initialSubcategories.length > 0) {
@@ -460,7 +476,7 @@ class VocabularyService {
       count: 0,
       subcategories: validSubs,
     };
-    this.customCategories = [...this.customCategories, newCat];
+    this.customCategories = deduplicateCategories([...this.customCategories, newCat]);
     this.saveCategories();
     return newCat;
   }
