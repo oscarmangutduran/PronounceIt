@@ -58,7 +58,8 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   onDeleteWord,
   isDark = true,
 }) => {
-  const { isTableView, isPhone, isDesktop } = useResponsive();
+  const { isTableView, isPhone, isDesktop, width } = useResponsive();
+  const isCompact = isPhone || (width > 0 && width < 600);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [levelFilter, setLevelFilter] = useState<string>('all');
@@ -143,8 +144,8 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   return (
     <View style={styles.container}>
       {/* 1. Header: Breadcrumb, Title & Top Action Buttons */}
-      <View style={styles.headerRow}>
-        <View style={styles.headerTitles}>
+      <View style={[styles.headerRow, isCompact && styles.headerRowMobile]}>
+        <View style={[styles.headerTitles, isCompact && styles.headerTitlesMobile]}>
           <Text style={[styles.breadcrumbText, !isDark && styles.breadcrumbTextLight]}>Biblioteca / {getBreadcrumbTitle()}</Text>
           <View style={styles.titleWithBadge}>
             <Text style={[styles.mainTitle, !isDark && styles.mainTitleLight]}>{getSectionTitle()}</Text>
@@ -156,37 +157,79 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
         </View>
 
         {/* Action Buttons */}
-        <View style={styles.headerActions}>
-          {/* Exportar / Importar */}
-          <TouchableOpacity
-            style={[styles.btnOutline, !isDark && styles.btnOutlineLight]}
-            onPress={onOpenExportModal}
-            activeOpacity={0.8}
-          >
-            <Download size={14} color={!isDark ? '#64748b' : THEME.colors.textMuted} style={{ marginRight: 6 }} />
-            <Text style={[styles.btnOutlineText, !isDark && styles.btnOutlineTextLight]}>Exportar / Importar</Text>
-          </TouchableOpacity>
+        {isCompact ? (
+          <View style={styles.headerActionsMobile}>
+            {/* + Añadir Palabra (Primary CTA, full width) */}
+            <TouchableOpacity
+              style={styles.btnCrimsonMobile}
+              onPress={onOpenAddModal}
+              activeOpacity={0.8}
+            >
+              <Plus size={16} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={styles.btnCrimsonTextMobile}>Añadir Palabra</Text>
+            </TouchableOpacity>
 
-          {/* Practicar */}
-          <TouchableOpacity
-            style={styles.btnPurple}
-            onPress={onStartPractice}
-            activeOpacity={0.8}
-          >
-            <Layers size={14} color="#ffffff" style={{ marginRight: 6 }} />
-            <Text style={styles.btnPurpleText}>Practicar</Text>
-          </TouchableOpacity>
+            {/* Secondary actions: Exportar & Practicar side by side */}
+            <View style={styles.secondaryActionsMobileRow}>
+              <TouchableOpacity
+                style={[styles.btnOutline, !isDark && styles.btnOutlineLight, styles.btnMobileHalf]}
+                onPress={onOpenExportModal}
+                activeOpacity={0.8}
+              >
+                <Download size={14} color={!isDark ? '#64748b' : THEME.colors.textMuted} style={{ marginRight: 6 }} />
+                <Text
+                  style={[styles.btnOutlineText, styles.btnMobileHalfText, !isDark && styles.btnOutlineTextLight]}
+                  numberOfLines={1}
+                >
+                  Exportar / Importar
+                </Text>
+              </TouchableOpacity>
 
-          {/* + Añadir Palabra */}
-          <TouchableOpacity
-            style={styles.btnCrimson}
-            onPress={onOpenAddModal}
-            activeOpacity={0.8}
-          >
-            <Plus size={15} color="#ffffff" style={{ marginRight: 6 }} />
-            <Text style={styles.btnCrimsonText}>Añadir Palabra</Text>
-          </TouchableOpacity>
-        </View>
+              <TouchableOpacity
+                style={[styles.btnPurple, styles.btnMobileHalf]}
+                onPress={onStartPractice}
+                activeOpacity={0.8}
+              >
+                <Layers size={14} color="#ffffff" style={{ marginRight: 6 }} />
+                <Text style={[styles.btnPurpleText, styles.btnMobileHalfText]} numberOfLines={1}>
+                  Practicar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.headerActions}>
+            {/* Exportar / Importar */}
+            <TouchableOpacity
+              style={[styles.btnOutline, !isDark && styles.btnOutlineLight]}
+              onPress={onOpenExportModal}
+              activeOpacity={0.8}
+            >
+              <Download size={14} color={!isDark ? '#64748b' : THEME.colors.textMuted} style={{ marginRight: 6 }} />
+              <Text style={[styles.btnOutlineText, !isDark && styles.btnOutlineTextLight]}>Exportar / Importar</Text>
+            </TouchableOpacity>
+
+            {/* Practicar */}
+            <TouchableOpacity
+              style={styles.btnPurple}
+              onPress={onStartPractice}
+              activeOpacity={0.8}
+            >
+              <Layers size={14} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={styles.btnPurpleText}>Practicar</Text>
+            </TouchableOpacity>
+
+            {/* + Añadir Palabra */}
+            <TouchableOpacity
+              style={styles.btnCrimson}
+              onPress={onOpenAddModal}
+              activeOpacity={0.8}
+            >
+              <Plus size={15} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={styles.btnCrimsonText}>Añadir Palabra</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* 2. Filter Bar */}
@@ -670,6 +713,57 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '700',
+  },
+
+  // Mobile Action Buttons Layout
+  headerRowMobile: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 14,
+  },
+  headerTitlesMobile: {
+    width: '100%',
+  },
+  headerActionsMobile: {
+    width: '100%',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  btnCrimsonMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e62e4c',
+    borderRadius: THEME.radius.lg,
+    paddingHorizontal: 16,
+    height: 42,
+    width: '100%',
+    shadowColor: '#e62e4c',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  btnCrimsonTextMobile: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  secondaryActionsMobileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+  },
+  btnMobileHalf: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    height: 38,
+  },
+  btnMobileHalfText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 
   // Filter Bar
