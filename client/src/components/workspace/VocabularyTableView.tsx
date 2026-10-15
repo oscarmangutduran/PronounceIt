@@ -8,6 +8,7 @@ import {
   StyleSheet,
   useWindowDimensions,
   Platform,
+  Modal,
 } from 'react-native';
 import {
   Search,
@@ -24,6 +25,10 @@ import {
   ChevronDown,
   Sparkles,
   Folder,
+  Award,
+  Activity,
+  Check,
+  X,
 } from 'lucide-react-native';
 import { WordItem, WordStatus } from '../../types';
 import { vocabService, getWordCategories, getWordSubcategories } from '../../lib/vocabularyStore';
@@ -48,6 +53,23 @@ interface VocabularyTableViewProps {
   isDark?: boolean;
 }
 
+const LEVEL_OPTIONS = [
+  { id: 'all', label: 'Todos los niveles', sublabel: 'A1 - C2', desc: 'Muestra palabras de cualquier nivel', badgeBg: 'rgba(56, 189, 248, 0.2)', badgeColor: '#38bdf8' },
+  { id: 'A1', label: 'A1 - Principiante', sublabel: 'Principiante', desc: 'Vocabulario esencial y cotidiano', badgeBg: 'rgba(16, 185, 129, 0.2)', badgeColor: '#10b981' },
+  { id: 'A2', label: 'A2 - Elemental', sublabel: 'Elemental', desc: 'Expresiones y frases básicas', badgeBg: 'rgba(34, 197, 94, 0.2)', badgeColor: '#22c55e' },
+  { id: 'B1', label: 'B1 - Intermedio', sublabel: 'Intermedio', desc: 'Situaciones de viajes y trabajo', badgeBg: 'rgba(234, 179, 8, 0.2)', badgeColor: '#eab308' },
+  { id: 'B2', label: 'B2 - Intermedio Alto', sublabel: 'Intermedio Alto', desc: 'Textos complejos y argumentación', badgeBg: 'rgba(249, 115, 22, 0.2)', badgeColor: '#f97316' },
+  { id: 'C1', label: 'C1 - Avanzado', sublabel: 'Avanzado', desc: 'Fluidez y vocabulario especializado', badgeBg: 'rgba(168, 85, 247, 0.2)', badgeColor: '#a855f7' },
+  { id: 'C2', label: 'C2 - Maestría', sublabel: 'Maestría', desc: 'Precisión y matices nativos', badgeBg: 'rgba(236, 72, 153, 0.2)', badgeColor: '#ec4899' },
+] as const;
+
+const STATUS_OPTIONS = [
+  { id: 'all', label: 'Todos los estados', desc: 'Todas las palabras registradas', dotColor: '#38bdf8' },
+  { id: 'nueva', label: 'Nuevas', desc: 'Palabras agregadas recientemente sin dominar', dotColor: '#94a3b8' },
+  { id: 'en_repaso', label: 'En repaso', desc: 'Palabras activas para practicar en tu SRS', dotColor: '#f59e0b' },
+  { id: 'dominada', label: 'Dominadas', desc: 'Términos aprendidos con éxito', dotColor: '#10b981' },
+] as const;
+
 export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   words,
   selectedFilter,
@@ -67,9 +89,42 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [isLevelModalOpen, setIsLevelModalOpen] = useState(false);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [rowsPerPage, setRowsPerPage] = useState<number>(6);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [wordToDelete, setWordToDelete] = useState<WordItem | null>(null);
+
+  // Word counts per level
+  const levelCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: words.length };
+    ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].forEach((lvl) => {
+      counts[lvl] = words.filter((w) => w.level === lvl).length;
+    });
+    return counts;
+  }, [words]);
+
+  // Word counts per status
+  const statusCounts = useMemo(() => {
+    return {
+      all: words.length,
+      nueva: words.filter((w) => !w.status || w.status === 'nueva').length,
+      en_repaso: words.filter((w) => w.status === 'en_repaso').length,
+      dominada: words.filter((w) => w.status === 'dominada').length,
+    };
+  }, [words]);
+
+  const handleSelectLevel = (levelId: string) => {
+    setLevelFilter(levelId);
+    setCurrentPage(1);
+    setIsLevelModalOpen(false);
+  };
+
+  const handleSelectStatus = (statusId: string) => {
+    setStatusFilter(statusId);
+    setCurrentPage(1);
+    setIsStatusModalOpen(false);
+  };
 
   // Filter words
   const filteredWords = useMemo(() => {
@@ -90,8 +145,11 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
       }
 
       // 3. Status filter
-      if (statusFilter !== 'all' && w.status !== statusFilter) {
-        return false;
+      if (statusFilter !== 'all') {
+        const effectiveStatus = w.status || 'nueva';
+        if (effectiveStatus !== statusFilter) {
+          return false;
+        }
       }
 
       // 4. Sidebar filter
@@ -286,16 +344,85 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
         </View>
 
         {/* Dropdown 1: Level */}
-        <View style={[styles.selectWrapper, !isDark && styles.selectWrapperLight]}>
-          <Text style={[styles.selectText, !isDark && styles.selectTextLight]}>Nivel: Todos (A1-C2)</Text>
-          <ChevronDown size={14} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} />
-        </View>
+        <TouchableOpacity
+          style={[
+            styles.selectWrapper,
+            !isDark && styles.selectWrapperLight,
+            levelFilter !== 'all' && (isDark ? styles.selectWrapperActive : styles.selectWrapperActiveLight),
+          ]}
+          onPress={() => setIsLevelModalOpen(true)}
+          activeOpacity={0.75}
+          accessibilityLabel="Filtrar por nivel de dificultad"
+        >
+          {levelFilter !== 'all' && <View style={styles.activeFilterDot} />}
+          <Text
+            style={[
+              styles.selectText,
+              !isDark && styles.selectTextLight,
+              levelFilter !== 'all' && (isDark ? styles.selectTextActive : styles.selectTextActiveLight),
+            ]}
+            numberOfLines={1}
+          >
+            {levelFilter === 'all' ? 'Nivel: Todos (A1-C2)' : `Nivel: ${levelFilter}`}
+          </Text>
+          <ChevronDown
+            size={14}
+            color={levelFilter !== 'all' ? '#e62e4c' : (!isDark ? '#94a3b8' : THEME.colors.textSubtle)}
+          />
+        </TouchableOpacity>
 
         {/* Dropdown 2: Status */}
-        <View style={[styles.selectWrapper, !isDark && styles.selectWrapperLight]}>
-          <Text style={[styles.selectText, !isDark && styles.selectTextLight]}>Estado: Todos</Text>
-          <ChevronDown size={14} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} />
-        </View>
+        <TouchableOpacity
+          style={[
+            styles.selectWrapper,
+            !isDark && styles.selectWrapperLight,
+            statusFilter !== 'all' && (isDark ? styles.selectWrapperActive : styles.selectWrapperActiveLight),
+          ]}
+          onPress={() => setIsStatusModalOpen(true)}
+          activeOpacity={0.75}
+          accessibilityLabel="Filtrar por estado de aprendizaje"
+        >
+          {statusFilter !== 'all' && <View style={styles.activeFilterDot} />}
+          <Text
+            style={[
+              styles.selectText,
+              !isDark && styles.selectTextLight,
+              statusFilter !== 'all' && (isDark ? styles.selectTextActive : styles.selectTextActiveLight),
+            ]}
+            numberOfLines={1}
+          >
+            {statusFilter === 'all'
+              ? 'Estado: Todos'
+              : statusFilter === 'en_repaso'
+              ? 'Estado: En repaso'
+              : statusFilter === 'dominada'
+              ? 'Estado: Dominadas'
+              : 'Estado: Nuevas'}
+          </Text>
+          <ChevronDown
+            size={14}
+            color={statusFilter !== 'all' ? '#e62e4c' : (!isDark ? '#94a3b8' : THEME.colors.textSubtle)}
+          />
+        </TouchableOpacity>
+
+        {/* Clear Filters Button (Visible only when a filter is active) */}
+        {(levelFilter !== 'all' || statusFilter !== 'all') && (
+          <TouchableOpacity
+            style={[styles.clearFilterBtn, !isDark && styles.clearFilterBtnLight]}
+            onPress={() => {
+              setLevelFilter('all');
+              setStatusFilter('all');
+              setCurrentPage(1);
+            }}
+            activeOpacity={0.75}
+            accessibilityLabel="Limpiar filtros de nivel y estado"
+          >
+            <X size={12} color={!isDark ? '#e11d48' : '#ff758c'} style={{ marginRight: 4 }} />
+            <Text style={[styles.clearFilterText, !isDark && styles.clearFilterTextLight]}>
+              Limpiar
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* 3. Table / Card View */}
@@ -319,19 +446,40 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
             <View style={styles.emptyIconBox}>
               <BookOpen size={28} color="#e62e4c" />
             </View>
-            <Text style={styles.emptyTitle}>No hay palabras en esta sección</Text>
-            <Text style={styles.emptySubtitle}>
-              Crea tus categorías y subcategorías temáticas para comenzar a organizar y añadir tus
-              propias palabras y expresiones.
+            <Text style={[styles.emptyTitle, !isDark && styles.emptyTitleLight]}>
+              {levelFilter !== 'all' || statusFilter !== 'all' || searchTerm.trim()
+                ? 'No se encontraron palabras con estos filtros'
+                : 'No hay palabras en esta sección'}
             </Text>
-            <TouchableOpacity
-              style={styles.emptyActionBtn}
-              onPress={onOpenAddModal}
-              activeOpacity={0.85}
-            >
-              <Plus size={16} color="#ffffff" style={{ marginRight: 6 }} />
-              <Text style={styles.emptyActionBtnText}>Añadir primera palabra</Text>
-            </TouchableOpacity>
+            <Text style={[styles.emptySubtitle, !isDark && styles.emptySubtitleLight]}>
+              {levelFilter !== 'all' || statusFilter !== 'all' || searchTerm.trim()
+                ? 'Prueba a cambiar el nivel, el estado o el término de búsqueda para ver más términos.'
+                : 'Crea tus categorías y subcategorías temáticas para comenzar a organizar y añadir tus propias palabras y expresiones.'}
+            </Text>
+            {levelFilter !== 'all' || statusFilter !== 'all' || searchTerm.trim() ? (
+              <TouchableOpacity
+                style={styles.emptyActionBtn}
+                onPress={() => {
+                  setLevelFilter('all');
+                  setStatusFilter('all');
+                  setSearchTerm('');
+                  setCurrentPage(1);
+                }}
+                activeOpacity={0.85}
+              >
+                <X size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                <Text style={styles.emptyActionBtnText}>Restablecer filtros</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.emptyActionBtn}
+                onPress={onOpenAddModal}
+                activeOpacity={0.85}
+              >
+                <Plus size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                <Text style={styles.emptyActionBtnText}>Añadir primera palabra</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : !isTableView ? (
           /* RESPONSIVE WORD CARDS (Mobile Portrait & Landscape, Tablet Portrait) */
@@ -640,6 +788,216 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
         }}
         onCancel={() => setWordToDelete(null)}
       />
+
+      {/* Level Selection Modal */}
+      <Modal
+        visible={isLevelModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsLevelModalOpen(false)}
+      >
+        <View style={styles.pickerModalOverlay}>
+          <TouchableOpacity
+            style={styles.pickerBackdropDismiss}
+            activeOpacity={1}
+            onPress={() => setIsLevelModalOpen(false)}
+          />
+          <View style={[styles.pickerCard, !isDark && styles.pickerCardLight]}>
+            {/* Header */}
+            <View style={[styles.pickerHeader, !isDark && styles.pickerHeaderLight]}>
+              <View style={styles.pickerHeaderLeft}>
+                <View style={[styles.pickerIconCircle, !isDark && styles.pickerIconCircleLight]}>
+                  <Award size={18} color="#e62e4c" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.pickerTitle, !isDark && styles.pickerTitleLight]}>
+                    Nivel de dificultad
+                  </Text>
+                  <Text style={[styles.pickerSubtitle, !isDark && styles.pickerSubtitleLight]}>
+                    Filtra por marco común europeo (MCER)
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsLevelModalOpen(false)}
+                style={[styles.pickerCloseBtn, !isDark && styles.pickerCloseBtnLight]}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Cerrar selector de nivel"
+              >
+                <X size={18} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Options List */}
+            <ScrollView style={styles.pickerBody} contentContainerStyle={styles.pickerBodyContent}>
+              {LEVEL_OPTIONS.map((opt) => {
+                const isSelected = levelFilter === opt.id;
+                const count = levelCounts[opt.id] ?? 0;
+                return (
+                  <TouchableOpacity
+                    key={opt.id}
+                    style={[
+                      styles.pickerItem,
+                      !isDark && styles.pickerItemLight,
+                      isSelected && (isDark ? styles.pickerItemActive : styles.pickerItemActiveLight),
+                    ]}
+                    onPress={() => handleSelectLevel(opt.id)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={styles.pickerItemLeft}>
+                      <View
+                        style={[
+                          styles.levelOptionBadge,
+                          { backgroundColor: opt.badgeBg },
+                        ]}
+                      >
+                        <Text style={[styles.levelOptionBadgeText, { color: opt.badgeColor }]}>
+                          {opt.id === 'all' ? 'ALL' : opt.id}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[
+                            styles.pickerItemLabel,
+                            !isDark && styles.pickerItemLabelLight,
+                            isSelected && styles.pickerItemLabelActive,
+                          ]}
+                        >
+                          {opt.label}
+                        </Text>
+                        <Text style={[styles.pickerItemDesc, !isDark && styles.pickerItemDescLight]}>
+                          {opt.desc}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.pickerItemRight}>
+                      <View style={[styles.pickerCountBadge, !isDark && styles.pickerCountBadgeLight]}>
+                        <Text style={[styles.pickerCountText, !isDark && styles.pickerCountTextLight]}>
+                          {count}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.pickerCheckCircle,
+                          isSelected && styles.pickerCheckCircleActive,
+                          !isSelected && !isDark && styles.pickerCheckCircleInactiveLight,
+                        ]}
+                      >
+                        {isSelected && <Check size={12} color="#ffffff" strokeWidth={3} />}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Status Selection Modal */}
+      <Modal
+        visible={isStatusModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsStatusModalOpen(false)}
+      >
+        <View style={styles.pickerModalOverlay}>
+          <TouchableOpacity
+            style={styles.pickerBackdropDismiss}
+            activeOpacity={1}
+            onPress={() => setIsStatusModalOpen(false)}
+          />
+          <View style={[styles.pickerCard, !isDark && styles.pickerCardLight]}>
+            {/* Header */}
+            <View style={[styles.pickerHeader, !isDark && styles.pickerHeaderLight]}>
+              <View style={styles.pickerHeaderLeft}>
+                <View style={[styles.pickerIconCircle, !isDark && styles.pickerIconCircleLight]}>
+                  <Activity size={18} color="#e62e4c" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.pickerTitle, !isDark && styles.pickerTitleLight]}>
+                    Estado de aprendizaje
+                  </Text>
+                  <Text style={[styles.pickerSubtitle, !isDark && styles.pickerSubtitleLight]}>
+                    Filtra por tu progreso de estudio y repaso
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsStatusModalOpen(false)}
+                style={[styles.pickerCloseBtn, !isDark && styles.pickerCloseBtnLight]}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Cerrar selector de estado"
+              >
+                <X size={18} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Options List */}
+            <ScrollView style={styles.pickerBody} contentContainerStyle={styles.pickerBodyContent}>
+              {STATUS_OPTIONS.map((opt) => {
+                const isSelected = statusFilter === opt.id;
+                const count = (statusCounts as Record<string, number>)[opt.id] ?? 0;
+                return (
+                  <TouchableOpacity
+                    key={opt.id}
+                    style={[
+                      styles.pickerItem,
+                      !isDark && styles.pickerItemLight,
+                      isSelected && (isDark ? styles.pickerItemActive : styles.pickerItemActiveLight),
+                    ]}
+                    onPress={() => handleSelectStatus(opt.id)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={styles.pickerItemLeft}>
+                      <View
+                        style={[
+                          styles.statusOptionDotWrap,
+                          { backgroundColor: `${opt.dotColor}22` },
+                        ]}
+                      >
+                        <View style={[styles.statusOptionDot, { backgroundColor: opt.dotColor }]} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[
+                            styles.pickerItemLabel,
+                            !isDark && styles.pickerItemLabelLight,
+                            isSelected && styles.pickerItemLabelActive,
+                          ]}
+                        >
+                          {opt.label}
+                        </Text>
+                        <Text style={[styles.pickerItemDesc, !isDark && styles.pickerItemDescLight]}>
+                          {opt.desc}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.pickerItemRight}>
+                      <View style={[styles.pickerCountBadge, !isDark && styles.pickerCountBadgeLight]}>
+                        <Text style={[styles.pickerCountText, !isDark && styles.pickerCountTextLight]}>
+                          {count}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.pickerCheckCircle,
+                          isSelected && styles.pickerCheckCircleActive,
+                          !isSelected && !isDark && styles.pickerCheckCircleInactiveLight,
+                        ]}
+                      >
+                        {isSelected && <Check size={12} color="#ffffff" strokeWidth={3} />}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -898,10 +1256,209 @@ const styles = StyleSheet.create({
     height: 42,
     gap: 8,
   },
+  selectWrapperActive: {
+    borderColor: 'rgba(230, 46, 76, 0.5)',
+    backgroundColor: 'rgba(230, 46, 76, 0.12)',
+  },
+  activeFilterDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#e62e4c',
+  },
   selectText: {
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '600',
+  },
+  selectTextActive: {
+    color: '#ff758c',
+    fontWeight: '700',
+  },
+  clearFilterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(230, 46, 76, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.3)',
+    borderRadius: THEME.radius.xl,
+    paddingHorizontal: 12,
+    height: 42,
+  },
+  clearFilterText: {
+    color: '#ff758c',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // ── Filter Picker Modal ──────────────────────
+  pickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.78)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+    zIndex: 9999,
+  },
+  pickerBackdropDismiss: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  pickerCard: {
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '85%',
+    backgroundColor: '#161922',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 8,
+    zIndex: 10,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  pickerHeaderLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginRight: 8,
+  },
+  pickerIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(230, 46, 76, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: -0.3,
+  },
+  pickerSubtitle: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+    marginTop: 2,
+  },
+  pickerCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  pickerBody: {
+    maxHeight: 420,
+  },
+  pickerBodyContent: {
+    padding: 12,
+    gap: 8,
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 12,
+  },
+  pickerItemActive: {
+    backgroundColor: 'rgba(230, 46, 76, 0.12)',
+    borderColor: 'rgba(230, 46, 76, 0.45)',
+  },
+  pickerItemLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  levelOptionBadge: {
+    minWidth: 42,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  levelOptionBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  statusOptionDotWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusOptionDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  pickerItemLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#f8fafc',
+  },
+  pickerItemLabelActive: {
+    color: '#ff758c',
+    fontWeight: '700',
+  },
+  pickerItemDesc: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+    marginTop: 2,
+  },
+  pickerItemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  pickerCountBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  pickerCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: THEME.colors.textMuted,
+  },
+  pickerCheckCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  pickerCheckCircleActive: {
+    backgroundColor: '#e62e4c',
+    borderColor: '#e62e4c',
   },
 
   // Table Card
@@ -1356,5 +1913,64 @@ const styles = StyleSheet.create({
   },
   pageBtnLight: {
     backgroundColor: '#f1f5f9',
+  },
+  selectWrapperActiveLight: {
+    borderColor: '#fca5a5',
+    backgroundColor: '#fff1f2',
+  },
+  selectTextActiveLight: {
+    color: '#e11d48',
+    fontWeight: '700',
+  },
+  clearFilterBtnLight: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fca5a5',
+  },
+  clearFilterTextLight: {
+    color: '#e11d48',
+  },
+  pickerCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.15,
+  },
+  pickerHeaderLight: {
+    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  pickerIconCircleLight: {
+    backgroundColor: '#fff1f2',
+  },
+  pickerTitleLight: {
+    color: '#0f172a',
+  },
+  pickerSubtitleLight: {
+    color: '#64748b',
+  },
+  pickerCloseBtnLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  pickerItemLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  pickerItemActiveLight: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fca5a5',
+  },
+  pickerItemLabelLight: {
+    color: '#0f172a',
+  },
+  pickerItemDescLight: {
+    color: '#64748b',
+  },
+  pickerCountBadgeLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  pickerCountTextLight: {
+    color: '#475569',
+  },
+  pickerCheckCircleInactiveLight: {
+    borderColor: 'rgba(0, 0, 0, 0.2)',
   },
 });
