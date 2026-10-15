@@ -23,6 +23,7 @@ import {
   ChevronRight,
   ChevronDown,
   Sparkles,
+  Folder,
 } from 'lucide-react-native';
 import { WordItem, WordStatus } from '../../types';
 import { vocabService, getWordCategories, getWordSubcategories } from '../../lib/vocabularyStore';
@@ -37,6 +38,7 @@ interface VocabularyTableViewProps {
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
   onOpenAddModal: () => void;
+  onOpenAddCategoryModal?: () => void;
   onOpenExportModal: () => void;
   onStartPractice: () => void;
   onEditWord: (word: WordItem) => void;
@@ -50,6 +52,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   words,
   selectedFilter,
   onOpenAddModal,
+  onOpenAddCategoryModal,
   onOpenExportModal,
   onStartPractice,
   onEditWord,
@@ -159,15 +162,35 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
         {/* Action Buttons */}
         {isCompact ? (
           <View style={styles.headerActionsMobile}>
-            {/* + Añadir Palabra (Primary CTA, full width) */}
-            <TouchableOpacity
-              style={styles.btnCrimsonMobile}
-              onPress={onOpenAddModal}
-              activeOpacity={0.8}
-            >
-              <Plus size={16} color="#ffffff" style={{ marginRight: 6 }} />
-              <Text style={styles.btnCrimsonTextMobile}>Añadir Palabra</Text>
-            </TouchableOpacity>
+            {/* Primary actions: 1. Añadir Categoría  2. Añadir Palabra */}
+            <View style={styles.primaryActionsMobileRow}>
+              {/* 1. Añadir Categoría */}
+              <TouchableOpacity
+                style={[styles.btnCategoryMobile, !isDark && styles.btnCategoryMobileLight]}
+                onPress={onOpenAddCategoryModal}
+                activeOpacity={0.8}
+              >
+                <Folder size={14} color={!isDark ? '#e11d48' : '#ff758c'} style={{ marginRight: 6 }} />
+                <Text
+                  style={[styles.btnCategoryTextMobile, !isDark && styles.btnCategoryTextMobileLight]}
+                  numberOfLines={1}
+                >
+                  Añadir Categoría
+                </Text>
+              </TouchableOpacity>
+
+              {/* 2. Añadir Palabra */}
+              <TouchableOpacity
+                style={styles.btnCrimsonHalfMobile}
+                onPress={onOpenAddModal}
+                activeOpacity={0.8}
+              >
+                <Plus size={15} color="#ffffff" style={{ marginRight: 6 }} />
+                <Text style={styles.btnCrimsonTextHalfMobile} numberOfLines={1}>
+                  Añadir Palabra
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             {/* Secondary actions: Exportar & Practicar side by side */}
             <View style={styles.secondaryActionsMobileRow}>
@@ -219,7 +242,17 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
               <Text style={styles.btnPurpleText}>Practicar</Text>
             </TouchableOpacity>
 
-            {/* + Añadir Palabra */}
+            {/* 1. Añadir Categoría */}
+            <TouchableOpacity
+              style={[styles.btnCategory, !isDark && styles.btnCategoryLight]}
+              onPress={onOpenAddCategoryModal}
+              activeOpacity={0.8}
+            >
+              <Folder size={14} color={!isDark ? '#e11d48' : '#ff758c'} style={{ marginRight: 6 }} />
+              <Text style={[styles.btnCategoryText, !isDark && styles.btnCategoryTextLight]}>Añadir Categoría</Text>
+            </TouchableOpacity>
+
+            {/* 2. Añadir Palabra */}
             <TouchableOpacity
               style={styles.btnCrimson}
               onPress={onOpenAddModal}
@@ -729,25 +762,77 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 8,
   },
-  btnCrimsonMobile: {
+  primaryActionsMobileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+  },
+  btnCategoryMobile: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(230, 46, 76, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(230, 46, 76, 0.35)',
+    borderRadius: THEME.radius.lg,
+    paddingHorizontal: 8,
+    height: 40,
+  },
+  btnCategoryMobileLight: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fca5a5',
+  },
+  btnCategoryTextMobile: {
+    color: '#ff758c',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  btnCategoryTextMobileLight: {
+    color: '#e11d48',
+  },
+  btnCrimsonHalfMobile: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#e62e4c',
     borderRadius: THEME.radius.lg,
-    paddingHorizontal: 16,
-    height: 42,
-    width: '100%',
+    paddingHorizontal: 8,
+    height: 40,
     shadowColor: '#e62e4c',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 3,
   },
-  btnCrimsonTextMobile: {
+  btnCrimsonTextHalfMobile: {
     color: '#ffffff',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
+  },
+  btnCategory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(230, 46, 76, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(230, 46, 76, 0.35)',
+    borderRadius: THEME.radius.lg,
+    paddingHorizontal: 14,
+    height: 38,
+  },
+  btnCategoryLight: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fca5a5',
+  },
+  btnCategoryText: {
+    color: '#ff758c',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  btnCategoryTextLight: {
+    color: '#e11d48',
   },
   secondaryActionsMobileRow: {
     flexDirection: 'row',

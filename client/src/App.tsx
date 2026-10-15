@@ -49,6 +49,7 @@ import { SettingsView } from './components/workspace/SettingsView';
 import { AddWordModal } from './components/workspace/AddWordModal';
 import { ExportImportModal } from './components/workspace/ExportImportModal';
 import { EditProfileModal } from './components/workspace/EditProfileModal';
+import { CategoryFormModal } from './components/workspace/CategoryFormModal';
 import { ConfirmModal } from './components/common/ConfirmModal';
 import { useResponsive } from './lib/useResponsive';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -86,6 +87,7 @@ function MainApp() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingWord, setEditingWord] = useState<WordItem | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
 
@@ -573,6 +575,7 @@ function MainApp() {
               <VocabularyTableView
                 words={words}
                 selectedFilter={selectedFilter}
+                onOpenAddCategoryModal={() => setIsCategoryModalOpen(true)}
                 onOpenAddModal={() => {
                   setEditingWord(null);
                   setIsAddModalOpen(true);
@@ -830,6 +833,22 @@ function MainApp() {
           currentUser={currentUser}
           onProfileUpdated={(updated) => setCurrentUser(updated)}
           isDark={isDark}
+        />
+      )}
+
+      {/* Add Category Modal */}
+      {isCategoryModalOpen && (
+        <CategoryFormModal
+          isOpen={isCategoryModalOpen}
+          mode="create_category"
+          isDark={isDark}
+          existingCategories={categories.map((c) => c.name)}
+          onClose={() => setIsCategoryModalOpen(false)}
+          onSubmit={(name, subcategories) => {
+            const created = vocabService.addCategory(name, subcategories || []);
+            setSelectedFilter({ type: 'category', group: created.name });
+            setIsCategoryModalOpen(false);
+          }}
         />
       )}
     </View>

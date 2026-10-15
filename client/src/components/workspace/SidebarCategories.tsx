@@ -194,100 +194,86 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
 
     return (
       <View style={[styles.mobileContainer, !isDark && styles.mobileContainerLight]}>
-        <View style={styles.mobileRow}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.mobileScrollList}
-            style={styles.mobileScrollView}
-          >
-            {/* Todas */}
-            <TouchableOpacity
-              style={[styles.chip, !isDark && styles.chipLight, isSelected('all') && styles.chipActive]}
-              onPress={() => onSelectFilter({ type: 'all' })}
-              activeOpacity={0.75}
-            >
-              <BookOpen size={14} color={isSelected('all') ? '#ffffff' : (!isDark ? '#64748b' : THEME.colors.textMuted)} />
-              <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('all') && styles.chipTextActive]}>
-                Todas
-              </Text>
-              <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('all') && styles.badgeActive]}>
-                <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('all') && styles.badgeTextActive]}>
-                  {totalWords}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Favoritas */}
-            <TouchableOpacity
-              style={[styles.chip, !isDark && styles.chipLight, isSelected('favorites') && styles.chipActive]}
-              onPress={() => onSelectFilter({ type: 'favorites' })}
-              activeOpacity={0.75}
-            >
-              <Star
-                size={14}
-                color={isSelected('favorites') ? '#ffffff' : '#eab308'}
-                fill={isSelected('favorites') ? '#ffffff' : 'transparent'}
-              />
-              <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('favorites') && styles.chipTextActive]}>
-                Favoritas
-              </Text>
-              <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('favorites') && styles.badgeActive]}>
-                <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('favorites') && styles.badgeTextActive]}>
-                  {favoritesCount}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Por repasar */}
-            <TouchableOpacity
-              style={[styles.chip, !isDark && styles.chipLight, isSelected('review') && styles.chipActive]}
-              onPress={() => onSelectFilter({ type: 'review' })}
-              activeOpacity={0.75}
-            >
-              <Clock size={14} color={isSelected('review') ? '#ffffff' : '#f87171'} />
-              <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('review') && styles.chipTextActive]}>
-                Por repasar
-              </Text>
-              <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('review') && styles.badgeActive]}>
-                <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('review') && styles.badgeTextActive]}>
-                  {reviewCount}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Categories */}
-            {safeCategories.map((cat) => (
-              <TouchableOpacity
-                key={cat.id}
-                style={[styles.chip, !isDark && styles.chipLight, isSelected('category', cat.name) && styles.chipActive]}
-                onPress={() => onSelectFilter({ type: 'category', group: cat.name })}
-                activeOpacity={0.75}
-              >
-                <Folder size={14} color={isSelected('category', cat.name) ? '#ffffff' : '#38bdf8'} />
-                <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('category', cat.name) && styles.chipTextActive]}>
-                  {cat.name}
-                </Text>
-                <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('category', cat.name) && styles.badgeActive]}>
-                  <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('category', cat.name) && styles.badgeTextActive]}>
-                    {cat.count}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          {/* Botón Pinned: + Categoría (Siempre visible en mobile y tablet) */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.mobileScrollList}
+        >
+          {/* Todas */}
           <TouchableOpacity
-            style={[styles.pinnedAddCategoryBtn, !isDark && styles.pinnedAddCategoryBtnLight]}
-            onPress={handleOpenCreateCategory}
-            activeOpacity={0.8}
-            accessibilityLabel="Agregar Categoría"
+            style={[styles.chip, !isDark && styles.chipLight, isSelected('all') && styles.chipActive]}
+            onPress={() => onSelectFilter({ type: 'all' })}
+            activeOpacity={0.75}
           >
-            <Plus size={14} color="#ffffff" style={{ marginRight: 5 }} />
-            <Text style={styles.pinnedAddCategoryText}>Categoría</Text>
+            <BookOpen size={14} color={isSelected('all') ? '#ffffff' : (!isDark ? '#64748b' : THEME.colors.textMuted)} />
+            <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('all') && styles.chipTextActive]}>
+              Todas
+            </Text>
+            <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('all') && styles.badgeActive]}>
+              <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('all') && styles.badgeTextActive]}>
+                {totalWords}
+              </Text>
+            </View>
           </TouchableOpacity>
-        </View>
+
+          {/* Favoritas */}
+          <TouchableOpacity
+            style={[styles.chip, !isDark && styles.chipLight, isSelected('favorites') && styles.chipActive]}
+            onPress={() => onSelectFilter({ type: 'favorites' })}
+            activeOpacity={0.75}
+          >
+            <Star
+              size={14}
+              color={isSelected('favorites') ? '#ffffff' : '#eab308'}
+              fill={isSelected('favorites') ? '#ffffff' : 'transparent'}
+            />
+            <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('favorites') && styles.chipTextActive]}>
+              Favoritas
+            </Text>
+            <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('favorites') && styles.badgeActive]}>
+              <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('favorites') && styles.badgeTextActive]}>
+                {favoritesCount}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Por repasar */}
+          <TouchableOpacity
+            style={[styles.chip, !isDark && styles.chipLight, isSelected('review') && styles.chipActive]}
+            onPress={() => onSelectFilter({ type: 'review' })}
+            activeOpacity={0.75}
+          >
+            <Clock size={14} color={isSelected('review') ? '#ffffff' : '#f87171'} />
+            <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('review') && styles.chipTextActive]}>
+              Por repasar
+            </Text>
+            <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('review') && styles.badgeActive]}>
+              <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('review') && styles.badgeTextActive]}>
+                {reviewCount}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Categories */}
+          {safeCategories.map((cat) => (
+            <TouchableOpacity
+              key={cat.id}
+              style={[styles.chip, !isDark && styles.chipLight, isSelected('category', cat.name) && styles.chipActive]}
+              onPress={() => onSelectFilter({ type: 'category', group: cat.name })}
+              activeOpacity={0.75}
+            >
+              <Folder size={14} color={isSelected('category', cat.name) ? '#ffffff' : '#38bdf8'} />
+              <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('category', cat.name) && styles.chipTextActive]}>
+                {cat.name}
+              </Text>
+              <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('category', cat.name) && styles.badgeActive]}>
+                <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('category', cat.name) && styles.badgeTextActive]}>
+                  {cat.count}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
         {/* Barra de Subcategorías (visible si hay una categoría seleccionada) */}
         {activeCategory && (
