@@ -430,10 +430,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* Version Information */}
       <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 8 }}>
         <Text style={{ fontSize: 13, color: THEME.colors.textSubtle, fontWeight: '700' }}>
-          PronounceIt v1.5.0
+          PronounceIt v1.6.0
         </Text>
         <Text style={{ fontSize: 11, color: THEME.colors.textSubtle, opacity: 0.75, marginTop: 4 }}>
-          Versión 1.5.0 Oficial · Todos los derechos reservados
+          Versión 1.6.0 Oficial · Todos los derechos reservados
         </Text>
       </View>
       </View>
