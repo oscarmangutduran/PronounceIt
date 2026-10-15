@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Platform,
   ScrollView,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { X, Folder, Layers, Sparkles, Plus, Pin, AlertCircle } from 'lucide-react-native';
 import { THEME } from '../../theme';
@@ -33,15 +34,18 @@ interface CategoryFormModalProps {
   onSubmit: (name: string, subcategories?: string[]) => void;
 }
 
+const DEFAULT_SUBCATS: string[] = [];
+const DEFAULT_STRINGS: string[] = [];
+
 export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
   isOpen,
   mode,
   initialValue = '',
-  initialSubcategories = [],
+  initialSubcategories = DEFAULT_SUBCATS,
   categoryName,
   isDark = true,
-  existingCategories = [],
-  existingSubcategories = [],
+  existingCategories = DEFAULT_STRINGS,
+  existingSubcategories = DEFAULT_STRINGS,
   onClose,
   onSubmit,
 }) => {
@@ -53,15 +57,26 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
   const [isSubFocused, setIsSubFocused] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
 
+  // Track the key of what's currently opened to prevent wiping user input during typing
+  const prevOpenKeyRef = React.useRef<string>('');
+
   useEffect(() => {
-    if (isOpen) {
-      setName(initialValue);
-      setSubcategories(initialSubcategories ? [...initialSubcategories] : []);
+    const currentKey = isOpen ? `${mode}_${initialValue || ''}` : '';
+    if (isOpen && prevOpenKeyRef.current !== currentKey) {
+      setName(initialValue || '');
+      setSubcategories(
+        initialSubcategories && Array.isArray(initialSubcategories) && initialSubcategories.length > 0
+          ? [...initialSubcategories]
+          : []
+      );
       setSubInput('');
       setError(null);
       setDuplicateError(null);
+      prevOpenKeyRef.current = currentKey;
+    } else if (!isOpen) {
+      prevOpenKeyRef.current = '';
     }
-  }, [isOpen, initialValue, initialSubcategories]);
+  }, [isOpen, mode, initialValue]);
 
   if (!isOpen) return null;
 
@@ -163,62 +178,69 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
   return (
     <Modal visible={isOpen} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={[styles.card, !isDark && styles.cardLight]}>
-          <View style={[styles.header, !isDark && styles.headerLight]}>
-            <View style={styles.headerLeft}>
-              <View style={[styles.iconCircle, !isDark && styles.iconCircleLight]}>
-                {isSubcategory ? (
-                  <Layers size={18} color="#e62e4c" />
-                ) : (
-                  <Folder size={18} color="#e62e4c" />
-                )}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.keyboardAvoid}
+        >
+          <View style={[styles.card, !isDark && styles.cardLight]}>
+            <View style={[styles.header, !isDark && styles.headerLight]}>
+              <View style={styles.headerLeft}>
+                <View style={[styles.iconCircle, !isDark && styles.iconCircleLight]}>
+                  {isSubcategory ? (
+                    <Layers size={18} color="#e62e4c" />
+                  ) : (
+                    <Folder size={18} color="#e62e4c" />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.title, !isDark && styles.titleLight]} numberOfLines={1}>
+                    {title}
+                  </Text>
+                  <Text style={[styles.subtitle, !isDark && styles.subtitleLight]}>
+                    {subtitle}
+                  </Text>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.title, !isDark && styles.titleLight]} numberOfLines={1}>
-                  {title}
-                </Text>
-                <Text style={[styles.subtitle, !isDark && styles.subtitleLight]}>
-                  {subtitle}
-                </Text>
-              </View>
+              <TouchableOpacity onPress={onClose} style={[styles.closeBtn, !isDark && styles.closeBtnLight]}>
+                <X size={18} color={!isDark ? "#64748b" : THEME.colors.textMuted} />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={onClose} style={[styles.closeBtn, !isDark && styles.closeBtnLight]}>
-              <X size={18} color={!isDark ? "#64748b" : THEME.colors.textMuted} />
-            </TouchableOpacity>
-          </View>
 
-          <ScrollView
-            style={styles.body}
-            contentContainerStyle={{ gap: 16 }}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Category or Subcategory Name Input */}
-            <View>
-              <Text style={[styles.label, !isDark && styles.labelLight]}>
-                {isSubcategory ? 'Nombre de la subcategoría *' : 'Nombre de la categoría principal *'}
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  !isDark && styles.inputLight,
-                  isFocused && (isDark ? styles.inputFocused : styles.inputFocusedLight),
-                  !!error && styles.inputError,
-                ]}
-                value={name}
-                onChangeText={(t) => {
-                  setName(t);
-                  if (error) setError(null);
-                  if (duplicateError) setDuplicateError(null);
-                }}
-                placeholder={placeholder}
-                placeholderTextColor={!isDark ? "#94a3b8" : THEME.colors.textSubtle}
-                autoFocus
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                onSubmitEditing={allowsSubcategories ? undefined : handleSubmit}
-              />
-              {error && <Text style={styles.errorText}>{error}</Text>}
-            </View>
+            <ScrollView
+              style={styles.body}
+              contentContainerStyle={{ gap: 16 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Category or Subcategory Name Input */}
+              <View>
+                <Text style={[styles.label, !isDark && styles.labelLight]}>
+                  {isSubcategory ? 'Nombre de la subcategoría *' : 'Nombre de la categoría principal *'}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    !isDark && styles.inputLight,
+                    isFocused && (isDark ? styles.inputFocused : styles.inputFocusedLight),
+                    !!error && styles.inputError,
+                  ]}
+                  value={name}
+                  onChangeText={(t) => {
+                    setName(t);
+                    if (error) setError(null);
+                    if (duplicateError) setDuplicateError(null);
+                  }}
+                  placeholder={placeholder}
+                  placeholderTextColor={!isDark ? "#94a3b8" : THEME.colors.textSubtle}
+                  autoFocus={Platform.OS === 'web' ? (typeof window !== 'undefined' && window.innerWidth >= 768) : true}
+                  autoCapitalize="sentences"
+                  autoCorrect={false}
+                  returnKeyType={allowsSubcategories ? "next" : "done"}
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
+                  onSubmitEditing={allowsSubcategories ? undefined : handleSubmit}
+                />
+                {error && <Text style={styles.errorText}>{error}</Text>}
+              </View>
 
             {/* Duplicate name error banner */}
             {!!duplicateError && (
@@ -284,6 +306,9 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                     onChangeText={setSubInput}
                     placeholder="Ej: Phrasal Verbs, Familia, Finanzas, Comida..."
                     placeholderTextColor={!isDark ? "#94a3b8" : THEME.colors.textSubtle}
+                    autoCapitalize="sentences"
+                    autoCorrect={false}
+                    returnKeyType="done"
                     onFocus={() => setIsSubFocused(true)}
                     onBlur={() => setIsSubFocused(false)}
                     onSubmitEditing={handleAddSubcategoryChip}
@@ -388,9 +413,10 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-      </View>
-    </Modal>
-  );
+      </KeyboardAvoidingView>
+    </View>
+  </Modal>
+);
 };
 
 const styles = StyleSheet.create({
@@ -401,6 +427,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     zIndex: 9999,
+  },
+  keyboardAvoid: {
+    width: "100%",
+    maxWidth: 460,
+    alignItems: "center",
+    justifyContent: "center",
   },
   // ── Duplicate name inline banner ──────────────────────
   dupBanner: {
@@ -559,7 +591,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 14,
+    fontSize: 15,
+    minHeight: 46,
     color: "#ffffff",
     ...Platform.select({
       web: {
@@ -648,7 +681,8 @@ const styles = StyleSheet.create({
   subInput: {
     flex: 1,
     paddingVertical: 9,
-    fontSize: 13,
+    fontSize: 14,
+    minHeight: 44,
   },
   addSubBtn: {
     flexDirection: "row",

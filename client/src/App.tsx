@@ -841,6 +841,7 @@ function MainApp() {
         <CategoryFormModal
           isOpen={isCategoryModalOpen}
           mode="create_category"
+          initialValue=""
           isDark={isDark}
           existingCategories={categories.map((c) => c.name)}
           onClose={() => setIsCategoryModalOpen(false)}
