@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
 import {
   BookOpen,
@@ -16,6 +17,7 @@ import {
   Plus,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Pin,
   Bookmark,
   Sparkles,
@@ -94,6 +96,124 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
     category: CategoryItem;
     subcategory: { id: string; name: string; count: number };
   } | null>(null);
+
+  // Mobile horizontal scroll controls (drag-to-scroll + arrows)
+  const scrollRef = useRef<ScrollView>(null);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeftStart = useRef(0);
+  const hasMoved = useRef(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const handleScrollLeft = () => {
+    if (Platform.OS === 'web') {
+      const node: any = (scrollRef.current as any)?.getScrollableNode?.() || scrollRef.current;
+      if (node) node.scrollBy({ left: -220, behavior: 'smooth' });
+    } else {
+      scrollRef.current?.scrollTo({ x: 0, animated: true });
+    }
+  };
+
+  const handleScrollRight = () => {
+    if (Platform.OS === 'web') {
+      const node: any = (scrollRef.current as any)?.getScrollableNode?.() || scrollRef.current;
+      if (node) node.scrollBy({ left: 220, behavior: 'smooth' });
+    } else {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }
+  };
+
+  const handleScroll = (e: any) => {
+    const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+    const x = contentOffset.x;
+    setCanScrollLeft(x > 10);
+    setCanScrollRight(x + layoutMeasurement.width < contentSize.width - 10);
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    const getNode = () => {
+      const current: any = scrollRef.current;
+      if (!current) return null;
+      if (typeof current.getScrollableNode === 'function') {
+        return current.getScrollableNode();
+      }
+      return current;
+    };
+
+    const node = getNode();
+    if (!node) return;
+
+    const updateBounds = () => {
+      setCanScrollLeft(node.scrollLeft > 10);
+      setCanScrollRight(node.scrollLeft + node.clientWidth < node.scrollWidth - 10);
+    };
+
+    updateBounds();
+    node.addEventListener('scroll', updateBounds);
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      isDragging.current = true;
+      hasMoved.current = false;
+      startX.current = e.pageX - node.getBoundingClientRect().left;
+      scrollLeftStart.current = node.scrollLeft;
+      node.style.cursor = 'grabbing';
+      node.style.userSelect = 'none';
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      const x = e.pageX - node.getBoundingClientRect().left;
+      const walk = (x - startX.current) * 1.6;
+      if (Math.abs(walk) > 4) {
+        hasMoved.current = true;
+      }
+      node.scrollLeft = scrollLeftStart.current - walk;
+    };
+
+    const onMouseUp = () => {
+      if (isDragging.current) {
+        isDragging.current = false;
+        node.style.cursor = 'grab';
+        node.style.removeProperty('user-select');
+        setTimeout(() => {
+          hasMoved.current = false;
+        }, 50);
+      }
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && node.scrollWidth > node.clientWidth) {
+        node.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    };
+
+    const onClickCapture = (e: MouseEvent) => {
+      if (hasMoved.current) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    };
+
+    node.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    node.addEventListener('wheel', onWheel, { passive: false });
+    node.addEventListener('click', onClickCapture, true);
+
+    return () => {
+      node.removeEventListener('scroll', updateBounds);
+      node.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      node.removeEventListener('wheel', onWheel);
+      node.removeEventListener('click', onClickCapture, true);
+    };
+  }, [safeCategories]);
 
   const toggleGroup = (groupName: string) => {
     setExpandedGroups((prev) => ({
@@ -194,86 +314,118 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
 
     return (
       <View style={[styles.mobileContainer, !isDark && styles.mobileContainerLight]}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.mobileScrollList}
-        >
-          {/* Todas */}
-          <TouchableOpacity
-            style={[styles.chip, !isDark && styles.chipLight, isSelected('all') && styles.chipActive]}
-            onPress={() => onSelectFilter({ type: 'all' })}
-            activeOpacity={0.75}
+        <View style={styles.mobileScrollWrapper}>
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            nestedScrollEnabled={true}
+            directionalLockEnabled={true}
+            scrollEventThrottle={16}
+            onScroll={handleScroll}
+            contentContainerStyle={styles.mobileScrollList}
+            style={styles.mobileScrollView}
           >
-            <BookOpen size={14} color={isSelected('all') ? '#ffffff' : (!isDark ? '#64748b' : THEME.colors.textMuted)} />
-            <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('all') && styles.chipTextActive]}>
-              Todas
-            </Text>
-            <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('all') && styles.badgeActive]}>
-              <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('all') && styles.badgeTextActive]}>
-                {totalWords}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Favoritas */}
-          <TouchableOpacity
-            style={[styles.chip, !isDark && styles.chipLight, isSelected('favorites') && styles.chipActive]}
-            onPress={() => onSelectFilter({ type: 'favorites' })}
-            activeOpacity={0.75}
-          >
-            <Star
-              size={14}
-              color={isSelected('favorites') ? '#ffffff' : '#eab308'}
-              fill={isSelected('favorites') ? '#ffffff' : 'transparent'}
-            />
-            <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('favorites') && styles.chipTextActive]}>
-              Favoritas
-            </Text>
-            <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('favorites') && styles.badgeActive]}>
-              <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('favorites') && styles.badgeTextActive]}>
-                {favoritesCount}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Por repasar */}
-          <TouchableOpacity
-            style={[styles.chip, !isDark && styles.chipLight, isSelected('review') && styles.chipActive]}
-            onPress={() => onSelectFilter({ type: 'review' })}
-            activeOpacity={0.75}
-          >
-            <Clock size={14} color={isSelected('review') ? '#ffffff' : '#f87171'} />
-            <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('review') && styles.chipTextActive]}>
-              Por repasar
-            </Text>
-            <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('review') && styles.badgeActive]}>
-              <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('review') && styles.badgeTextActive]}>
-                {reviewCount}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Categories */}
-          {safeCategories.map((cat) => (
+            {/* Todas */}
             <TouchableOpacity
-              key={cat.id}
-              style={[styles.chip, !isDark && styles.chipLight, isSelected('category', cat.name) && styles.chipActive]}
-              onPress={() => onSelectFilter({ type: 'category', group: cat.name })}
+              style={[styles.chip, !isDark && styles.chipLight, isSelected('all') && styles.chipActive]}
+              onPress={() => onSelectFilter({ type: 'all' })}
               activeOpacity={0.75}
             >
-              <Folder size={14} color={isSelected('category', cat.name) ? '#ffffff' : '#38bdf8'} />
-              <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('category', cat.name) && styles.chipTextActive]}>
-                {cat.name}
+              <BookOpen size={14} color={isSelected('all') ? '#ffffff' : (!isDark ? '#64748b' : THEME.colors.textMuted)} />
+              <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('all') && styles.chipTextActive]}>
+                Todas
               </Text>
-              <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('category', cat.name) && styles.badgeActive]}>
-                <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('category', cat.name) && styles.badgeTextActive]}>
-                  {cat.count}
+              <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('all') && styles.badgeActive]}>
+                <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('all') && styles.badgeTextActive]}>
+                  {totalWords}
                 </Text>
               </View>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+
+            {/* Favoritas */}
+            <TouchableOpacity
+              style={[styles.chip, !isDark && styles.chipLight, isSelected('favorites') && styles.chipActive]}
+              onPress={() => onSelectFilter({ type: 'favorites' })}
+              activeOpacity={0.75}
+            >
+              <Star
+                size={14}
+                color={isSelected('favorites') ? '#ffffff' : '#eab308'}
+                fill={isSelected('favorites') ? '#ffffff' : 'transparent'}
+              />
+              <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('favorites') && styles.chipTextActive]}>
+                Favoritas
+              </Text>
+              <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('favorites') && styles.badgeActive]}>
+                <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('favorites') && styles.badgeTextActive]}>
+                  {favoritesCount}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Por repasar */}
+            <TouchableOpacity
+              style={[styles.chip, !isDark && styles.chipLight, isSelected('review') && styles.chipActive]}
+              onPress={() => onSelectFilter({ type: 'review' })}
+              activeOpacity={0.75}
+            >
+              <Clock size={14} color={isSelected('review') ? '#ffffff' : '#f87171'} />
+              <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('review') && styles.chipTextActive]}>
+                Por repasar
+              </Text>
+              <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('review') && styles.badgeActive]}>
+                <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('review') && styles.badgeTextActive]}>
+                  {reviewCount}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Categories */}
+            {safeCategories.map((cat) => (
+              <TouchableOpacity
+                key={cat.id}
+                style={[styles.chip, !isDark && styles.chipLight, isSelected('category', cat.name) && styles.chipActive]}
+                onPress={() => onSelectFilter({ type: 'category', group: cat.name })}
+                activeOpacity={0.75}
+              >
+                <Folder size={14} color={isSelected('category', cat.name) ? '#ffffff' : '#38bdf8'} />
+                <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('category', cat.name) && styles.chipTextActive]}>
+                  {cat.name}
+                </Text>
+                <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('category', cat.name) && styles.badgeActive]}>
+                  <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('category', cat.name) && styles.badgeTextActive]}>
+                    {cat.count}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Left Arrow (when scrolled) */}
+          {canScrollLeft && (
+            <TouchableOpacity
+              style={[styles.scrollArrowBtn, styles.scrollArrowBtnLeft, !isDark && styles.scrollArrowBtnLight]}
+              onPress={handleScrollLeft}
+              activeOpacity={0.85}
+              accessibilityLabel="Ver categorías anteriores"
+            >
+              <ChevronLeft size={14} color={!isDark ? '#0f172a' : '#ffffff'} />
+            </TouchableOpacity>
+          )}
+
+          {/* Right Arrow (when more categories available) */}
+          {canScrollRight && (
+            <TouchableOpacity
+              style={[styles.scrollArrowBtn, styles.scrollArrowBtnRight, !isDark && styles.scrollArrowBtnLight]}
+              onPress={handleScrollRight}
+              activeOpacity={0.85}
+              accessibilityLabel="Ver más categorías"
+            >
+              <ChevronRight size={14} color={!isDark ? '#0f172a' : '#ffffff'} />
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Barra de Subcategorías (visible si hay una categoría seleccionada) */}
         {activeCategory && (
@@ -913,10 +1065,60 @@ const styles = StyleSheet.create({
     backgroundColor: '#0c0915',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    marginHorizontal: -16,
   },
   mobileContainerLight: {
     backgroundColor: '#ffffff',
     borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  mobileScrollWrapper: {
+    position: 'relative',
+    width: '100%',
+    justifyContent: 'center',
+  },
+  mobileScrollView: {
+    width: '100%',
+    ...(Platform.OS === 'web'
+      ? ({
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-x',
+          cursor: 'grab',
+          scrollbarWidth: 'none',
+        } as any)
+      : {}),
+  },
+  scrollArrowBtn: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -14,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(20, 13, 35, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  scrollArrowBtnLeft: {
+    left: 4,
+  },
+  scrollArrowBtnRight: {
+    right: 4,
+  },
+  scrollArrowBtnLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: 'rgba(0, 0, 0, 0.12)',
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
   },
   mobileRow: {
     flexDirection: 'row',
