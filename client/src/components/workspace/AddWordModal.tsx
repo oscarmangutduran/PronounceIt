@@ -38,6 +38,7 @@ import {
   getInstantEnrichmentSync,
   getPhoneticsForEnglishWord,
   translatePhrase,
+  generateExampleSentencesWithAI,
   isGeminiConfigured,
 } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
@@ -74,6 +75,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [translation, setTranslation] = useState('');
   const [exampleEn, setExampleEn] = useState('');
   const [exampleEs, setExampleEs] = useState('');
+  const [generatingSentences, setGeneratingSentences] = useState(false);
   const [phoneticGuide, setPhoneticGuide] = useState('');
   const [ipa, setIpa] = useState('');
   const [hasManuallyEditedPhoneticGuide, setHasManuallyEditedPhoneticGuide] = useState(false);
@@ -261,7 +263,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
     setLoadingAutoEnrich(true);
     try {
-      const res = await autoEnrichWord(sourceText, lang, false);
+      const res = await autoEnrichWord(sourceText, lang, isGeminiConfigured());
       if (res) {
         let currentEnWord = word;
         if (lang === 'es') {
@@ -274,8 +276,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             setTranslation(res.translation || '');
           }
         }
-        if (!hasManuallyEditedExamples) {
-          setExampleEn(res.exampleEn || '');
+        if (!hasManuallyEditedExamples && res.exampleEn) {
+          setExampleEn(res.exampleEn);
           setExampleEs(res.exampleEs || '');
         }
 
@@ -496,16 +498,64 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     setHasManuallyEditedIpa(false);
   };
 
+  // Generate authentic, contextual example sentences with AI
+  const handleGenerateSentencesWithAI = async () => {
+    const targetWord = word.trim() || translation.trim();
+    if (!targetWord) {
+      setValidationError(
+        inputLanguage === 'es'
+          ? 'Por favor escribe primero la palabra en español o inglés para generar frases con IA.'
+          : 'Por favor escribe primero la palabra en inglés o español para generar frases con IA.'
+      );
+      return;
+    }
+
+    if (!isGeminiConfigured()) {
+      setValidationError('La API de Google Gemini no está configurada. Puedes añadir tu clave en Ajustes.');
+      return;
+    }
+
+    setGeneratingSentences(true);
+    setValidationError(null);
+
+    try {
+      const currentEn = word.trim();
+      const currentEs = translation.trim();
+      const pair = await generateExampleSentencesWithAI(
+        currentEn || currentEs,
+        currentEs || undefined,
+        partOfSpeech || undefined
+      );
+
+      if (pair && pair.exampleEn && pair.exampleEs) {
+        setExampleEn(pair.exampleEn);
+        setExampleEs(pair.exampleEs);
+        setHasManuallyEditedExamples(true);
+      } else {
+        // Fallback: translate existing sentence if user had already written one
+        if (exampleEn.trim() && !exampleEs.trim()) {
+          await handleTranslateSentence('en_to_es');
+        } else if (exampleEs.trim() && !exampleEn.trim()) {
+          await handleTranslateSentence('es_to_en');
+        } else {
+          setValidationError('No se pudo generar la frase con IA. Inténtalo de nuevo.');
+        }
+      }
+    } catch (err: any) {
+      console.warn('Error generating sentences with AI:', err);
+      setValidationError(`Error al generar frases con IA: ${err?.message || 'Error de conexión'}`);
+    } finally {
+      setGeneratingSentences(false);
+    }
+  };
+
   // Translate example phrases (sentences) with AI
   const handleTranslateSentence = async (direction: 'en_to_es' | 'es_to_en') => {
     const sourceText = direction === 'en_to_es' ? exampleEn.trim() : exampleEs.trim();
 
+    // If sourceText is empty, smartly generate both sentences with AI instead of showing an error
     if (!sourceText) {
-      setValidationError(
-        direction === 'en_to_es'
-          ? 'Por favor escribe primero una frase en inglés para traducirla.'
-          : 'Por favor escribe primero una frase en español para traducirla.'
-      );
+      await handleGenerateSentencesWithAI();
       return;
     }
 
@@ -628,7 +678,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     if (inputLanguage === 'es' && !cleanWord && finalTranslation) {
       setSaving(true);
       try {
-        const enriched = await autoEnrichWord(finalTranslation, 'es', false);
+        const enriched = await autoEnrichWord(finalTranslation, 'es', isGeminiConfigured());
         if (enriched?.word) {
           cleanWord = enriched.word.trim();
           if (!exampleEn && enriched.exampleEn) setExampleEn(enriched.exampleEn);
@@ -645,7 +695,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     } else if (inputLanguage === 'en' && cleanWord && !finalTranslation) {
       setSaving(true);
       try {
-        const enriched = await autoEnrichWord(cleanWord, 'en', false);
+        const enriched = await autoEnrichWord(cleanWord, 'en', isGeminiConfigured());
         if (enriched) {
           if (!finalTranslation) finalTranslation = enriched.translation;
           if (!exampleEn && enriched.exampleEn) setExampleEn(enriched.exampleEn);
@@ -1090,17 +1140,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                       styles.aiSuggestBtn,
                       !isDark && styles.aiSuggestBtnLight,
                     ]}
-                    onPress={() => handleTranslateSentence('en_to_es')}
-                    disabled={Boolean(translatingSentence)}
+                    onPress={handleGenerateSentencesWithAI}
+                    disabled={generatingSentences || Boolean(translatingSentence)}
                     activeOpacity={0.7}
+                    accessibilityLabel="Generar frases con IA"
                   >
-                    {translatingSentence === 'en_to_es' ? (
+                    {generatingSentences ? (
                       <ActivityIndicator size="small" color={!isDark ? '#e11d48' : '#ff758c'} />
                     ) : (
                       <Sparkles size={12} color={!isDark ? '#e11d48' : '#ff758c'} />
                     )}
                     <Text style={[styles.aiSuggestBtnText, !isDark && styles.aiSuggestBtnTextLight]}>
-                      {translatingSentence === 'en_to_es' ? 'Traduciendo...' : 'IA'}
+                      {generatingSentences ? 'Generando...' : 'IA Frases'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1139,17 +1190,28 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                       styles.aiSuggestBtn,
                       !isDark && styles.aiSuggestBtnLight,
                     ]}
-                    onPress={() => handleTranslateSentence('es_to_en')}
-                    disabled={Boolean(translatingSentence)}
+                    onPress={() => {
+                      if (exampleEn.trim()) {
+                        handleTranslateSentence('en_to_es');
+                      } else {
+                        handleGenerateSentencesWithAI();
+                      }
+                    }}
+                    disabled={Boolean(translatingSentence) || generatingSentences}
                     activeOpacity={0.7}
+                    accessibilityLabel="Traducir o generar frase con IA"
                   >
-                    {translatingSentence === 'es_to_en' ? (
+                    {translatingSentence === 'en_to_es' || generatingSentences ? (
                       <ActivityIndicator size="small" color={!isDark ? '#e11d48' : '#ff758c'} />
                     ) : (
                       <Sparkles size={12} color={!isDark ? '#e11d48' : '#ff758c'} />
                     )}
                     <Text style={[styles.aiSuggestBtnText, !isDark && styles.aiSuggestBtnTextLight]}>
-                      {translatingSentence === 'es_to_en' ? 'Traduciendo...' : 'IA'}
+                      {translatingSentence === 'en_to_es'
+                        ? 'Traduciendo...'
+                        : exampleEn.trim() && !exampleEs.trim()
+                        ? 'Traducir con IA'
+                        : 'IA'}
                     </Text>
                   </TouchableOpacity>
                 </View>

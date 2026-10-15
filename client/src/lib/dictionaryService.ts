@@ -634,6 +634,8 @@ export function isGeminiConfigured(): boolean {
 
 export const GEMINI_AVAILABLE_MODELS = [
   'gemini-flash-lite-latest',
+  'gemini-2.5-flash',
+  'gemini-flash-latest',
   'gemini-3.1-flash-lite',
 ];
 
@@ -780,32 +782,44 @@ export async function queryGeminiForWord(
   if (!apiKey) return null;
 
   const prompt = sourceLang === 'es'
-    ? `Bilingual lexicographer task. Spanish word/phrase: "${clean}".
-Return ONLY a valid JSON object:
+    ? `You are an expert bilingual lexicographer and English teacher.
+Input Spanish word/phrase: "${clean}".
+Generate a comprehensive, authentic dictionary entry in JSON format.
+Requirements for sentences:
+- exampleEn MUST be a natural, modern, authentic English sentence that clearly demonstrates the exact meaning and typical real-world usage of the English word.
+- exampleEs MUST be a 100% natural, fluent, accurate Spanish translation of that exact English sentence (NEVER leave English words untranslated in Spanish).
+
+Return ONLY a valid JSON object with NO extra text or markdown:
 {
   "word": "Best single English word or short idiom (Capitalized)",
   "translation": "${clean.charAt(0).toUpperCase() + clean.slice(1)}",
   "partOfSpeech": "One of: Sustantivo, Verbo, Adjetivo, Adverbio, Preposición, Conjunción, Pronombre, Interjección, Artículo/determinante",
   "level": "CEFR: A1, A2, B1, B2, C1, or C2",
   "ipa": "/IPA phonetics for the English word/",
-  "phoneticGuide": "\\"Spanish phonetic guide approximation\\"",
-  "phoneticNote": "Short pronunciation tip",
+  "phoneticGuide": "\\"Spanish phonetic approximation for Spanish speakers\\"",
+  "phoneticNote": "Short pronunciation tip in Spanish",
   "definition": "Concise Spanish definition",
-  "exampleEn": "Natural short English sentence using the word",
-  "exampleEs": "Spanish translation of the example sentence"
+  "exampleEn": "Natural modern English sentence demonstrating the word",
+  "exampleEs": "Accurate, fluent Spanish translation of the sentence"
 }`
-    : `Bilingual lexicographer task. English word/phrase: "${clean}".
-Return ONLY a valid JSON object:
+    : `You are an expert bilingual lexicographer and English teacher.
+Input English word/phrase: "${clean}".
+Generate a comprehensive, authentic dictionary entry in JSON format.
+Requirements for sentences:
+- exampleEn MUST be a natural, modern, authentic English sentence that clearly demonstrates the exact meaning and typical real-world usage of "${clean}".
+- exampleEs MUST be a 100% natural, fluent, accurate Spanish translation of that exact English sentence (NEVER leave English words untranslated in Spanish).
+
+Return ONLY a valid JSON object with NO extra text or markdown:
 {
   "translation": "Best Spanish translation (Capitalized)",
   "partOfSpeech": "One of: Sustantivo, Verbo, Adjetivo, Adverbio, Preposición, Conjunción, Pronombre, Interjección, Artículo/determinante",
   "level": "CEFR: A1, A2, B1, B2, C1, or C2",
   "ipa": "/IPA phonetics/",
-  "phoneticGuide": "\\"Spanish phonetic guide approximation\\"",
-  "phoneticNote": "Short pronunciation tip",
+  "phoneticGuide": "\\"Spanish phonetic approximation for Spanish speakers\\"",
+  "phoneticNote": "Short pronunciation tip in Spanish",
   "definition": "Concise Spanish definition",
-  "exampleEn": "Natural short English sentence using the word",
-  "exampleEs": "Spanish translation of the example sentence"
+  "exampleEn": "Natural modern English sentence demonstrating the word",
+  "exampleEs": "Accurate, fluent Spanish translation of the sentence"
 }`;
 
   const models = GEMINI_AVAILABLE_MODELS;
@@ -813,7 +827,7 @@ Return ONLY a valid JSON object:
   for (const model of models) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2800);
+      const timer = setTimeout(() => controller.abort(), 4000);
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const response = await fetch(url, {
@@ -824,8 +838,8 @@ Return ONLY a valid JSON object:
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: 'application/json',
-            temperature: 0.1,
-            maxOutputTokens: 250,
+            temperature: 0.2,
+            maxOutputTokens: 500,
           },
         }),
       });
@@ -851,6 +865,16 @@ Return ONLY a valid JSON object:
       const rawTrans = (parsed.translation || clean).trim();
       const capTrans = rawTrans.charAt(0).toUpperCase() + rawTrans.slice(1);
 
+      // Verify that exampleEn and exampleEs are natural and non-empty
+      let finalExEn = (parsed.exampleEn || '').trim();
+      let finalExEs = (parsed.exampleEs || '').trim();
+
+      if (!finalExEn || finalExEn.toLowerCase().includes('is used in english')) {
+        const fallbackPair = generateNaturalSentencePairSync(capWord, pos, capTrans);
+        finalExEn = fallbackPair.exampleEn;
+        finalExEs = fallbackPair.exampleEs;
+      }
+
       const result: AutoEnrichResult = {
         word: capWord,
         partOfSpeech: pos,
@@ -860,8 +884,8 @@ Return ONLY a valid JSON object:
         phoneticNote: (parsed.phoneticNote || 'Pronunciación estándar en inglés').trim(),
         translation: capTrans,
         definition: (parsed.definition || `Término utilizado como ${pos} en inglés`).trim(),
-        exampleEn: (parsed.exampleEn || `${capWord} is used in English.`).trim(),
-        exampleEs: (parsed.exampleEs || `Se utiliza en inglés.`).trim(),
+        exampleEn: finalExEn,
+        exampleEs: finalExEs,
         categoryGroup: '',
         categorySub: '',
       };
@@ -870,6 +894,82 @@ Return ONLY a valid JSON object:
       return result;
     } catch (err) {
       console.warn(`[Gemini API] Error querying ${model}:`, err);
+    }
+  }
+
+  return null;
+}
+
+// Dedicated AI contextual sentence generator for any English or Spanish word
+export async function generateExampleSentencesWithAI(
+  word: string,
+  translation?: string,
+  pos?: string,
+  customApiKey?: string
+): Promise<{ exampleEn: string; exampleEs: string } | null> {
+  const cleanWord = (word || '').trim();
+  if (!cleanWord) return null;
+  if (!networkService.isOnline()) return null;
+
+  const apiKey = (customApiKey !== undefined ? customApiKey : getGeminiApiKey()).trim();
+  if (!apiKey) return null;
+
+  const cacheKey = `ai_sentence:${cleanWord.toLowerCase()}:${(translation || '').toLowerCase()}`;
+  if (SENTENCE_PAIR_CACHE.has(cacheKey)) {
+    return SENTENCE_PAIR_CACHE.get(cacheKey)!;
+  }
+
+  const prompt = `You are an expert bilingual English-Spanish lexicographer and teacher.
+Generate a modern, natural, authentic example sentence in English demonstrating the typical real-world usage of the word "${cleanWord}"${translation ? ` (Spanish translation: "${translation}")` : ''}${pos ? ` as a ${pos}` : ''}.
+Then provide an accurate, fluent, and completely natural Spanish translation of that exact sentence.
+
+Requirements:
+1. The English sentence must naturally feature "${cleanWord}" in clear grammatical context.
+2. The sentence should be modern, clear, practical, and helpful for language learners (neither overly simplistic nor awkwardly academic).
+3. The Spanish translation MUST be 100% natural, correct Spanish, and MUST NOT leave English words untranslated.
+4. Return ONLY a valid JSON object with NO extra text or markdown:
+{
+  "exampleEn": "Natural English sentence",
+  "exampleEs": "Traducción natural al español"
+}`;
+
+  for (const model of GEMINI_AVAILABLE_MODELS) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3800);
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.2,
+            maxOutputTokens: 350,
+          },
+        }),
+      });
+      clearTimeout(timer);
+
+      if (response.ok) {
+        const data = await response.json();
+        const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.exampleEn && parsed.exampleEs) {
+            const pair = {
+              exampleEn: parsed.exampleEn.trim(),
+              exampleEs: parsed.exampleEs.trim(),
+            };
+            SENTENCE_PAIR_CACHE.set(cacheKey, pair);
+            return pair;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`[generateExampleSentencesWithAI] Error with model ${model}:`, e);
     }
   }
 
@@ -1134,13 +1234,19 @@ const SENTENCE_PAIR_CACHE = new Map<string, { exampleEn: string; exampleEs: stri
 // Generates an authentic, grammatically correct contextual sentence pair instantly in 0ms synchronously
 export function generateNaturalSentencePairSync(
   word: string,
-  pos: string
+  pos: string,
+  translationFallback?: string
 ): { exampleEn: string; exampleEs: string } {
   const w = word.trim().toLowerCase();
   const cap = w.charAt(0).toUpperCase() + w.slice(1);
   const p = (pos || '').toLowerCase();
 
-  const cacheKey = `${w}:${p}`;
+  // Determine a proper Spanish term for the word
+  const spanishTerm = (translationFallback || BUILTIN_VOCABULARY[w]?.translation || '').trim();
+  const esWord = spanishTerm ? spanishTerm.toLowerCase() : '';
+  const capEs = esWord ? esWord.charAt(0).toUpperCase() + esWord.slice(1) : '';
+
+  const cacheKey = `${w}:${p}:${esWord}`;
   if (SENTENCE_PAIR_CACHE.has(cacheKey)) {
     return SENTENCE_PAIR_CACHE.get(cacheKey)!;
   }
@@ -1150,75 +1256,124 @@ export function generateNaturalSentencePairSync(
 
   if (p.includes('art')) {
     if (w === 'the') {
-      pair = { exampleEn: 'The little prince looked at the bright stars in the sky.', exampleEs: 'El principito miró las estrellas brillantes en el cielo.' };
+      pair = { exampleEn: 'The sun rises in the morning and sets in the evening.', exampleEs: 'El sol sale por la mañana y se pone por la tarde.' };
     } else if (w === 'a') {
-      pair = { exampleEn: 'I saw a beautiful flower growing in the quiet garden.', exampleEs: 'Vi una hermosa flor creciendo en el tranquilo jardín.' };
+      pair = { exampleEn: 'I read a wonderful book about global history.', exampleEs: 'Leí un libro maravilloso sobre historia universal.' };
     } else if (w === 'an') {
-      pair = { exampleEn: 'She ate an apple while reading her favorite book.', exampleEs: 'Ella comió una manzana mientras leía su libro favorito.' };
+      pair = { exampleEn: 'She ate an apple while studying in the quiet library.', exampleEs: 'Ella comió una manzana mientras estudiaba en la tranquila biblioteca.' };
     } else {
-      pair = { exampleEn: `${cap} day is shining brightly today.`, exampleEs: `${cap} día brilla con intensidad hoy.` };
+      pair = { exampleEn: `${cap} day is shining brightly today.`, exampleEs: `Este día brilla con intensidad hoy.` };
     }
   } else if (p.includes('adv')) {
-    const templates = [
-      { en: `She spoke ${w} to everyone during the meeting.`, es: `Ella habló ${w} con todos durante la reunión.` },
-      { en: `He finished the task ${w} before the deadline.`, es: `Él terminó la tarea ${w} antes de la fecha límite.` },
-      { en: `We need to act ${w} to achieve our common goals.`, es: `Necesitamos actuar ${w} para alcanzar nuestras metas comunes.` },
+    const tEn = [
+      `She spoke ${w} to ensure everyone understood the message.`,
+      `He completed the project ${w} before the final deadline.`,
+      `We must act ${w} to achieve our long-term goals.`,
     ];
-    const sel = templates[hash % templates.length];
-    pair = { exampleEn: sel.en, exampleEs: sel.es };
+    const tEs = esWord ? [
+      `Ella habló ${esWord} para asegurarse de que todos entendieran el mensaje.`,
+      `Él completó el proyecto ${esWord} antes de la fecha límite final.`,
+      `Debemos actuar ${esWord} para alcanzar nuestras metas a largo plazo.`,
+    ] : [
+      `Ella se expresó con claridad para que todos entendieran el mensaje.`,
+      `Él completó el proyecto a tiempo antes de la fecha límite final.`,
+      `Debemos actuar con rapidez para alcanzar nuestras metas a largo plazo.`,
+    ];
+    const idx = hash % tEn.length;
+    pair = { exampleEn: tEn[idx], exampleEs: tEs[idx] };
   } else if (p.includes('adj')) {
-    const templates = [
-      { en: `The team proposed a ${w} solution for the project.`, es: `El equipo propuso una solución ${w} para el proyecto.` },
-      { en: `It was a ${w} opportunity to learn something new.`, es: `Fue una oportunidad ${w} para aprender algo nuevo.` },
-      { en: `We noticed a ${w} difference in the final results.`, es: `Notamos una diferencia ${w} en los resultados finales.` },
+    const tEn = [
+      `The team proposed a ${w} solution to solve the challenge.`,
+      `It was a ${w} opportunity to acquire new valuable skills.`,
+      `They observed a ${w} difference in overall performance.`,
     ];
-    const sel = templates[hash % templates.length];
-    pair = { exampleEn: sel.en, exampleEs: sel.es };
+    const tEs = esWord ? [
+      `El equipo propuso una solución ${esWord} para resolver el desafío.`,
+      `Fue una oportunidad ${esWord} para adquirir nuevas habilidades valiosas.`,
+      `Observaron una diferencia ${esWord} en el rendimiento general.`,
+    ] : [
+      `El equipo propuso una solución eficaz para resolver el desafío.`,
+      `Fue una oportunidad excelente para adquirir nuevas habilidades valiosas.`,
+      `Observaron una diferencia notable en el rendimiento general.`,
+    ];
+    const idx = hash % tEn.length;
+    pair = { exampleEn: tEn[idx], exampleEs: tEs[idx] };
   } else if (p.includes('verb')) {
-    const templates = [
-      { en: `I need to ${w} this matter carefully before making a choice.`, es: `Necesito analizar este asunto con cuidado antes de tomar una decisión.` },
-      { en: `They decided to ${w} together on the new initiative.`, es: `Decidieron colaborar juntos en la nueva iniciativa.` },
-      { en: `You should ${w} every day to make steady progress.`, es: `Deberías practicar todos los días para progresar de manera constante.` },
-      { en: `We hope to ${w} significant milestones this year.`, es: `Esperamos alcanzar hitos importantes este año.` },
+    const tEn = [
+      `I always ${w} in the morning to prepare for my day.`,
+      `They decided to ${w} together on the important project.`,
+      `You should ${w} consistently to make great progress.`,
+      `We plan to ${w} our results at the annual conference.`,
     ];
-    const sel = templates[hash % templates.length];
-    pair = { exampleEn: sel.en, exampleEs: sel.es };
+    const tEs = esWord ? [
+      `Siempre suelo ${esWord} por la mañana para prepararme para el día.`,
+      `Decidieron ${esWord} juntos en este importante proyecto.`,
+      `Deberías ${esWord} con constancia para lograr un gran progreso.`,
+      `Planeamos ${esWord} nuestros resultados en la conferencia anual.`,
+    ] : [
+      `Siempre dedico tiempo por la mañana a prepararme para el día.`,
+      `Decidieron trabajar juntos en este importante proyecto.`,
+      `Deberías practicar con constancia para lograr un gran progreso.`,
+      `Planeamos presentar nuestros resultados en la conferencia anual.`,
+    ];
+    const idx = hash % tEn.length;
+    pair = { exampleEn: tEn[idx], exampleEs: tEs[idx] };
   } else if (p.includes('prep')) {
-    const templates = [
-      { en: `The notebook was placed ${w} the wooden desk.`, es: `El cuaderno estaba colocado ${w} el escritorio de madera.` },
-      { en: `We walked ${w} the quiet path in the morning.`, es: `Caminamos ${w} el sendero tranquilo por la mañana.` },
+    const tEn = [
+      `The notebook was placed ${w} the wooden study desk.`,
+      `We walked ${w} the quiet path near the forest.`,
     ];
-    const sel = templates[hash % templates.length];
-    pair = { exampleEn: sel.en, exampleEs: sel.es };
+    const tEs = esWord ? [
+      `El cuaderno estaba colocado ${esWord} el escritorio de estudio de madera.`,
+      `Caminamos ${esWord} el sendero tranquilo cerca del bosque.`,
+    ] : [
+      `El cuaderno estaba colocado sobre el escritorio de estudio de madera.`,
+      `Caminamos por el sendero tranquilo cerca del bosque.`,
+    ];
+    const idx = hash % tEn.length;
+    pair = { exampleEn: tEn[idx], exampleEs: tEs[idx] };
   } else if (p.includes('conj')) {
     pair = {
-      exampleEn: `We stayed inside ${w} the weather was stormy.`,
-      exampleEs: `Nos quedamos adentro ${w} el clima era tormentoso.`,
+      exampleEn: `We stayed inside ${w} the stormy weather intensified.`,
+      exampleEs: esWord
+        ? `Nos quedamos adentro ${esWord} el clima tormentoso se intensificó.`
+        : `Nos quedamos adentro porque el clima tormentoso se intensificó.`,
     };
   } else if (p.includes('pron')) {
     pair = {
       exampleEn: `${cap} decided to visit the local library today.`,
-      exampleEs: `${cap} decidió visitar la biblioteca local hoy.`,
+      exampleEs: capEs
+        ? `${capEs} decidió visitar la biblioteca local hoy.`
+        : `Decidió visitar la biblioteca local hoy.`,
     };
   } else if (p.includes('phrasal') || p.includes('idiom') || w.includes(' ')) {
-    const templates = [
-      { en: `They promised to ${w} as soon as possible.`, es: `Prometieron hacerlo lo antes posible.` },
-      { en: `It is not easy to ${w} without proper preparation.`, es: `No es fácil lograrlo sin la preparación adecuada.` },
-      { en: `We will certainly ${w} during tomorrow's session.`, es: `Sin duda lo abordaremos durante la sesión de mañana.` },
-    ];
-    const sel = templates[hash % templates.length];
-    pair = { exampleEn: sel.en, exampleEs: sel.es };
+    pair = {
+      exampleEn: `We need to ${w} as soon as we finish this task.`,
+      exampleEs: esWord
+        ? `Necesitamos ${esWord} tan pronto como terminemos esta tarea.`
+        : `Necesitamos llevarlo a cabo tan pronto como terminemos esta tarea.`,
+    };
   } else {
-    // Noun templates with rich variety
-    const templates = [
-      { en: `The manager discussed the new ${w} during the conference.`, es: `El gerente debatió el nuevo ${w} durante la conferencia.` },
-      { en: `Understanding the importance of this ${w} will help us succeed.`, es: `Comprender la importancia de esto nos ayudará a tener éxito.` },
-      { en: `They found an interesting article about the ${w} online.`, es: `Encontraron un artículo interesante sobre esto en internet.` },
-      { en: `We need to focus our attention on this particular ${w}.`, es: `Debemos enfocar nuestra atención en esto en particular.` },
-      { en: `She shared valuable insights regarding the ${w}.`, es: `Ella compartió valiosas ideas sobre esto.` },
+    // Nouns
+    const tEn = [
+      `She found a very interesting book about the ${w}.`,
+      `The team analyzed the importance of this ${w} in detail.`,
+      `He pointed at the ${w} on the front counter.`,
+      `Understanding the concept of this ${w} will help us succeed.`,
     ];
-    const sel = templates[hash % templates.length];
-    pair = { exampleEn: sel.en, exampleEs: sel.es };
+    const tEs = esWord ? [
+      `Ella encontró un libro muy interesante sobre ${esWord.startsWith('el ') || esWord.startsWith('la ') ? esWord : 'el/la ' + esWord}.`,
+      `El equipo analizó la importancia de esto (${esWord}) en detalle.`,
+      `Él señaló hacia el/la ${esWord} en el mostrador delantero.`,
+      `Comprender la importancia de esto (${esWord}) nos ayudará a tener éxito.`,
+    ] : [
+      `Ella encontró un libro muy interesante sobre este tema.`,
+      `El equipo analizó la importancia de este elemento en detalle.`,
+      `Él señaló el objeto en el mostrador delantero.`,
+      `Comprender este concepto nos ayudará a tener éxito.`,
+    ];
+    const idx = hash % tEn.length;
+    pair = { exampleEn: tEn[idx], exampleEs: tEs[idx] };
   }
 
   SENTENCE_PAIR_CACHE.set(cacheKey, pair);
@@ -1228,9 +1383,10 @@ export function generateNaturalSentencePairSync(
 // Asynchronous wrapper for backwards compatibility
 export async function generateNaturalSentencePair(
   word: string,
-  pos: string
+  pos: string,
+  translationFallback?: string
 ): Promise<{ exampleEn: string; exampleEs: string }> {
-  return generateNaturalSentencePairSync(word, pos);
+  return generateNaturalSentencePairSync(word, pos, translationFallback);
 }
 
 // Robust converter: Turns English IPA transcriptions into natural Spanish phonetic guides
@@ -1499,7 +1655,7 @@ export function getInstantEnrichmentSync(
       const enKey = match.enWord;
       const item = match.item;
       const pos = normalizePartOfSpeech(item.partOfSpeech || 'noun');
-      const pair = generateNaturalSentencePairSync(enKey, pos);
+      const pair = generateNaturalSentencePairSync(enKey, pos, rawWord.trim());
       const phon = getPhoneticsForEnglishWord(enKey);
       return {
         word: enKey.charAt(0).toUpperCase() + enKey.slice(1),
@@ -1522,7 +1678,7 @@ export function getInstantEnrichmentSync(
   if (BUILTIN_VOCABULARY[clean]) {
     const item = BUILTIN_VOCABULARY[clean];
     const pos = normalizePartOfSpeech(item.partOfSpeech || 'noun');
-    const pair = generateNaturalSentencePairSync(clean, pos);
+    const pair = generateNaturalSentencePairSync(clean, pos, item.translation);
     return {
       word: rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1),
       partOfSpeech: pos,
@@ -1554,7 +1710,7 @@ export function getInstantEnrichmentSync(
 export async function autoEnrichWord(
   rawWord: string,
   sourceLang: 'en' | 'es' = 'en',
-  useAi: boolean = false,
+  useAi: boolean = true,
   _provider?: TranslationProvider
 ): Promise<AutoEnrichResult> {
   const clean = rawWord.trim().toLowerCase();
@@ -1571,7 +1727,7 @@ export async function autoEnrichWord(
     return ENRICHMENT_CACHE.get(cacheKey)!;
   }
 
-  // 1. Explicit AI (Gemini) suggestion (only when requested)
+  // 1. Explicit AI (Gemini) suggestion (when configured and requested)
   if (useAi && isGeminiConfigured()) {
     try {
       const geminiResult = await queryGeminiForWord(clean, undefined, effectiveLang);
@@ -1596,7 +1752,7 @@ export async function autoEnrichWord(
       const capitalizedEn = enKey.charAt(0).toUpperCase() + enKey.slice(1);
       const capitalizedEs = rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1);
       const pos = normalizePartOfSpeech(item.partOfSpeech || 'noun');
-      const pair = generateNaturalSentencePairSync(enKey, pos);
+      const pair = generateNaturalSentencePairSync(enKey, pos, capitalizedEs);
       const phon = getPhoneticsForEnglishWord(enKey);
 
       const result: AutoEnrichResult = {
@@ -1628,7 +1784,7 @@ export async function autoEnrichWord(
     const phon = getPhoneticsForEnglishWord(finalEnWord);
     const finalIpa = phon.ipa;
     const finalGuide = phon.phoneticGuide;
-    const pair = generateNaturalSentencePairSync(finalEnWord, finalPos);
+    const pair = generateNaturalSentencePairSync(finalEnWord, finalPos, capitalizedEs);
 
     let level: WordLevel = 'B1';
     if (finalEnWord.length > 9 || finalEnWord.endsWith('tion') || finalEnWord.endsWith('ism') || finalEnWord.endsWith('ment')) {
@@ -1665,7 +1821,7 @@ export async function autoEnrichWord(
     const data = BUILTIN_VOCABULARY[clean];
     const capitalizedWord = rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1);
     const pos = normalizePartOfSpeech(data.partOfSpeech || 'noun');
-    const pair = generateNaturalSentencePairSync(clean, pos);
+    const pair = generateNaturalSentencePairSync(clean, pos, data.translation);
     const phon = getPhoneticsForEnglishWord(clean);
 
     const result: AutoEnrichResult = {
@@ -1732,7 +1888,7 @@ export async function autoEnrichWord(
   const phon = getPhoneticsForEnglishWord(clean);
   const finalIpa = foundIpa || phon.ipa;
   const finalGuide = foundIpa ? ipaToPhoneticGuide(foundIpa, clean) : phon.phoneticGuide;
-  const pair = generateNaturalSentencePairSync(clean, finalPos);
+  const pair = generateNaturalSentencePairSync(clean, finalPos, finalTranslation);
 
   let level: WordLevel = 'B1';
   if (clean.length > 9 || clean.endsWith('tion') || clean.endsWith('ism') || clean.endsWith('ment')) {
@@ -1756,6 +1912,7 @@ export async function autoEnrichWord(
     categoryGroup: '',
     categorySub: '',
   };
+
   ENRICHMENT_CACHE.set(cacheKey, result);
   return result;
 }
