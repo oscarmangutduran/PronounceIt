@@ -9,7 +9,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { X, Folder, Layers, Sparkles, Plus, Pin } from 'lucide-react-native';
+import { X, Folder, Layers, Sparkles, Plus, Pin, AlertCircle } from 'lucide-react-native';
 import { THEME } from '../../theme';
 
 export type CategoryFormMode =
@@ -25,6 +25,10 @@ interface CategoryFormModalProps {
   initialSubcategories?: string[];
   categoryName?: string;
   isDark?: boolean;
+  /** Lista de nombres de categorías ya existentes (para detectar duplicados) */
+  existingCategories?: string[];
+  /** Lista de nombres de subcategorías ya existentes en la categoría padre (para detectar duplicados) */
+  existingSubcategories?: string[];
   onClose: () => void;
   onSubmit: (name: string, subcategories?: string[]) => void;
 }
@@ -36,6 +40,8 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
   initialSubcategories = [],
   categoryName,
   isDark = true,
+  existingCategories = [],
+  existingSubcategories = [],
   onClose,
   onSubmit,
 }) => {
@@ -45,6 +51,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [isSubFocused, setIsSubFocused] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -52,6 +59,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
       setSubcategories(initialSubcategories ? [...initialSubcategories] : []);
       setSubInput('');
       setError(null);
+      setDuplicateError(null);
     }
   }, [isOpen, initialValue, initialSubcategories]);
 
@@ -105,6 +113,33 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
       );
       return;
     }
+
+    // Validación de duplicados
+    if (!isSubcategory) {
+      // Crear/editar categoría: comprobar que no exista otra con el mismo nombre
+      // (excluir el valor inicial en caso de edición para permitir guardar sin cambios)
+      const isDuplicate = existingCategories.some(
+        (c) =>
+          c.toLowerCase() === trimmed.toLowerCase() &&
+          c.toLowerCase() !== (initialValue || '').toLowerCase()
+      );
+      if (isDuplicate) {
+        setDuplicateError(trimmed);
+        return;
+      }
+    } else {
+      // Crear/editar subcategoría: comprobar dentro de la categoría padre
+      const isDuplicate = existingSubcategories.some(
+        (s) =>
+          s.toLowerCase() === trimmed.toLowerCase() &&
+          s.toLowerCase() !== (initialValue || '').toLowerCase()
+      );
+      if (isDuplicate) {
+        setDuplicateError(trimmed);
+        return;
+      }
+    }
+
     if (allowsSubcategories) {
       const finalSubs = [...subcategories];
       const pendingSub = subInput.trim();
@@ -126,6 +161,48 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
   }
 
   return (
+    <>
+    {/* Duplicate-name error modal */}
+    <Modal
+      visible={!!duplicateError}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setDuplicateError(null)}
+    >
+      <View style={styles.overlay}>
+        <View style={[styles.dupCard, !isDark && styles.dupCardLight]}>
+          {/* Icon */}
+          <View style={styles.dupIconWrap}>
+            <AlertCircle size={32} color="#f87171" />
+          </View>
+          {/* Title */}
+          <Text style={[styles.dupTitle, !isDark && styles.dupTitleLight]}>
+            {isSubcategory ? 'Subcategoría duplicada' : 'Categoría duplicada'}
+          </Text>
+          {/* Message */}
+          <Text style={[styles.dupMessage, !isDark && styles.dupMessageLight]}>
+            {isSubcategory
+              ? 'Ya existe una subcategoría con el nombre'
+              : 'Ya existe una categoría con el nombre'}
+          </Text>
+          <View style={styles.dupNameBadge}>
+            <Text style={styles.dupNameText}>«{duplicateError}»</Text>
+          </View>
+          <Text style={[styles.dupHint, !isDark && styles.dupHintLight]}>
+            Por favor elige un nombre diferente.
+          </Text>
+          {/* Action */}
+          <TouchableOpacity
+            style={styles.dupBtn}
+            onPress={() => setDuplicateError(null)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.dupBtnText}>Entendido</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+
     <Modal visible={isOpen} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={[styles.card, !isDark && styles.cardLight]}>
@@ -327,6 +404,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
         </View>
       </View>
     </Modal>
+    </>
   );
 };
 
@@ -338,6 +416,98 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     zIndex: 9999,
+  },
+  // ── Duplicate error modal ──────────────────────────────
+  dupCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#1a0f2e',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.3)',
+    padding: 28,
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.6,
+    shadowRadius: 28,
+    elevation: 24,
+  },
+  dupCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    shadowColor: '#64748b',
+    shadowOpacity: 0.15,
+  },
+  dupIconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(248, 113, 113, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  dupTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#ffffff',
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  dupTitleLight: {
+    color: '#0f172a',
+  },
+  dupMessage: {
+    fontSize: 13,
+    color: '#94a3b8',
+    textAlign: 'center',
+    lineHeight: 19,
+  },
+  dupMessageLight: {
+    color: '#475569',
+  },
+  dupNameBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: 'rgba(248, 113, 113, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.35)',
+    marginTop: 2,
+  },
+  dupNameText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#f87171',
+    textAlign: 'center',
+  },
+  dupHint: {
+    fontSize: 12,
+    color: '#64748b',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  dupHintLight: {
+    color: '#94a3b8',
+  },
+  dupBtn: {
+    marginTop: 8,
+    paddingVertical: 11,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    backgroundColor: '#e62e4c',
+    shadowColor: '#e62e4c',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  dupBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   card: {
     width: "100%",

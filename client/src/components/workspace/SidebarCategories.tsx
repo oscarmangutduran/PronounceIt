@@ -287,6 +287,12 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
           initialSubcategories={formModal.initialSubcategories}
           categoryName={formModal.categoryName}
           isDark={isDark}
+          existingCategories={safeCategories.map((c) => c.name)}
+          existingSubcategories={
+            formModal.categoryId
+              ? (safeCategories.find((c) => c.id === formModal.categoryId)?.subcategories?.map((s) => s.name) ?? [])
+              : []
+          }
           onClose={() => setFormModal((prev) => ({ ...prev, isOpen: false }))}
           onSubmit={handleFormSubmit}
         />
@@ -749,6 +755,12 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
         initialSubcategories={formModal.initialSubcategories}
         categoryName={formModal.categoryName}
         isDark={isDark}
+        existingCategories={safeCategories.map((c) => c.name)}
+        existingSubcategories={
+          formModal.categoryId
+            ? (safeCategories.find((c) => c.id === formModal.categoryId)?.subcategories?.map((s) => s.name) ?? [])
+            : []
+        }
         onClose={() => setFormModal((prev) => ({ ...prev, isOpen: false }))}
         onSubmit={handleFormSubmit}
       />
