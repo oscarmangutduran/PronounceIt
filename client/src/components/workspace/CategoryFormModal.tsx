@@ -161,48 +161,6 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
   }
 
   return (
-    <>
-    {/* Duplicate-name error modal */}
-    <Modal
-      visible={!!duplicateError}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setDuplicateError(null)}
-    >
-      <View style={styles.overlay}>
-        <View style={[styles.dupCard, !isDark && styles.dupCardLight]}>
-          {/* Icon */}
-          <View style={styles.dupIconWrap}>
-            <AlertCircle size={32} color="#f87171" />
-          </View>
-          {/* Title */}
-          <Text style={[styles.dupTitle, !isDark && styles.dupTitleLight]}>
-            {isSubcategory ? 'Subcategoría duplicada' : 'Categoría duplicada'}
-          </Text>
-          {/* Message */}
-          <Text style={[styles.dupMessage, !isDark && styles.dupMessageLight]}>
-            {isSubcategory
-              ? 'Ya existe una subcategoría con el nombre'
-              : 'Ya existe una categoría con el nombre'}
-          </Text>
-          <View style={styles.dupNameBadge}>
-            <Text style={styles.dupNameText}>«{duplicateError}»</Text>
-          </View>
-          <Text style={[styles.dupHint, !isDark && styles.dupHintLight]}>
-            Por favor elige un nombre diferente.
-          </Text>
-          {/* Action */}
-          <TouchableOpacity
-            style={styles.dupBtn}
-            onPress={() => setDuplicateError(null)}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.dupBtnText}>Entendido</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-
     <Modal visible={isOpen} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={[styles.card, !isDark && styles.cardLight]}>
@@ -250,6 +208,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                 onChangeText={(t) => {
                   setName(t);
                   if (error) setError(null);
+                  if (duplicateError) setDuplicateError(null);
                 }}
                 placeholder={placeholder}
                 placeholderTextColor={!isDark ? "#94a3b8" : THEME.colors.textSubtle}
@@ -260,6 +219,33 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
               />
               {error && <Text style={styles.errorText}>{error}</Text>}
             </View>
+
+            {/* Duplicate name error banner */}
+            {!!duplicateError && (
+              <View style={[styles.dupBanner, !isDark && styles.dupBannerLight]}>
+                <View style={styles.dupBannerTop}>
+                  <AlertCircle size={18} color="#f87171" />
+                  <Text style={[styles.dupBannerTitle, !isDark && styles.dupBannerTitleLight]}>
+                    {isSubcategory ? 'Subcategoría duplicada' : 'Categoría duplicada'}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setDuplicateError(null)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <X size={16} color="#f87171" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={[styles.dupBannerMsg, !isDark && styles.dupBannerMsgLight]}>
+                  {isSubcategory ? 'Ya existe una subcategoría con el nombre' : 'Ya existe una categoría con el nombre'}
+                </Text>
+                <View style={styles.dupBannerBadge}>
+                  <Text style={styles.dupBannerBadgeText}>«{duplicateError}»</Text>
+                </View>
+                <Text style={[styles.dupBannerHint, !isDark && styles.dupBannerHintLight]}>
+                  Por favor elige un nombre diferente.
+                </Text>
+              </View>
+            )}
 
             {/* Subcategories creation & association section */}
             {allowsSubcategories && (
@@ -404,7 +390,6 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
         </View>
       </View>
     </Modal>
-    </>
   );
 };
 
@@ -417,97 +402,62 @@ const styles = StyleSheet.create({
     padding: 16,
     zIndex: 9999,
   },
-  // ── Duplicate error modal ──────────────────────────────
-  dupCard: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: '#1a0f2e',
-    borderRadius: 20,
+  // ── Duplicate name inline banner ──────────────────────
+  dupBanner: {
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(248, 113, 113, 0.3)',
-    padding: 28,
+    borderColor: 'rgba(248, 113, 113, 0.4)',
+    backgroundColor: 'rgba(248, 113, 113, 0.1)',
+    padding: 14,
+    gap: 8,
+  },
+  dupBannerLight: {
+    backgroundColor: '#fff5f5',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  dupBannerTop: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.6,
-    shadowRadius: 28,
-    elevation: 24,
+    gap: 8,
   },
-  dupCardLight: {
-    backgroundColor: '#ffffff',
-    borderColor: 'rgba(239, 68, 68, 0.25)',
-    shadowColor: '#64748b',
-    shadowOpacity: 0.15,
-  },
-  dupIconWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(248, 113, 113, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  dupTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#ffffff',
-    textAlign: 'center',
-    letterSpacing: -0.3,
-  },
-  dupTitleLight: {
-    color: '#0f172a',
-  },
-  dupMessage: {
+  dupBannerTitle: {
+    flex: 1,
     fontSize: 13,
+    fontWeight: '700',
+    color: '#fca5a5',
+  },
+  dupBannerTitleLight: {
+    color: '#dc2626',
+  },
+  dupBannerMsg: {
+    fontSize: 12,
     color: '#94a3b8',
-    textAlign: 'center',
-    lineHeight: 19,
+    lineHeight: 17,
   },
-  dupMessageLight: {
-    color: '#475569',
+  dupBannerMsgLight: {
+    color: '#64748b',
   },
-  dupNameBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 10,
-    backgroundColor: 'rgba(248, 113, 113, 0.15)',
+  dupBannerBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(248, 113, 113, 0.2)',
     borderWidth: 1,
-    borderColor: 'rgba(248, 113, 113, 0.35)',
-    marginTop: 2,
+    borderColor: 'rgba(248, 113, 113, 0.4)',
   },
-  dupNameText: {
-    fontSize: 15,
+  dupBannerBadgeText: {
+    fontSize: 13,
     fontWeight: '700',
     color: '#f87171',
-    textAlign: 'center',
   },
-  dupHint: {
-    fontSize: 12,
+  dupBannerHint: {
+    fontSize: 11,
     color: '#64748b',
-    textAlign: 'center',
-    marginTop: 2,
+    fontStyle: 'italic',
   },
-  dupHintLight: {
+  dupBannerHintLight: {
     color: '#94a3b8',
-  },
-  dupBtn: {
-    marginTop: 8,
-    paddingVertical: 11,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    backgroundColor: '#e62e4c',
-    shadowColor: '#e62e4c',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  dupBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#ffffff',
   },
   card: {
     width: "100%",
