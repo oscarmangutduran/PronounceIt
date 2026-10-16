@@ -593,10 +593,10 @@ class VocabularyService {
   public editSubcategory(categoryId: string, subId: string, newName: string): boolean {
     const trimmed = newName.trim();
     if (!trimmed) return false;
-    const cat = this.customCategories.find((c) => c.id === categoryId);
+    const cat = this.customCategories.find((c) => c.id === categoryId || c.name.trim().toLowerCase() === categoryId.trim().toLowerCase());
     if (!cat || !cat.subcategories) return false;
 
-    const sub = cat.subcategories.find((s) => s.id === subId);
+    const sub = cat.subcategories.find((s) => s.id === subId || s.name.trim().toLowerCase() === subId.trim().toLowerCase());
     if (!sub) return false;
 
     const oldSubName = sub.name;
@@ -604,13 +604,21 @@ class VocabularyService {
 
     if (oldSubName.toLowerCase() !== trimmed.toLowerCase()) {
       let changed = false;
+      const catNameLower = cat.name.trim().toLowerCase();
+      const oldSubLower = oldSubName.trim().toLowerCase();
+
       this.words = this.words.map((w) => {
-        if (
-          (w.categoryGroup || '').trim().toLowerCase() === cat.name.trim().toLowerCase() &&
-          (w.categorySub || '').trim().toLowerCase() === oldSubName.trim().toLowerCase()
-        ) {
+        const catMatches = getWordCategories(w).some((c) => c.trim().toLowerCase() === catNameLower);
+        const subMatches = getWordSubcategories(w).some((s) => s.trim().toLowerCase() === oldSubLower);
+        if (catMatches && subMatches) {
           changed = true;
-          return { ...w, categorySub: trimmed };
+          const currentSubs = getWordSubcategories(w);
+          const updatedSubs = currentSubs.map((s) => s.trim().toLowerCase() === oldSubLower ? trimmed : s);
+          return {
+            ...w,
+            categorySubs: updatedSubs,
+            categorySub: updatedSubs.join(', '),
+          };
         }
         return w;
       });
@@ -625,41 +633,78 @@ class VocabularyService {
   }
 
   public deleteSubcategory(categoryId: string, subId: string): { deletedWordsCount: number } {
-    const cat = this.customCategories.find((c) => c.id === categoryId);
+    const cat = this.customCategories.find((c) => c.id === categoryId || c.name.trim().toLowerCase() === categoryId.trim().toLowerCase());
     if (!cat || !cat.subcategories) return { deletedWordsCount: 0 };
 
-    const sub = cat.subcategories.find((s) => s.id === subId);
+    const sub = cat.subcategories.find((s) => s.id === subId || s.name.trim().toLowerCase() === subId.trim().toLowerCase());
     if (!sub) return { deletedWordsCount: 0 };
 
     const catNameLower = cat.name.trim().toLowerCase();
     const subNameLower = sub.name.trim().toLowerCase();
 
-    // Cascade delete words in this subcategory
-    const remainingWords = this.words.filter(
-      (w) =>
-        !(
-          (w.categoryGroup || '').trim().toLowerCase() === catNameLower &&
-          (w.categorySub || '').trim().toLowerCase() === subNameLower
-        )
-    );
-    const deletedWords = this.words.filter(
-      (w) =>
-        (w.categoryGroup || '').trim().toLowerCase() === catNameLower &&
-        (w.categorySub || '').trim().toLowerCase() === subNameLower
-    );
-    const deletedWordsCount = deletedWords.length;
+    // 1. Eliminar la subcategoría de la categoría y de cualquier categoría homónima en customCategories
+    this.customCategories.forEach((c) => {
+      if (c.id === cat.id || c.name.trim().toLowerCase() === catNameLower) {
+        if (c.subcategories && Array.isArray(c.subcategories)) {
+          c.subcategories = c.subcategories.filter(
+            (s) => s.id !== sub.id && s.id !== subId && s.name.trim().toLowerCase() !== subNameLower
+          );
+        }
+      }
+    });
 
+    // 2. Identificar palabras asociadas a esta subcategoría
+    const deletedWords: WordItem[] = [];
+    const updatedWords: WordItem[] = [];
+    const remainingWords: WordItem[] = [];
+
+    this.words.forEach((w) => {
+      const catMatches = getWordCategories(w).some((c) => c.trim().toLowerCase() === catNameLower);
+      const subMatches = getWordSubcategories(w).some((s) => s.trim().toLowerCase() === subNameLower);
+
+      if (catMatches && subMatches) {
+        const subs = getWordSubcategories(w);
+        const otherSubs = subs.filter((s) => s.trim().toLowerCase() !== subNameLower);
+
+        // Si la palabra sólo pertenecía a esta subcategoría, se borra en cascada
+        if (otherSubs.length === 0) {
+          deletedWords.push(w);
+        } else {
+          // Si pertenecía a más subcategorías, se remueve la subcategoría eliminada para que no vuelva a recrearse
+          const updatedWord: WordItem = {
+            ...w,
+            categorySubs: otherSubs,
+            categorySub: otherSubs.join(', '),
+          };
+          updatedWords.push(updatedWord);
+          remainingWords.push(updatedWord);
+        }
+      } else {
+        remainingWords.push(w);
+      }
+    });
+
+    const deletedWordsCount = deletedWords.length;
     this.words = remainingWords;
     this.saveWords();
 
     deletedWords.forEach((dw) => {
+      this.deletedWordIds.add(dw.id);
+      this.pendingSyncIds.delete(dw.id);
       backendApi.deleteWord(dw.id).catch(() => {});
       if (firebaseService.isFirebaseConnected()) {
         firebaseService.deleteWord(dw.id).catch(() => {});
       }
     });
 
-    cat.subcategories = cat.subcategories.filter((s) => s.id !== subId);
+    updatedWords.forEach((uw) => {
+      this.pendingSyncIds.add(uw.id);
+      backendApi.saveWord(uw).catch(() => {});
+      if (firebaseService.isFirebaseConnected()) {
+        firebaseService.upsertWord(uw).catch(() => {});
+      }
+    });
+
     this.saveCategories();
 
     return { deletedWordsCount };
