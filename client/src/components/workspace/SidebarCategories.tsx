@@ -436,38 +436,42 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
               contentContainerStyle={styles.mobileSubScrollList}
             >
               {/* Todas las subcategorías */}
-              <TouchableOpacity
-                style={[
-                  styles.subChip,
-                  !isDark && styles.subChipLight,
-                  !selectedFilter.sub && styles.subChipActive,
-                ]}
-                onPress={() => onSelectFilter({ type: 'category', group: activeCategory.name })}
-                activeOpacity={0.75}
-              >
-                <Text
-                  style={[
-                    styles.subChipText,
-                    !isDark && styles.subChipTextLight,
-                    !selectedFilter.sub && styles.subChipTextActive,
-                  ]}
-                >
-                  Todas
-                </Text>
-              </TouchableOpacity>
-
-              {/* Subcategorías individuales */}
-              {activeCategory.subcategories?.map((sub) => {
-                const isSubActive = selectedFilter.sub === sub.name;
+              {(() => {
+                const activeSub = selectedFilter.type === 'category' ? selectedFilter.sub : undefined;
                 return (
-                  <TouchableOpacity
-                    key={sub.id}
-                    style={[
-                      styles.subChip,
-                      !isDark && styles.subChipLight,
-                      isSubActive && styles.subChipActive,
-                    ]}
-                    onPress={() =>
+                  <>
+                    <TouchableOpacity
+                      style={[
+                        styles.subChip,
+                        !isDark && styles.subChipLight,
+                        !activeSub && styles.subChipActive,
+                      ]}
+                      onPress={() => onSelectFilter({ type: 'category', group: activeCategory.name })}
+                      activeOpacity={0.75}
+                    >
+                      <Text
+                        style={[
+                          styles.subChipText,
+                          !isDark && styles.subChipTextLight,
+                          !activeSub && styles.subChipTextActive,
+                        ]}
+                      >
+                        Todas
+                      </Text>
+                    </TouchableOpacity>
+
+                    {/* Subcategorías individuales */}
+                    {activeCategory.subcategories?.map((sub) => {
+                      const isSubActive = activeSub === sub.name;
+                      return (
+                        <TouchableOpacity
+                          key={sub.id}
+                          style={[
+                            styles.subChip,
+                            !isDark && styles.subChipLight,
+                            isSubActive && styles.subChipActive,
+                          ]}
+                          onPress={() =>
                       onSelectFilter({
                         type: 'category',
                         group: activeCategory.name,
@@ -488,6 +492,9 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
                   </TouchableOpacity>
                 );
               })}
+              </>
+            );
+          })()}
 
               {/* + Subcategoría */}
               <TouchableOpacity
@@ -1126,9 +1133,6 @@ const styles = StyleSheet.create({
     paddingRight: 16,
     gap: 8,
   },
-  mobileScrollView: {
-    flex: 1,
-  },
   pinnedAddCategoryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1633,10 +1637,6 @@ const styles = StyleSheet.create({
   },
 
   // Light Mode Overrides
-  mobileContainerLight: {
-    backgroundColor: '#ffffff',
-    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
-  },
   chipNewLight: {
     borderColor: 'rgba(230, 46, 76, 0.35)',
     backgroundColor: 'rgba(230, 46, 76, 0.06)',

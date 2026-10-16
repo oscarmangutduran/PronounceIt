@@ -1301,7 +1301,11 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   pickerBackdropDismiss: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   pickerCard: {
     width: '100%',
@@ -1972,5 +1976,11 @@ const styles = StyleSheet.create({
   },
   pickerCheckCircleInactiveLight: {
     borderColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  emptyTitleLight: {
+    color: '#0f172a',
+  },
+  emptySubtitleLight: {
+    color: '#64748b',
   },
 });

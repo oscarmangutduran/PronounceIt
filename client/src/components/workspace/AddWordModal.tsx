@@ -1240,10 +1240,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
             {/* 5. Pronunciación Fonética (Guía & IPA) */}
             <View style={styles.inputGroup}>
-              <View style={styles.labelActionRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={[styles.labelActionRow, !isDesktop && styles.labelActionRowMobile]}>
+                <View style={styles.labelTitleContainer}>
                   <Text style={[styles.label, !isDark && styles.labelLight]}>
-                    Pronunciación Fonética (cómo se dice en inglés)
+                    Pronunciación Fonética
+                  </Text>
+                  <Text style={[styles.subLabelHint, !isDark && styles.subLabelHintLight]}>
+                    Cómo se dice en inglés (Lectura en español e IPA)
                   </Text>
                 </View>
                 <View style={styles.labelActions}>
@@ -1274,8 +1277,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 ✨ Se completa automáticamente de cómo se dice la palabra en inglés (leído en español e IPA).
               </Text>
 
-              <View style={styles.rowCols}>
-                <View style={styles.colHalf}>
+              <View style={[styles.rowCols, !isDesktop && styles.rowColsMobile]}>
+                <View style={[styles.colHalf, !isDesktop && styles.colFull]}>
                   <Text style={[styles.subLabel, !isDark && styles.subLabelLight]}>
                     Guía Fonética (Lectura en español)
                   </Text>
@@ -1301,7 +1304,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   />
                 </View>
 
-                <View style={styles.colHalf}>
+                <View style={[styles.colHalf, !isDesktop && styles.colFull]}>
                   <Text style={[styles.subLabel, !isDark && styles.subLabelLight]}>
                     Fonética IPA (Internacional)
                   </Text>
@@ -2030,6 +2033,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
+  },
+  labelActionRowMobile: {
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  labelTitleContainer: {
+    flex: 1,
+    minWidth: 140,
+  },
+  subLabelHint: {
+    fontSize: 10,
+    color: THEME.colors.textMuted,
+    marginTop: 1,
+    fontWeight: '500',
+  },
+  subLabelHintLight: {
+    color: '#64748b',
   },
   labelActions: {
     flexDirection: 'row',
@@ -2127,9 +2148,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
+  rowColsMobile: {
+    flexDirection: 'column',
+    gap: 12,
+  },
   colHalf: {
     flex: 1,
     gap: 6,
+  },
+  colFull: {
+    width: '100%',
+    flex: undefined,
   },
   customInputRow: {
     flexDirection: 'row',
