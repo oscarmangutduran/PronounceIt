@@ -267,6 +267,7 @@ export interface AutoEnrichResult {
   phoneticGuide: string;
   phoneticNote: string;
   translation: string;
+  alternatives?: string[];
   definition: string;
   exampleEn: string;
   exampleEs: string;
@@ -788,11 +789,13 @@ Generate a comprehensive, authentic dictionary entry in JSON format.
 Requirements for sentences:
 - exampleEn MUST be a natural, modern, authentic English sentence that clearly demonstrates the exact meaning and typical real-world usage of the English word.
 - exampleEs MUST be a 100% natural, fluent, accurate Spanish translation of that exact English sentence (NEVER leave English words untranslated in Spanish).
+- If there are other common translations or synonyms in English, provide them in the "alternatives" array.
 
 Return ONLY a valid JSON object with NO extra text or markdown:
 {
   "word": "Best single English word or short idiom (Capitalized)",
   "translation": "${clean.charAt(0).toUpperCase() + clean.slice(1)}",
+  "alternatives": ["Other English translation 1", "Other English translation 2"],
   "partOfSpeech": "One of: Sustantivo, Verbo, Adjetivo, Adverbio, Preposición, Conjunción, Pronombre, Interjección, Artículo/determinante",
   "level": "CEFR: A1, A2, B1, B2, C1, or C2",
   "ipa": "/IPA phonetics for the English word/",
@@ -808,10 +811,12 @@ Generate a comprehensive, authentic dictionary entry in JSON format.
 Requirements for sentences:
 - exampleEn MUST be a natural, modern, authentic English sentence that clearly demonstrates the exact meaning and typical real-world usage of "${clean}".
 - exampleEs MUST be a 100% natural, fluent, accurate Spanish translation of that exact English sentence (NEVER leave English words untranslated in Spanish).
+- If there are other common translations or synonyms in Spanish, provide them in the "alternatives" array.
 
 Return ONLY a valid JSON object with NO extra text or markdown:
 {
   "translation": "Best Spanish translation (Capitalized)",
+  "alternatives": ["Other Spanish translation 1", "Other Spanish translation 2"],
   "partOfSpeech": "One of: Sustantivo, Verbo, Adjetivo, Adverbio, Preposición, Conjunción, Pronombre, Interjección, Artículo/determinante",
   "level": "CEFR: A1, A2, B1, B2, C1, or C2",
   "ipa": "/IPA phonetics/",
@@ -875,6 +880,22 @@ Return ONLY a valid JSON object with NO extra text or markdown:
         finalExEs = fallbackPair.exampleEs;
       }
 
+      const altsSet = new Set<string>();
+      if (Array.isArray(parsed.alternatives)) {
+        parsed.alternatives.forEach((a: any) => {
+          if (typeof a === 'string' && a.trim()) {
+            altsSet.add(a.trim().charAt(0).toUpperCase() + a.trim().slice(1));
+          }
+        });
+      }
+      if (capTrans.includes('/') || capTrans.includes(',')) {
+        capTrans.split(/\s*[\/,;]\s*/).forEach((p) => {
+          const cap = p.trim().charAt(0).toUpperCase() + p.trim().slice(1);
+          if (cap) altsSet.add(cap);
+        });
+      }
+      const alternatives = Array.from(altsSet);
+
       const result: AutoEnrichResult = {
         word: capWord,
         partOfSpeech: pos,
@@ -883,6 +904,7 @@ Return ONLY a valid JSON object with NO extra text or markdown:
         phoneticGuide: (parsed.phoneticGuide || `"${rawEnWord.toLowerCase()}"`).trim(),
         phoneticNote: (parsed.phoneticNote || 'Pronunciación estándar en inglés').trim(),
         translation: capTrans,
+        alternatives: alternatives.length > 0 ? alternatives : undefined,
         definition: (parsed.definition || `Término utilizado como ${pos} en inglés`).trim(),
         exampleEn: finalExEn,
         exampleEs: finalExEs,
@@ -900,6 +922,93 @@ Return ONLY a valid JSON object with NO extra text or markdown:
   return null;
 }
 
+// Generates a natural, realistic English sentence containing the given word in proper grammatical context
+export function createAuthenticEnglishSentence(word: string, pos?: string): string {
+  const w = word.trim();
+  const lower = w.toLowerCase();
+  const p = (pos || '').toLowerCase();
+  const hash = lower.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
+  // If the word contains a slash or comma, use the primary word for the sentence
+  const primaryWord = w.split(/[\/,;]/)[0].trim();
+  const primaryLower = primaryWord.toLowerCase();
+  const cap = primaryWord.charAt(0).toUpperCase() + primaryWord.slice(1);
+
+  if (p.includes('art')) {
+    if (primaryLower === 'the') return 'The sun is shining brightly in the clear morning sky.';
+    if (primaryLower === 'a') return 'She read a fascinating book about modern technology.';
+    if (primaryLower === 'an') return 'He ate an apple while studying in the quiet library.';
+    return `This day brought ${primaryLower} unexpected and welcome surprise.`;
+  }
+
+  if (p.includes('pron')) {
+    if (['he', 'she', 'they', 'we', 'i', 'you'].includes(primaryLower)) {
+      return `${cap} decided to visit the local library this afternoon.`;
+    }
+    return `Everyone agreed that ${primaryLower} was the best choice for the project.`;
+  }
+
+  if (p.includes('prep')) {
+    const prepSentences = [
+      `The important documents were placed ${primaryLower} the wooden desk.`,
+      `They enjoyed a peaceful walk ${primaryLower} the quiet garden this morning.`,
+      `We noticed an interesting detail ${primaryLower} the new presentation.`,
+    ];
+    return prepSentences[hash % prepSentences.length];
+  }
+
+  if (p.includes('conj')) {
+    const conjSentences = [
+      `We decided to stay inside ${primaryLower} the stormy weather intensified.`,
+      `She continued to work hard ${primaryLower} she wanted to reach her goals.`,
+      `They reviewed all the options ${primaryLower} they made the final choice.`,
+    ];
+    return conjSentences[hash % conjSentences.length];
+  }
+
+  if (p.includes('adv')) {
+    const advSentences = [
+      `She completed the entire project ${primaryLower} before the scheduled deadline.`,
+      `He answered all the difficult questions ${primaryLower} during the interview.`,
+      `We must proceed ${primaryLower} to ensure everything goes according to plan.`,
+      `The team handled the unexpected situation ${primaryLower} and effectively.`,
+    ];
+    return advSentences[hash % advSentences.length];
+  }
+
+  if (p.includes('adj')) {
+    const adjSentences = [
+      `The company developed a very ${primaryLower} strategy to solve the challenge.`,
+      `She gave a ${primaryLower} explanation that helped everyone understand the concept.`,
+      `This is a ${primaryLower} example of how dedicated teamwork leads to success.`,
+      `We noticed a ${primaryLower} improvement in overall performance this month.`,
+      `Finding such a ${primaryLower} opportunity made a big difference in their careers.`,
+    ];
+    return adjSentences[hash % adjSentences.length];
+  }
+
+  if (p.includes('verb')) {
+    const verbSentences = [
+      `We need to ${primaryLower} carefully to achieve the best possible results.`,
+      `They decided to ${primaryLower} together as soon as the project was approved.`,
+      `It is important to ${primaryLower} consistently if you want to make steady progress.`,
+      `She will ${primaryLower} with the team to ensure that every goal is met.`,
+      `Before making a final choice, they took time to ${primaryLower} all details.`,
+    ];
+    return verbSentences[hash % verbSentences.length];
+  }
+
+  // Default / Noun
+  const nounSentences = [
+    `Understanding the concept of this ${primaryLower} will help us succeed.`,
+    `She presented a detailed analysis of the ${primaryLower} during the meeting.`,
+    `The team discussed how the ${primaryLower} could impact their upcoming plans.`,
+    `He learned a lot about the ${primaryLower} through consistent practice and study.`,
+    `They found a very interesting article about the ${primaryLower} online.`,
+  ];
+  return nounSentences[hash % nounSentences.length];
+}
+
 // Dedicated AI contextual sentence generator for any English or Spanish word
 export async function generateExampleSentencesWithAI(
   word: string,
@@ -911,69 +1020,78 @@ export async function generateExampleSentencesWithAI(
   if (!cleanWord) return null;
   if (!networkService.isOnline()) return null;
 
-  const apiKey = (customApiKey !== undefined ? customApiKey : getGeminiApiKey()).trim();
-  if (!apiKey) return null;
-
   const cacheKey = `ai_sentence:${cleanWord.toLowerCase()}:${(translation || '').toLowerCase()}`;
   if (SENTENCE_PAIR_CACHE.has(cacheKey)) {
     return SENTENCE_PAIR_CACHE.get(cacheKey)!;
   }
 
-  const prompt = `You are an expert bilingual English-Spanish lexicographer and teacher.
+  const apiKey = (customApiKey !== undefined ? customApiKey : getGeminiApiKey()).trim();
+
+  if (apiKey) {
+    const prompt = `You are an expert bilingual English-Spanish lexicographer and teacher.
 Generate a modern, natural, authentic example sentence in English demonstrating the typical real-world usage of the word "${cleanWord}"${translation ? ` (Spanish translation: "${translation}")` : ''}${pos ? ` as a ${pos}` : ''}.
 Then provide an accurate, fluent, and completely natural Spanish translation of that exact sentence.
 
 Requirements:
 1. The English sentence must naturally feature "${cleanWord}" in clear grammatical context.
-2. The sentence should be modern, clear, practical, and helpful for language learners (neither overly simplistic nor awkwardly academic).
-3. The Spanish translation MUST be 100% natural, correct Spanish, and MUST NOT leave English words untranslated.
+2. The sentence should be modern, clear, practical, and helpful for language learners.
+3. The Spanish translation MUST BE THE EXACT, FAITHFUL SPANISH TRANSLATION of the English sentence. Every word and meaning must correspond accurately between both languages.
 4. Return ONLY a valid JSON object with NO extra text or markdown:
 {
-  "exampleEn": "Natural English sentence",
-  "exampleEs": "Traducción natural al español"
+  "exampleEn": "Natural English sentence containing ${cleanWord}",
+  "exampleEs": "Traducción exacta y natural al español"
 }`;
 
-  for (const model of GEMINI_AVAILABLE_MODELS) {
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 3800);
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.2,
-            maxOutputTokens: 350,
-          },
-        }),
-      });
-      clearTimeout(timer);
+    for (const model of GEMINI_AVAILABLE_MODELS) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 3800);
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.2,
+              maxOutputTokens: 350,
+            },
+          }),
+        });
+        clearTimeout(timer);
 
-      if (response.ok) {
-        const data = await response.json();
-        const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed.exampleEn && parsed.exampleEs) {
-            const pair = {
-              exampleEn: parsed.exampleEn.trim(),
-              exampleEs: parsed.exampleEs.trim(),
-            };
-            SENTENCE_PAIR_CACHE.set(cacheKey, pair);
-            return pair;
+        if (response.ok) {
+          const data = await response.json();
+          const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed.exampleEn && parsed.exampleEs) {
+              const pair = {
+                exampleEn: parsed.exampleEn.trim(),
+                exampleEs: parsed.exampleEs.trim(),
+              };
+              SENTENCE_PAIR_CACHE.set(cacheKey, pair);
+              return pair;
+            }
           }
         }
+      } catch (e) {
+        console.warn(`[generateExampleSentencesWithAI] Error with model ${model}:`, e);
       }
-    } catch (e) {
-      console.warn(`[generateExampleSentencesWithAI] Error with model ${model}:`, e);
     }
   }
 
-  return null;
+  // High-accuracy fallback: generate a grammatically correct sentence featuring cleanWord and translate it
+  const fallbackEn = createAuthenticEnglishSentence(cleanWord, pos);
+  const fallbackEs = await translateText(fallbackEn, 'en', 'es');
+  const pair = {
+    exampleEn: fallbackEn,
+    exampleEs: fallbackEs || generateNaturalSentencePairSync(cleanWord, pos || 'Sustantivo', translation).exampleEs,
+  };
+  SENTENCE_PAIR_CACHE.set(cacheKey, pair);
+  return pair;
 }
 
 // Ultra-fast translation helper with multi-tier caching and parallel/fallback providers (<100ms)
@@ -1082,15 +1200,22 @@ export async function fetchGoogleDictionary(
       }
 
       if (Array.isArray(data?.[1]) && data[1].length > 0) {
-        const primary = data[1][0];
-        if (primary && primary[0]) {
-          partOfSpeech = normalizePartOfSpeech(primary[0]);
-        }
-        if (Array.isArray(primary?.[1])) {
-          primary[1].slice(0, 4).forEach((t: string) => {
-            if (t && typeof t === 'string') alternatives.push(t);
-          });
-        }
+        data[1].forEach((block: any) => {
+          if (!partOfSpeech && block?.[0]) {
+            partOfSpeech = normalizePartOfSpeech(block[0]);
+          }
+          if (Array.isArray(block?.[1])) {
+            block[1].forEach((t: string) => {
+              if (t && typeof t === 'string') {
+                const trimmed = t.trim();
+                const cap = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+                if (cap && !alternatives.includes(cap)) {
+                  alternatives.push(cap);
+                }
+              }
+            });
+          }
+        });
       }
 
       return { translation, partOfSpeech, alternatives, detectedLang };
@@ -1355,21 +1480,22 @@ export function generateNaturalSentencePairSync(
     };
   } else {
     // Nouns
+    const primaryEs = esWord ? esWord.split(/[\/,;]/)[0].trim() : '';
     const tEn = [
       `She found a very interesting book about the ${w}.`,
-      `The team analyzed the importance of this ${w} in detail.`,
-      `He pointed at the ${w} on the front counter.`,
+      `The team analyzed the importance of the ${w} in detail.`,
+      `We need to examine this ${w} carefully to understand how it works.`,
       `Understanding the concept of this ${w} will help us succeed.`,
     ];
-    const tEs = esWord ? [
-      `Ella encontró un libro muy interesante sobre ${esWord.startsWith('el ') || esWord.startsWith('la ') ? esWord : 'el/la ' + esWord}.`,
-      `El equipo analizó la importancia de esto (${esWord}) en detalle.`,
-      `Él señaló hacia el/la ${esWord} en el mostrador delantero.`,
-      `Comprender la importancia de esto (${esWord}) nos ayudará a tener éxito.`,
+    const tEs = primaryEs ? [
+      `Ella encontró un libro muy interesante sobre el tema (${primaryEs}).`,
+      `El equipo analizó la importancia de este aspecto (${primaryEs}) en detalle.`,
+      `Necesitamos examinar esto (${primaryEs}) detenidamente para entender cómo funciona.`,
+      `Comprender el concepto de esto (${primaryEs}) nos ayudará a tener éxito.`,
     ] : [
       `Ella encontró un libro muy interesante sobre este tema.`,
-      `El equipo analizó la importancia de este elemento en detalle.`,
-      `Él señaló el objeto en el mostrador delantero.`,
+      `El equipo analizó la importancia de este aspecto en detalle.`,
+      `Necesitamos examinar este asunto detenidamente para entender cómo funciona.`,
       `Comprender este concepto nos ayudará a tener éxito.`,
     ];
     const idx = hash % tEn.length;
@@ -1380,12 +1506,17 @@ export function generateNaturalSentencePairSync(
   return pair;
 }
 
-// Asynchronous wrapper for backwards compatibility
+// Asynchronous authentic sentence pair generator: translates English sentence faithfully into Spanish
 export async function generateNaturalSentencePair(
   word: string,
   pos: string,
   translationFallback?: string
 ): Promise<{ exampleEn: string; exampleEs: string }> {
+  const sentenceEn = createAuthenticEnglishSentence(word, pos);
+  const sentenceEs = await translateText(sentenceEn, 'en', 'es');
+  if (sentenceEs && sentenceEs.toLowerCase() !== sentenceEn.toLowerCase()) {
+    return { exampleEn: sentenceEn, exampleEs: sentenceEs };
+  }
   return generateNaturalSentencePairSync(word, pos, translationFallback);
 }
 
@@ -1679,6 +1810,9 @@ export function getInstantEnrichmentSync(
     const item = BUILTIN_VOCABULARY[clean];
     const pos = normalizePartOfSpeech(item.partOfSpeech || 'noun');
     const pair = generateNaturalSentencePairSync(clean, pos, item.translation);
+    const alts = item.translation && (item.translation.includes('/') || item.translation.includes(','))
+      ? item.translation.split(/\s*[\/,;]\s*/).map((s) => s.trim().charAt(0).toUpperCase() + s.trim().slice(1)).filter(Boolean)
+      : undefined;
     return {
       word: rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1),
       partOfSpeech: pos,
@@ -1687,6 +1821,7 @@ export function getInstantEnrichmentSync(
       phoneticGuide: phon.phoneticGuide,
       phoneticNote: item.phoneticNote || 'Sílaba tónica destacada / Fonética estándar',
       translation: item.translation || '',
+      alternatives: alts,
       definition: item.definition || `Término utilizado como ${pos} en inglés`,
       exampleEn: item.exampleEn || pair.exampleEn,
       exampleEs: item.exampleEs || pair.exampleEs,
@@ -1755,6 +1890,15 @@ export async function autoEnrichWord(
       const pair = generateNaturalSentencePairSync(enKey, pos, capitalizedEs);
       const phon = getPhoneticsForEnglishWord(enKey);
 
+      const altsSet = new Set<string>();
+      if (item.translation && (item.translation.includes('/') || item.translation.includes(','))) {
+        item.translation.split(/\s*[\/,;]\s*/).forEach((p) => {
+          const cap = p.trim().charAt(0).toUpperCase() + p.trim().slice(1);
+          if (cap) altsSet.add(cap);
+        });
+      }
+      const alternatives = Array.from(altsSet);
+
       const result: AutoEnrichResult = {
         word: capitalizedEn,
         partOfSpeech: pos,
@@ -1763,6 +1907,7 @@ export async function autoEnrichWord(
         phoneticGuide: item.phoneticGuide || phon.phoneticGuide,
         phoneticNote: item.phoneticNote || 'Sílaba tónica destacada / Fonética estándar',
         translation: capitalizedEs,
+        alternatives: alternatives.length > 0 ? alternatives : undefined,
         definition: item.definition || `Término utilizado como ${pos} en inglés`,
         exampleEn: item.exampleEn || pair.exampleEn,
         exampleEs: item.exampleEs || pair.exampleEs,
@@ -1774,17 +1919,35 @@ export async function autoEnrichWord(
     }
 
     // 2. Fast Concurrent Translation (40ms - 80ms)
-    const translatedEn = await translateText(clean, 'es', 'en');
-    const cleanEn = (translatedEn || clean).replace(/^to\s+/i, '').replace(/[.!,?]$/, '').trim().toLowerCase();
+    const [translatedEn, googleDict] = await Promise.all([
+      translateText(clean, 'es', 'en'),
+      fetchGoogleDictionary(clean, 'es', 'en').catch(() => null),
+    ]);
+    const cleanEn = (translatedEn || googleDict?.translation || clean).replace(/^to\s+/i, '').replace(/[.!,?]$/, '').trim().toLowerCase();
     const finalEnWord = cleanEn || clean;
     const capitalizedEn = finalEnWord.charAt(0).toUpperCase() + finalEnWord.slice(1);
     const capitalizedEs = rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1);
 
-    const finalPos: PartOfSpeech = detectQuickPartOfSpeech(finalEnWord) || 'Sustantivo';
+    const finalPos: PartOfSpeech = googleDict?.partOfSpeech
+      ? normalizePartOfSpeech(googleDict.partOfSpeech)
+      : (detectQuickPartOfSpeech(finalEnWord) || 'Sustantivo');
     const phon = getPhoneticsForEnglishWord(finalEnWord);
     const finalIpa = phon.ipa;
     const finalGuide = phon.phoneticGuide;
-    const pair = generateNaturalSentencePairSync(finalEnWord, finalPos, capitalizedEs);
+    // Generate an authentic English sentence featuring the word, and its exact Spanish translation
+    let pair: { exampleEn: string; exampleEs: string } | null = null;
+    try {
+      pair = await generateExampleSentencesWithAI(finalEnWord, capitalizedEs, finalPos);
+    } catch (e) {}
+
+    if (!pair || !pair.exampleEn || !pair.exampleEs) {
+      const sentenceEn = createAuthenticEnglishSentence(finalEnWord, finalPos);
+      const sentenceEs = await translateText(sentenceEn, 'en', 'es');
+      pair = {
+        exampleEn: sentenceEn,
+        exampleEs: sentenceEs || generateNaturalSentencePairSync(finalEnWord, finalPos, capitalizedEs).exampleEs,
+      };
+    }
 
     let level: WordLevel = 'B1';
     if (finalEnWord.length > 9 || finalEnWord.endsWith('tion') || finalEnWord.endsWith('ism') || finalEnWord.endsWith('ment')) {
@@ -1794,6 +1957,15 @@ export async function autoEnrichWord(
       level = 'C1';
     }
 
+    const altsSet = new Set<string>();
+    if (googleDict?.alternatives && Array.isArray(googleDict.alternatives)) {
+      googleDict.alternatives.forEach((a) => {
+        const cap = a.trim().charAt(0).toUpperCase() + a.trim().slice(1);
+        if (cap) altsSet.add(cap);
+      });
+    }
+    const alternatives = Array.from(altsSet);
+
     const result: AutoEnrichResult = {
       word: capitalizedEn,
       partOfSpeech: finalPos,
@@ -1802,6 +1974,7 @@ export async function autoEnrichWord(
       phoneticGuide: finalGuide,
       phoneticNote: 'Sílaba tónica destacada / Fonética estándar',
       translation: capitalizedEs,
+      alternatives: alternatives.length > 0 ? alternatives : undefined,
       definition: `Término utilizado como ${finalPos} en inglés`,
       exampleEn: pair.exampleEn,
       exampleEs: pair.exampleEs,
@@ -1824,6 +1997,15 @@ export async function autoEnrichWord(
     const pair = generateNaturalSentencePairSync(clean, pos, data.translation);
     const phon = getPhoneticsForEnglishWord(clean);
 
+    const altsSet = new Set<string>();
+    if (data.translation && (data.translation.includes('/') || data.translation.includes(','))) {
+      data.translation.split(/\s*[\/,;]\s*/).forEach((p) => {
+        const cap = p.trim().charAt(0).toUpperCase() + p.trim().slice(1);
+        if (cap) altsSet.add(cap);
+      });
+    }
+    const alternatives = Array.from(altsSet);
+
     const result: AutoEnrichResult = {
       word: capitalizedWord,
       partOfSpeech: pos,
@@ -1832,6 +2014,7 @@ export async function autoEnrichWord(
       phoneticGuide: data.phoneticGuide || phon.phoneticGuide,
       phoneticNote: data.phoneticNote || 'Sílaba tónica destacada / Fonética estándar',
       translation: data.translation || clean,
+      alternatives: alternatives.length > 0 ? alternatives : undefined,
       definition: data.definition || '',
       exampleEn: data.exampleEn || pair.exampleEn,
       exampleEs: data.exampleEs || pair.exampleEs,
@@ -1847,7 +2030,7 @@ export async function autoEnrichWord(
   let foundPos: PartOfSpeech | null = detectQuickPartOfSpeech(clean);
   let foundDef = '';
 
-  const [translationRes, dictData] = await Promise.all([
+  const [translationRes, dictData, googleDict] = await Promise.all([
     translateText(clean, 'en', 'es'),
     networkService.isOnline()
       ? fetchWithTimeout(
@@ -1858,6 +2041,7 @@ export async function autoEnrichWord(
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null)
       : Promise.resolve(null),
+    fetchGoogleDictionary(clean, 'en', 'es').catch(() => null),
   ]);
 
   if (Array.isArray(dictData) && dictData.length > 0) {
@@ -1880,15 +2064,65 @@ export async function autoEnrichWord(
     }
   }
 
+  if (googleDict?.partOfSpeech && !foundPos) {
+    foundPos = normalizePartOfSpeech(googleDict.partOfSpeech);
+  }
+
   const finalPos: PartOfSpeech = foundPos ? normalizePartOfSpeech(foundPos) : 'Sustantivo';
-  const finalTranslation = translationRes
-    ? translationRes.charAt(0).toUpperCase() + translationRes.slice(1)
-    : clean.charAt(0).toUpperCase() + clean.slice(1);
+  const rawTranslation = googleDict?.translation || translationRes || clean;
+  const finalTranslation = rawTranslation.charAt(0).toUpperCase() + rawTranslation.slice(1);
 
   const phon = getPhoneticsForEnglishWord(clean);
   const finalIpa = foundIpa || phon.ipa;
   const finalGuide = foundIpa ? ipaToPhoneticGuide(foundIpa, clean) : phon.phoneticGuide;
-  const pair = generateNaturalSentencePairSync(clean, finalPos, finalTranslation);
+
+  // Generate authentic sentence pair: check dictionary examples first, then generate & translate
+  let pair: { exampleEn: string; exampleEs: string } | null = null;
+
+  let foundDictExample = '';
+  if (Array.isArray(dictData) && dictData.length > 0) {
+    for (const item of dictData) {
+      if (Array.isArray(item.meanings)) {
+        for (const m of item.meanings) {
+          if (Array.isArray(m.definitions)) {
+            for (const def of m.definitions) {
+              if (def.example && typeof def.example === 'string' && def.example.trim()) {
+                const ex = def.example.trim();
+                if (new RegExp(`\\b${clean}\\b`, 'i').test(ex)) {
+                  foundDictExample = ex.charAt(0).toUpperCase() + ex.slice(1);
+                  break;
+                }
+              }
+            }
+          }
+          if (foundDictExample) break;
+        }
+      }
+      if (foundDictExample) break;
+    }
+  }
+
+  if (foundDictExample) {
+    const transEs = await translateText(foundDictExample, 'en', 'es');
+    if (transEs && transEs.toLowerCase() !== foundDictExample.toLowerCase()) {
+      pair = { exampleEn: foundDictExample, exampleEs: transEs };
+    }
+  }
+
+  if (!pair) {
+    try {
+      pair = await generateExampleSentencesWithAI(clean, finalTranslation, finalPos);
+    } catch (e) {}
+  }
+
+  if (!pair || !pair.exampleEn || !pair.exampleEs) {
+    const sentenceEn = createAuthenticEnglishSentence(clean, finalPos);
+    const sentenceEs = await translateText(sentenceEn, 'en', 'es');
+    pair = {
+      exampleEn: sentenceEn,
+      exampleEs: sentenceEs || generateNaturalSentencePairSync(clean, finalPos, finalTranslation).exampleEs,
+    };
+  }
 
   let level: WordLevel = 'B1';
   if (clean.length > 9 || clean.endsWith('tion') || clean.endsWith('ism') || clean.endsWith('ment')) {
@@ -1898,6 +2132,21 @@ export async function autoEnrichWord(
     level = 'C1';
   }
 
+  const altsSet = new Set<string>();
+  if (googleDict?.alternatives && Array.isArray(googleDict.alternatives)) {
+    googleDict.alternatives.forEach((a) => {
+      const cap = a.trim().charAt(0).toUpperCase() + a.trim().slice(1);
+      if (cap) altsSet.add(cap);
+    });
+  }
+  if (finalTranslation.includes('/') || finalTranslation.includes(',')) {
+    finalTranslation.split(/\s*[\/,;]\s*/).forEach((p) => {
+      const cap = p.trim().charAt(0).toUpperCase() + p.trim().slice(1);
+      if (cap) altsSet.add(cap);
+    });
+  }
+  const alternatives = Array.from(altsSet);
+
   const result: AutoEnrichResult = {
     word: rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1),
     partOfSpeech: finalPos,
@@ -1906,6 +2155,7 @@ export async function autoEnrichWord(
     phoneticGuide: finalGuide,
     phoneticNote: 'Sílaba tónica destacada / Fonética estándar',
     translation: finalTranslation,
+    alternatives: alternatives.length > 0 ? alternatives : undefined,
     definition: foundDef || `Término utilizado como ${finalPos} en inglés`,
     exampleEn: pair.exampleEn,
     exampleEs: pair.exampleEs,

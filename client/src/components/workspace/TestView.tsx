@@ -138,9 +138,15 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, i
 
       generated = selected.map((word) => {
         const correctPos = resolvePos(word);
-        const otherTranslations = combinedPool.filter(
-          (t) => t.toLowerCase() !== word.translation.toLowerCase()
-        );
+        const wordParts = word.translation
+          .toLowerCase()
+          .split(/\s*[\/,;]\s*/)
+          .filter(Boolean);
+        const otherTranslations = combinedPool.filter((t) => {
+          const tLower = t.toLowerCase().trim();
+          if (tLower === word.translation.toLowerCase().trim()) return false;
+          return !wordParts.includes(tLower);
+        });
         const distractors = otherTranslations.sort(() => Math.random() - 0.5).slice(0, 3);
         const options = [word.translation, ...distractors].sort(() => Math.random() - 0.5);
 

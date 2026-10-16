@@ -98,6 +98,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [hasManuallyEditedEnglish, setHasManuallyEditedEnglish] = useState(false);
   const [hasManuallyEditedTranslation, setHasManuallyEditedTranslation] = useState(false);
   const [hasManuallyEditedExamples, setHasManuallyEditedExamples] = useState(false);
+  const [translationAlternatives, setTranslationAlternatives] = useState<string[]>([]);
 
   // Dropdown & custom input states
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
@@ -179,6 +180,16 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setHasManuallyEditedPhoneticGuide(Boolean(initialWord.phoneticGuide));
       setHasManuallyEditedIpa(Boolean(initialWord.ipa));
 
+      if (initialWord.translation && (initialWord.translation.includes('/') || initialWord.translation.includes(','))) {
+        const parts = initialWord.translation
+          .split(/\s*[\/,;]\s*/)
+          .map((s) => s.trim().charAt(0).toUpperCase() + s.trim().slice(1))
+          .filter(Boolean);
+        setTranslationAlternatives(parts);
+      } else {
+        setTranslationAlternatives([]);
+      }
+
       const initCats = getWordCategories(initialWord);
       const initSubs = getWordSubcategories(initialWord);
       setSelectedCategories(initCats.length > 0 ? initCats : [allCategories[0]?.name || 'General']);
@@ -198,6 +209,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     } else {
       setWord('');
       setTranslation('');
+      setTranslationAlternatives([]);
       setExampleEn('');
       setExampleEs('');
       setPhoneticGuide('');
@@ -259,6 +271,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         setExampleEs((prev) => prev || instant.exampleEs || '');
       }
       if (instant.partOfSpeech && !isPosManuallySelected) setPartOfSpeech(instant.partOfSpeech);
+      if (instant.alternatives && instant.alternatives.length > 0) {
+        setTranslationAlternatives(instant.alternatives);
+      }
     }
 
     setLoadingAutoEnrich(true);
@@ -275,6 +290,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           if (!hasManuallyEditedTranslation) {
             setTranslation(res.translation || '');
           }
+        }
+        if (res.alternatives && res.alternatives.length > 0) {
+          setTranslationAlternatives(res.alternatives);
         }
         if (!hasManuallyEditedExamples && res.exampleEn) {
           setExampleEn(res.exampleEn);
@@ -464,6 +482,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         } else {
           setTranslation(res.translation || '');
         }
+        if (res.alternatives && res.alternatives.length > 0) {
+          setTranslationAlternatives(res.alternatives);
+        }
         setExampleEn(res.exampleEn || '');
         setExampleEs(res.exampleEs || '');
         if (res.phoneticGuide) {
@@ -510,11 +531,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       return;
     }
 
-    if (!isGeminiConfigured()) {
-      setValidationError('La API de Google Gemini no está configurada. Puedes añadir tu clave en Ajustes.');
-      return;
-    }
-
     setGeneratingSentences(true);
     setValidationError(null);
 
@@ -538,12 +554,12 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         } else if (exampleEs.trim() && !exampleEn.trim()) {
           await handleTranslateSentence('es_to_en');
         } else {
-          setValidationError('No se pudo generar la frase con IA. Inténtalo de nuevo.');
+          setValidationError('No se pudo generar la frase de ejemplo. Inténtalo de nuevo.');
         }
       }
     } catch (err: any) {
       console.warn('Error generating sentences with AI:', err);
-      setValidationError(`Error al generar frases con IA: ${err?.message || 'Error de conexión'}`);
+      setValidationError(`Error al generar frases: ${err?.message || 'Error de conexión'}`);
     } finally {
       setGeneratingSentences(false);
     }
@@ -556,11 +572,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     // If sourceText is empty, smartly generate both sentences with AI instead of showing an error
     if (!sourceText) {
       await handleGenerateSentencesWithAI();
-      return;
-    }
-
-    if (!isGeminiConfigured()) {
-      setValidationError('La API de Google Gemini no está configurada. Puedes añadir tu clave en Ajustes.');
       return;
     }
 
@@ -670,6 +681,106 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     }
   };
 
+  // Multiple Translation Alternative Helpers
+  const handleToggleTranslationAlternative = (alt: string) => {
+    const isEs = inputLanguage === 'es';
+    const currentText = (isEs ? word : translation).trim();
+    const cleanAlt = alt.trim();
+    if (!cleanAlt) return;
+
+    const parts = currentText
+      ? currentText
+          .split(/\s*[\/,;]\s*/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+
+    const altLower = cleanAlt.toLowerCase();
+    const exists = parts.some((p) => p.toLowerCase() === altLower);
+
+    let newParts: string[];
+    if (exists) {
+      newParts = parts.filter((p) => p.toLowerCase() !== altLower);
+    } else {
+      newParts = [...parts, cleanAlt];
+    }
+
+    const newText = newParts.join(' / ');
+    if (isEs) {
+      setWord(newText);
+      setHasManuallyEditedEnglish(true);
+    } else {
+      setTranslation(newText);
+      setHasManuallyEditedTranslation(true);
+    }
+  };
+
+  const isAlternativeSelected = (alt: string) => {
+    const isEs = inputLanguage === 'es';
+    const currentText = (isEs ? word : translation).trim().toLowerCase();
+    const cleanAlt = alt.trim().toLowerCase();
+    if (!currentText || !cleanAlt) return false;
+    const parts = currentText
+      .split(/\s*[\/,;]\s*/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return parts.includes(cleanAlt);
+  };
+
+  const renderAlternativeTranslationChips = () => {
+    if (!translationAlternatives || translationAlternatives.length === 0) return null;
+
+    return (
+      <View style={[styles.altsContainer, !isDark && styles.altsContainerLight]}>
+        <View style={styles.altsHeaderRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <Sparkles size={12} color={!isDark ? '#e11d48' : '#ff758c'} />
+            <Text style={[styles.altsTitle, !isDark && styles.altsTitleLight]}>
+              Traducciones alternativas sugeridas:
+            </Text>
+          </View>
+          <Text style={[styles.altsHint, !isDark && styles.altsHintLight]}>
+            Toca para añadir con barra ( / )
+          </Text>
+        </View>
+
+        <View style={styles.altsChipsRow}>
+          {translationAlternatives.map((alt, idx) => {
+            const active = isAlternativeSelected(alt);
+            return (
+              <TouchableOpacity
+                key={`${alt}_${idx}`}
+                style={[
+                  styles.altChip,
+                  !isDark && styles.altChipLight,
+                  active && styles.altChipActive,
+                  !isDark && active && styles.altChipActiveLight,
+                ]}
+                onPress={() => handleToggleTranslationAlternative(alt)}
+                activeOpacity={0.7}
+              >
+                {active ? (
+                  <Check size={11} color="#ffffff" style={{ marginRight: 4 }} />
+                ) : (
+                  <Plus size={11} color={!isDark ? '#e11d48' : '#ff758c'} style={{ marginRight: 4 }} />
+                )}
+                <Text
+                  style={[
+                    styles.altChipText,
+                    !isDark && styles.altChipTextLight,
+                    active && styles.altChipTextActive,
+                  ]}
+                >
+                  {alt}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
+
   const handleSave = async () => {
     let cleanWord = word.trim();
     let finalTranslation = translation.trim();
@@ -723,6 +834,16 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
     if (!cleanWord) cleanWord = finalTranslation;
     if (!finalTranslation) finalTranslation = cleanWord;
+
+    // Normalizar formato de múltiples traducciones: "Traducción 1 / Traducción 2"
+    if (finalTranslation.includes('/') || finalTranslation.includes(',')) {
+      finalTranslation = finalTranslation
+        .split(/\s*[\/,]\s*/)
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' / ');
+    }
 
     // Comprobar si la palabra ya existe en el vocabulario (evitar duplicados)
     const existingWords = vocabService.getWords();
@@ -1091,6 +1212,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   }}
                   onBlur={() => setFocusedField(null)}
                 />
+                {renderAlternativeTranslationChips()}
               </View>
             ) : (
               // 2. Secundaria: Significado al Español
@@ -1115,6 +1237,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   }}
                   onBlur={() => setFocusedField(null)}
                 />
+                {renderAlternativeTranslationChips()}
               </View>
             )}
 
@@ -2542,5 +2665,87 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: THEME.colors.crimsonLight,
+  },
+
+  // Alternative Translation Chips Styles
+  altsContainer: {
+    marginTop: 8,
+    padding: 10,
+    backgroundColor: 'rgba(230, 46, 76, 0.05)',
+    borderRadius: THEME.radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.18)',
+    gap: 8,
+  },
+  altsContainerLight: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fecdd3',
+  },
+  altsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  altsTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  altsTitleLight: {
+    color: '#9f1239',
+  },
+  altsHint: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+    fontStyle: 'italic',
+  },
+  altsHintLight: {
+    color: '#94a3b8',
+  },
+  altsChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  altChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: THEME.radius.full || 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.3)',
+  },
+  altChipLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#fca5a5',
+  },
+  altChipActive: {
+    backgroundColor: THEME.colors.crimson,
+    borderColor: THEME.colors.crimson,
+    shadowColor: THEME.colors.crimson,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  altChipActiveLight: {
+    backgroundColor: '#e11d48',
+    borderColor: '#e11d48',
+  },
+  altChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: THEME.colors.crimsonLight,
+  },
+  altChipTextLight: {
+    color: '#e11d48',
+  },
+  altChipTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
 });
