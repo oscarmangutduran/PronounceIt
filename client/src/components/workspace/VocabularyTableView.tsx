@@ -23,6 +23,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   Sparkles,
   Folder,
   Award,
@@ -36,6 +37,7 @@ import { SelectedFilter } from './SidebarCategories';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { useResponsive } from '../../lib/useResponsive';
+import { appStorage } from '../../lib/storage';
 
 interface VocabularyTableViewProps {
   words: WordItem[];
@@ -91,9 +93,23 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isLevelModalOpen, setIsLevelModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(6);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(() => {
+    const saved = appStorage.getItem('pronounceit_rows_per_page');
+    if (saved && (saved === '6' || saved === '9' || saved === '12')) {
+      return Number(saved);
+    }
+    return 6;
+  });
+  const [isRowsDropdownOpen, setIsRowsDropdownOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [wordToDelete, setWordToDelete] = useState<WordItem | null>(null);
+
+  const handleSelectRowsPerPage = (count: number) => {
+    setRowsPerPage(count);
+    setCurrentPage(1);
+    setIsRowsDropdownOpen(false);
+    appStorage.setItem('pronounceit_rows_per_page', String(count));
+  };
 
   // Word counts per level
   const levelCounts = useMemo(() => {
@@ -747,9 +763,64 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
             {/* Rows per page */}
             <View style={styles.rowsPerPageBox}>
               <Text style={[styles.paginationText, !isDark && styles.paginationTextLight]}>Filas por página:</Text>
-              <View style={[styles.rowsSelect, !isDark && styles.rowsSelectLight]}>
-                <Text style={[styles.rowsSelectText, !isDark && styles.rowsSelectTextLight]}>6</Text>
-                <ChevronDown size={12} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} />
+              <View style={styles.rowsSelectContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.rowsSelect,
+                    !isDark && styles.rowsSelectLight,
+                    isRowsDropdownOpen && styles.rowsSelectActive,
+                  ]}
+                  onPress={() => setIsRowsDropdownOpen(!isRowsDropdownOpen)}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Seleccionar filas por página"
+                >
+                  <Text style={[styles.rowsSelectText, !isDark && styles.rowsSelectTextLight]}>{rowsPerPage}</Text>
+                  {isRowsDropdownOpen ? (
+                    <ChevronUp size={12} color={!isDark ? '#e62e4c' : THEME.colors.crimsonLight} />
+                  ) : (
+                    <ChevronDown size={12} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} />
+                  )}
+                </TouchableOpacity>
+
+                {isRowsDropdownOpen && (
+                  <>
+                    <TouchableOpacity
+                      style={styles.rowsDropdownBackdrop}
+                      activeOpacity={1}
+                      onPress={() => setIsRowsDropdownOpen(false)}
+                    />
+                    <View style={[styles.rowsDropdownMenu, !isDark && styles.rowsDropdownMenuLight]}>
+                      {[6, 9, 12].map((num) => {
+                        const isSelected = rowsPerPage === num;
+                        return (
+                          <TouchableOpacity
+                            key={num}
+                            style={[
+                              styles.rowsDropdownItem,
+                              !isDark && styles.rowsDropdownItemLight,
+                              isSelected && (isDark ? styles.rowsDropdownItemActive : styles.rowsDropdownItemActiveLight),
+                            ]}
+                            onPress={() => handleSelectRowsPerPage(num)}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.rowsDropdownItemText,
+                                !isDark && styles.rowsDropdownItemTextLight,
+                                isSelected && styles.rowsDropdownItemTextActive,
+                              ]}
+                            >
+                              {num}
+                            </Text>
+                            {isSelected && (
+                              <Check size={11} color={THEME.colors.crimson} strokeWidth={2.8} />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </>
+                )}
               </View>
             </View>
           </View>
@@ -1775,11 +1846,13 @@ const styles = StyleSheet.create({
     borderTopColor: THEME.colors.border,
     flexWrap: 'wrap',
     gap: 12,
+    zIndex: 50,
   },
   paginationLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+    zIndex: 60,
   },
   paginationText: {
     fontSize: 11,
@@ -1793,6 +1866,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    zIndex: 50,
+  },
+  rowsSelectContainer: {
+    position: 'relative',
+    zIndex: 60,
   },
   rowsSelect: {
     flexDirection: 'row',
@@ -1802,13 +1880,80 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 6,
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    gap: 4,
+    paddingVertical: 3,
+    gap: 5,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer', userSelect: 'none' } as any) : {}),
+  },
+  rowsSelectActive: {
+    borderColor: THEME.colors.crimson,
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
   },
   rowsSelectText: {
     fontSize: 11,
     color: '#ffffff',
     fontWeight: '600',
+  },
+  rowsDropdownBackdrop: {
+    position: (Platform.OS === 'web' ? 'fixed' : 'absolute') as any,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 998,
+  },
+  rowsDropdownMenu: {
+    position: 'absolute',
+    bottom: '100%',
+    left: 0,
+    marginBottom: 6,
+    minWidth: 66,
+    backgroundColor: '#161124',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    borderRadius: 8,
+    padding: 3,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+    zIndex: 999,
+  },
+  rowsDropdownMenuLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
+    shadowOpacity: 0.15,
+  },
+  rowsDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 5,
+    gap: 6,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  rowsDropdownItemLight: {
+    backgroundColor: 'transparent',
+  },
+  rowsDropdownItemActive: {
+    backgroundColor: 'rgba(230, 46, 76, 0.15)',
+  },
+  rowsDropdownItemActiveLight: {
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
+  },
+  rowsDropdownItemText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  rowsDropdownItemTextLight: {
+    color: '#64748b',
+  },
+  rowsDropdownItemTextActive: {
+    color: THEME.colors.crimson,
+    fontWeight: '700',
   },
   shortcutHints: {
     flexDirection: 'row',
