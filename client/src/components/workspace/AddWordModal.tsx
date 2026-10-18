@@ -55,6 +55,56 @@ interface AddWordModalProps {
   isDark?: boolean;
 }
 
+interface ClearInputButtonProps {
+  visible: boolean;
+  onClear: () => void;
+  isDark: boolean;
+  isTextArea?: boolean;
+}
+
+const ClearInputButton: React.FC<ClearInputButtonProps> = ({
+  visible,
+  onClear,
+  isDark,
+  isTextArea,
+}) => {
+  if (!visible) return null;
+  return (
+    <TouchableOpacity
+      style={[
+        styles.clearFieldBtn,
+        isTextArea && styles.clearFieldBtnTextArea,
+        !isDark && styles.clearFieldBtnLight,
+      ]}
+      onPress={(e) => {
+        if (Platform.OS === 'web') {
+          e?.preventDefault?.();
+          e?.stopPropagation?.();
+        }
+        onClear();
+      }}
+      {...(Platform.OS === 'web'
+        ? ({
+            onMouseDown: (e: any) => {
+              e.preventDefault();
+              e.stopPropagation();
+            },
+            onClick: (e: any) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClear();
+            },
+          } as any)
+        : {})}
+      activeOpacity={0.6}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      accessibilityLabel="Borrar contenido del campo"
+    >
+      <X size={13} color={!isDark ? '#64748b' : '#cbd5e1'} strokeWidth={2.2} />
+    </TouchableOpacity>
+  );
+};
+
 export const AddWordModal: React.FC<AddWordModalProps> = ({
   isOpen,
   onClose,
@@ -94,6 +144,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [translatingSentence, setTranslatingSentence] = useState<'en_to_es' | 'es_to_en' | null>(null);
 
   // Live Auto-Enrich state
+  const enrichReqIdRef = React.useRef(0);
   const [loadingAutoEnrich, setLoadingAutoEnrich] = useState(false);
   const [hasManuallyEditedEnglish, setHasManuallyEditedEnglish] = useState(false);
   const [hasManuallyEditedTranslation, setHasManuallyEditedTranslation] = useState(false);
@@ -251,9 +302,11 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       return;
     }
 
+    const currentReqId = ++enrichReqIdRef.current;
+
     // 0ms instant local pre-fill
     const instant = getInstantEnrichmentSync(sourceText, lang);
-    if (instant) {
+    if (instant && enrichReqIdRef.current === currentReqId) {
       if (lang === 'es') {
         if (instant.word && !hasManuallyEditedEnglish) {
           setWord(instant.word);
@@ -279,7 +332,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     setLoadingAutoEnrich(true);
     try {
       const res = await autoEnrichWord(sourceText, lang, isGeminiConfigured());
-      if (res) {
+      if (res && enrichReqIdRef.current === currentReqId) {
         let currentEnWord = word;
         if (lang === 'es') {
           if (!hasManuallyEditedEnglish && res.word) {
@@ -321,7 +374,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     } catch (e) {
       console.warn('Auto enrich preview error:', e);
     } finally {
-      setLoadingAutoEnrich(false);
+      if (enrichReqIdRef.current === currentReqId) {
+        setLoadingAutoEnrich(false);
+      }
     }
   }, [
     initialWord,
@@ -453,6 +508,48 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const handleExampleEsChange = (text: string) => {
     setExampleEs(text);
     setHasManuallyEditedExamples(true);
+  };
+
+  const handleClearWord = () => {
+    enrichReqIdRef.current++;
+    setWord('');
+    setLoadingAutoEnrich(false);
+    if (inputLanguage === 'es') {
+      setHasManuallyEditedEnglish(false);
+    } else {
+      if (!hasManuallyEditedPhoneticGuide) setPhoneticGuide('');
+      if (!hasManuallyEditedIpa) setIpa('');
+    }
+  };
+
+  const handleClearTranslation = () => {
+    enrichReqIdRef.current++;
+    setTranslation('');
+    setTranslationAlternatives([]);
+    setLoadingAutoEnrich(false);
+    if (inputLanguage === 'en') {
+      setHasManuallyEditedTranslation(false);
+    }
+  };
+
+  const handleClearExampleEn = () => {
+    setExampleEn('');
+    setHasManuallyEditedExamples(false);
+  };
+
+  const handleClearExampleEs = () => {
+    setExampleEs('');
+    setHasManuallyEditedExamples(false);
+  };
+
+  const handleClearPhoneticGuide = () => {
+    setPhoneticGuide('');
+    setHasManuallyEditedPhoneticGuide(true);
+  };
+
+  const handleClearIpa = () => {
+    setIpa('');
+    setHasManuallyEditedIpa(true);
   };
 
   // On-demand AI suggestion generator for word
@@ -1069,30 +1166,38 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   </View>
                 </View>
 
-                <TextInput
-                  style={[
-                    styles.input,
-                    !isDark && styles.inputLight,
-                    focusedField === 'translation' && styles.inputFocused,
-                  ]}
-                  placeholder="Ej: manzana, compromiso, desarrollo, reunión..."
-                  placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                  value={translation}
-                  onChangeText={handleTranslationChange}
-                  onFocus={() => {
-                    setFocusedField('translation');
-                    setIsCategoryDropdownOpen(false);
-                    setIsSubcategoryDropdownOpen(false);
-                  }}
-                  onBlur={() => {
-                    setFocusedField(null);
-                    executeAutoEnrichNow();
-                  }}
-                  onSubmitEditing={() => executeAutoEnrichNow()}
-                  returnKeyType="done"
-                  autoCapitalize="none"
-                  autoFocus={!isEditing}
-                />
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      !isDark && styles.inputLight,
+                      focusedField === 'translation' && styles.inputFocused,
+                      Boolean(translation) && styles.inputWithClearBtn,
+                    ]}
+                    placeholder="Ej: manzana, compromiso, desarrollo, reunión..."
+                    placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                    value={translation}
+                    onChangeText={handleTranslationChange}
+                    onFocus={() => {
+                      setFocusedField('translation');
+                      setIsCategoryDropdownOpen(false);
+                      setIsSubcategoryDropdownOpen(false);
+                    }}
+                    onBlur={() => {
+                      setFocusedField(null);
+                      executeAutoEnrichNow();
+                    }}
+                    onSubmitEditing={() => executeAutoEnrichNow()}
+                    returnKeyType="done"
+                    autoCapitalize="none"
+                    autoFocus={!isEditing}
+                  />
+                  <ClearInputButton
+                    visible={Boolean(translation && translation.length > 0)}
+                    onClear={handleClearTranslation}
+                    isDark={isDark}
+                  />
+                </View>
 
                 {loadingAutoEnrich && !isEditing && (
                   <View style={styles.inlineLoadingBox}>
@@ -1140,30 +1245,38 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   </View>
                 </View>
 
-                <TextInput
-                  style={[
-                    styles.input,
-                    !isDark && styles.inputLight,
-                    focusedField === 'word' && styles.inputFocused,
-                  ]}
-                  placeholder="Ej: breakthrough, eloquent, serendipity..."
-                  placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                  value={word}
-                  onChangeText={handleWordChange}
-                  onFocus={() => {
-                    setFocusedField('word');
-                    setIsCategoryDropdownOpen(false);
-                    setIsSubcategoryDropdownOpen(false);
-                  }}
-                  onBlur={() => {
-                    setFocusedField(null);
-                    executeAutoEnrichNow();
-                  }}
-                  onSubmitEditing={() => executeAutoEnrichNow()}
-                  returnKeyType="done"
-                  autoCapitalize="none"
-                  autoFocus={!isEditing}
-                />
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      !isDark && styles.inputLight,
+                      focusedField === 'word' && styles.inputFocused,
+                      Boolean(word) && styles.inputWithClearBtn,
+                    ]}
+                    placeholder="Ej: breakthrough, eloquent, serendipity..."
+                    placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                    value={word}
+                    onChangeText={handleWordChange}
+                    onFocus={() => {
+                      setFocusedField('word');
+                      setIsCategoryDropdownOpen(false);
+                      setIsSubcategoryDropdownOpen(false);
+                    }}
+                    onBlur={() => {
+                      setFocusedField(null);
+                      executeAutoEnrichNow();
+                    }}
+                    onSubmitEditing={() => executeAutoEnrichNow()}
+                    returnKeyType="done"
+                    autoCapitalize="none"
+                    autoFocus={!isEditing}
+                  />
+                  <ClearInputButton
+                    visible={Boolean(word && word.length > 0)}
+                    onClear={handleClearWord}
+                    isDark={isDark}
+                  />
+                </View>
 
                 {loadingAutoEnrich && !isEditing && (
                   <View style={styles.inlineLoadingBox}>
@@ -1195,23 +1308,31 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     </TouchableOpacity>
                   )}
                 </View>
-                <TextInput
-                  style={[
-                    styles.input,
-                    !isDark && styles.inputLight,
-                    focusedField === 'word' && styles.inputFocused,
-                  ]}
-                  placeholder="Ej: apple, commitment, develop, meeting..."
-                  placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                  value={word}
-                  onChangeText={handleWordChange}
-                  onFocus={() => {
-                    setFocusedField('word');
-                    setIsCategoryDropdownOpen(false);
-                    setIsSubcategoryDropdownOpen(false);
-                  }}
-                  onBlur={() => setFocusedField(null)}
-                />
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      !isDark && styles.inputLight,
+                      focusedField === 'word' && styles.inputFocused,
+                      Boolean(word) && styles.inputWithClearBtn,
+                    ]}
+                    placeholder="Ej: apple, commitment, develop, meeting..."
+                    placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                    value={word}
+                    onChangeText={handleWordChange}
+                    onFocus={() => {
+                      setFocusedField('word');
+                      setIsCategoryDropdownOpen(false);
+                      setIsSubcategoryDropdownOpen(false);
+                    }}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                  <ClearInputButton
+                    visible={Boolean(word && word.length > 0)}
+                    onClear={handleClearWord}
+                    isDark={isDark}
+                  />
+                </View>
                 {renderAlternativeTranslationChips()}
               </View>
             ) : (
@@ -1220,23 +1341,31 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 <Text style={[styles.label, !isDark && styles.labelLight]}>
                   Significado / Traducción (Español) *
                 </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    !isDark && styles.inputLight,
-                    focusedField === 'translation' && styles.inputFocused,
-                  ]}
-                  placeholder="Ej: gran avance, hallazgo importante, elocuente..."
-                  placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                  value={translation}
-                  onChangeText={handleTranslationChange}
-                  onFocus={() => {
-                    setFocusedField('translation');
-                    setIsCategoryDropdownOpen(false);
-                    setIsSubcategoryDropdownOpen(false);
-                  }}
-                  onBlur={() => setFocusedField(null)}
-                />
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      !isDark && styles.inputLight,
+                      focusedField === 'translation' && styles.inputFocused,
+                      Boolean(translation) && styles.inputWithClearBtn,
+                    ]}
+                    placeholder="Ej: gran avance, hallazgo importante, elocuente..."
+                    placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                    value={translation}
+                    onChangeText={handleTranslationChange}
+                    onFocus={() => {
+                      setFocusedField('translation');
+                      setIsCategoryDropdownOpen(false);
+                      setIsSubcategoryDropdownOpen(false);
+                    }}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                  <ClearInputButton
+                    visible={Boolean(translation && translation.length > 0)}
+                    onClear={handleClearTranslation}
+                    isDark={isDark}
+                  />
+                </View>
                 {renderAlternativeTranslationChips()}
               </View>
             )}
@@ -1279,26 +1408,35 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   </TouchableOpacity>
                 </View>
               </View>
-              <TextInput
-                style={[
-                  styles.input,
-                  styles.textArea,
-                  !isDark && styles.inputLight,
-                  focusedField === 'exampleEn' && styles.inputFocused,
-                ]}
-                placeholder="Ej: Scientists announced a major breakthrough in renewable energy."
-                placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                value={exampleEn}
-                onChangeText={handleExampleEnChange}
-                multiline
-                numberOfLines={2}
-                onFocus={() => {
-                  setFocusedField('exampleEn');
-                  setIsCategoryDropdownOpen(false);
-                  setIsSubcategoryDropdownOpen(false);
-                }}
-                onBlur={() => setFocusedField(null)}
-              />
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.textArea,
+                    !isDark && styles.inputLight,
+                    focusedField === 'exampleEn' && styles.inputFocused,
+                    Boolean(exampleEn) && styles.textAreaWithClearBtn,
+                  ]}
+                  placeholder="Ej: Scientists announced a major breakthrough in renewable energy."
+                  placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                  value={exampleEn}
+                  onChangeText={handleExampleEnChange}
+                  multiline
+                  numberOfLines={2}
+                  onFocus={() => {
+                    setFocusedField('exampleEn');
+                    setIsCategoryDropdownOpen(false);
+                    setIsSubcategoryDropdownOpen(false);
+                  }}
+                  onBlur={() => setFocusedField(null)}
+                />
+                <ClearInputButton
+                  visible={Boolean(exampleEn && exampleEn.length > 0)}
+                  onClear={handleClearExampleEn}
+                  isDark={isDark}
+                  isTextArea
+                />
+              </View>
             </View>
 
             {/* 4. Traducción de la Frase en Español */}
@@ -1339,26 +1477,35 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   </TouchableOpacity>
                 </View>
               </View>
-              <TextInput
-                style={[
-                  styles.input,
-                  styles.textArea,
-                  !isDark && styles.inputLight,
-                  focusedField === 'exampleEs' && styles.inputFocused,
-                ]}
-                placeholder="Ej: Los científicos anunciaron un gran avance en energía renovable."
-                placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                value={exampleEs}
-                onChangeText={handleExampleEsChange}
-                multiline
-                numberOfLines={2}
-                onFocus={() => {
-                  setFocusedField('exampleEs');
-                  setIsCategoryDropdownOpen(false);
-                  setIsSubcategoryDropdownOpen(false);
-                }}
-                onBlur={() => setFocusedField(null)}
-              />
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.textArea,
+                    !isDark && styles.inputLight,
+                    focusedField === 'exampleEs' && styles.inputFocused,
+                    Boolean(exampleEs) && styles.textAreaWithClearBtn,
+                  ]}
+                  placeholder="Ej: Los científicos anunciaron un gran avance en energía renovable."
+                  placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                  value={exampleEs}
+                  onChangeText={handleExampleEsChange}
+                  multiline
+                  numberOfLines={2}
+                  onFocus={() => {
+                    setFocusedField('exampleEs');
+                    setIsCategoryDropdownOpen(false);
+                    setIsSubcategoryDropdownOpen(false);
+                  }}
+                  onBlur={() => setFocusedField(null)}
+                />
+                <ClearInputButton
+                  visible={Boolean(exampleEs && exampleEs.length > 0)}
+                  onClear={handleClearExampleEs}
+                  isDark={isDark}
+                  isTextArea
+                />
+              </View>
             </View>
 
             {/* 5. Pronunciación Fonética (Guía & IPA) */}
@@ -1405,52 +1552,68 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   <Text style={[styles.subLabel, !isDark && styles.subLabelLight]}>
                     Guía Fonética (Lectura en español)
                   </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      !isDark && styles.inputLight,
-                      focusedField === 'phoneticGuide' && styles.inputFocused,
-                    ]}
-                    placeholder='Ej: "breik-zru", "áp-l"'
-                    placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                    value={phoneticGuide}
-                    onChangeText={(text) => {
-                      setPhoneticGuide(text);
-                      setHasManuallyEditedPhoneticGuide(true);
-                    }}
-                    onFocus={() => {
-                      setFocusedField('phoneticGuide');
-                      setIsCategoryDropdownOpen(false);
-                      setIsSubcategoryDropdownOpen(false);
-                    }}
-                    onBlur={() => setFocusedField(null)}
-                  />
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        !isDark && styles.inputLight,
+                        focusedField === 'phoneticGuide' && styles.inputFocused,
+                        Boolean(phoneticGuide) && styles.inputWithClearBtn,
+                      ]}
+                      placeholder='Ej: "breik-zru", "áp-l"'
+                      placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                      value={phoneticGuide}
+                      onChangeText={(text) => {
+                        setPhoneticGuide(text);
+                        setHasManuallyEditedPhoneticGuide(true);
+                      }}
+                      onFocus={() => {
+                        setFocusedField('phoneticGuide');
+                        setIsCategoryDropdownOpen(false);
+                        setIsSubcategoryDropdownOpen(false);
+                      }}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                    <ClearInputButton
+                      visible={Boolean(phoneticGuide && phoneticGuide.length > 0)}
+                      onClear={handleClearPhoneticGuide}
+                      isDark={isDark}
+                    />
+                  </View>
                 </View>
 
                 <View style={[styles.colHalf, !isDesktop && styles.colFull]}>
                   <Text style={[styles.subLabel, !isDark && styles.subLabelLight]}>
                     Fonética IPA (Internacional)
                   </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      !isDark && styles.inputLight,
-                      focusedField === 'ipa' && styles.inputFocused,
-                    ]}
-                    placeholder="Ej: /ˈbreɪkˌθruː/, /ˈæp.əl/"
-                    placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                    value={ipa}
-                    onChangeText={(text) => {
-                      setIpa(text);
-                      setHasManuallyEditedIpa(true);
-                    }}
-                    onFocus={() => {
-                      setFocusedField('ipa');
-                      setIsCategoryDropdownOpen(false);
-                      setIsSubcategoryDropdownOpen(false);
-                    }}
-                    onBlur={() => setFocusedField(null)}
-                  />
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        !isDark && styles.inputLight,
+                        focusedField === 'ipa' && styles.inputFocused,
+                        Boolean(ipa) && styles.inputWithClearBtn,
+                      ]}
+                      placeholder="Ej: /ˈbreɪkˌθruː/, /ˈæp.əl/"
+                      placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                      value={ipa}
+                      onChangeText={(text) => {
+                        setIpa(text);
+                        setHasManuallyEditedIpa(true);
+                      }}
+                      onFocus={() => {
+                        setFocusedField('ipa');
+                        setIsCategoryDropdownOpen(false);
+                        setIsSubcategoryDropdownOpen(false);
+                      }}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                    <ClearInputButton
+                      visible={Boolean(ipa && ipa.length > 0)}
+                      onClear={handleClearIpa}
+                      isDark={isDark}
+                    />
+                  </View>
                 </View>
               </View>
             </View>
@@ -1579,25 +1742,47 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   </View>
 
                   <View style={styles.customInputRow}>
-                    <TextInput
-                      style={[styles.input, !isDark && styles.inputLight, { flex: 1 }]}
-                      placeholder="Nombre de la nueva categoría principal *"
-                      placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                      value={customCategoryInput}
-                      onChangeText={setCustomCategoryInput}
-                      autoFocus
-                    />
+                    <View style={[styles.inputWrapper, { flex: 1 }]}>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          !isDark && styles.inputLight,
+                          Boolean(customCategoryInput) && styles.inputWithClearBtn,
+                        ]}
+                        placeholder="Nombre de la nueva categoría principal *"
+                        placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                        value={customCategoryInput}
+                        onChangeText={setCustomCategoryInput}
+                        autoFocus
+                      />
+                      <ClearInputButton
+                        visible={Boolean(customCategoryInput && customCategoryInput.length > 0)}
+                        onClear={() => setCustomCategoryInput('')}
+                        isDark={isDark}
+                      />
+                    </View>
                   </View>
 
                   <View style={[styles.customInputRow, { marginTop: 6 }]}>
-                    <TextInput
-                      style={[styles.input, !isDark && styles.inputLight, { flex: 1 }]}
-                      placeholder="Subcategoría asociada (opcional)..."
-                      placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                      value={customCategorySubInput}
-                      onChangeText={setCustomCategorySubInput}
-                      onSubmitEditing={handleAddCustomCategory}
-                    />
+                    <View style={[styles.inputWrapper, { flex: 1 }]}>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          !isDark && styles.inputLight,
+                          Boolean(customCategorySubInput) && styles.inputWithClearBtn,
+                        ]}
+                        placeholder="Subcategoría asociada (opcional)..."
+                        placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                        value={customCategorySubInput}
+                        onChangeText={setCustomCategorySubInput}
+                        onSubmitEditing={handleAddCustomCategory}
+                      />
+                      <ClearInputButton
+                        visible={Boolean(customCategorySubInput && customCategorySubInput.length > 0)}
+                        onClear={() => setCustomCategorySubInput('')}
+                        isDark={isDark}
+                      />
+                    </View>
                     <TouchableOpacity
                       style={[
                         styles.saveCustomBtn,
@@ -1755,14 +1940,25 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               {/* Input para agregar subcategoría personalizada */}
               {isCustomSubcategoryMode ? (
                 <View style={styles.customInputRow}>
-                  <TextInput
-                    style={[styles.input, !isDark && styles.inputLight, { flex: 1 }]}
-                    placeholder="Nombre de la nueva subcategoría..."
-                    placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-                    value={customSubcategoryInput}
-                    onChangeText={setCustomSubcategoryInput}
-                    autoFocus
-                  />
+                  <View style={[styles.inputWrapper, { flex: 1 }]}>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        !isDark && styles.inputLight,
+                        Boolean(customSubcategoryInput) && styles.inputWithClearBtn,
+                      ]}
+                      placeholder="Nombre de la nueva subcategoría..."
+                      placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+                      value={customSubcategoryInput}
+                      onChangeText={setCustomSubcategoryInput}
+                      autoFocus
+                    />
+                    <ClearInputButton
+                      visible={Boolean(customSubcategoryInput && customSubcategoryInput.length > 0)}
+                      onClear={() => setCustomSubcategoryInput('')}
+                      isDark={isDark}
+                    />
+                  </View>
                   <TouchableOpacity
                     style={[styles.saveCustomBtn]}
                     onPress={handleAddCustomSubcategory}
@@ -2246,6 +2442,11 @@ const styles = StyleSheet.create({
     color: THEME.colors.crimsonLight,
     fontWeight: '600',
   },
+  inputWrapper: {
+    position: 'relative',
+    width: '100%',
+    justifyContent: 'center',
+  },
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
@@ -2257,11 +2458,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as any) : {}),
   },
+  inputWithClearBtn: {
+    paddingRight: 38,
+  },
   textArea: {
     height: 68,
     paddingTop: 10,
     paddingBottom: 10,
     textAlignVertical: 'top',
+  },
+  textAreaWithClearBtn: {
+    paddingRight: 38,
+  },
+  clearFieldBtn: {
+    position: 'absolute',
+    right: 10,
+    top: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    zIndex: 10,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer', userSelect: 'none' } as any) : {}),
+  },
+  clearFieldBtnLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  clearFieldBtnTextArea: {
+    top: 10,
+    right: 10,
   },
   inputFocused: {
     borderColor: THEME.colors.crimson,

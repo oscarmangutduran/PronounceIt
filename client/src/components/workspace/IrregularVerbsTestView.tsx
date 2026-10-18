@@ -6,8 +6,10 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import {
+  X,
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
@@ -332,40 +334,106 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
         {/* Inputs */}
         <View style={styles.inputSection}>
           <Text style={[styles.inputFieldLabel, !isDark && styles.inputFieldLabelLight]}>Pasado Simple (Past Simple):</Text>
-          <TextInput
-            style={[
-              styles.input,
-              !isDark && styles.inputLight,
-              showAnswer &&
-                (evaluations[currentIndex]?.isPastSimpleCorrect
-                  ? styles.inputCorrect
-                  : styles.inputWrong),
-            ]}
-            placeholder="Ej: went / saw / did"
-            placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-            value={inputPastSimple}
-            onChangeText={setInputPastSimple}
-            editable={!showAnswer}
-            autoCapitalize="none"
-          />
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={[
+                styles.input,
+                !isDark && styles.inputLight,
+                Boolean(inputPastSimple && !showAnswer) && styles.inputWithClearBtn,
+                showAnswer &&
+                  (evaluations[currentIndex]?.isPastSimpleCorrect
+                    ? styles.inputCorrect
+                    : styles.inputWrong),
+              ]}
+              placeholder="Ej: went / saw / did"
+              placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+              value={inputPastSimple}
+              onChangeText={setInputPastSimple}
+              editable={!showAnswer}
+              autoCapitalize="none"
+            />
+            {Boolean(inputPastSimple && !showAnswer) && (
+              <TouchableOpacity
+                onPress={(e) => {
+                  if (Platform.OS === 'web') {
+                    e?.preventDefault?.();
+                    e?.stopPropagation?.();
+                  }
+                  setInputPastSimple('');
+                }}
+                {...(Platform.OS === 'web'
+                  ? ({
+                      onMouseDown: (e: any) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      },
+                      onClick: (e: any) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setInputPastSimple('');
+                      },
+                    } as any)
+                  : {})}
+                style={[styles.clearFieldBtn, !isDark && styles.clearFieldBtnLight]}
+                activeOpacity={0.6}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Borrar pasado simple"
+              >
+                <X size={13} color={!isDark ? '#64748b' : '#cbd5e1'} strokeWidth={2.2} />
+              </TouchableOpacity>
+            )}
+          </View>
 
           <Text style={[styles.inputFieldLabel, !isDark && styles.inputFieldLabelLight]}>Participio (Past Participle):</Text>
-          <TextInput
-            style={[
-              styles.input,
-              !isDark && styles.inputLight,
-              showAnswer &&
-                (evaluations[currentIndex]?.isPastParticipleCorrect
-                  ? styles.inputCorrect
-                  : styles.inputWrong),
-            ]}
-            placeholder="Ej: gone / seen / done"
-            placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-            value={inputPastParticiple}
-            onChangeText={setInputPastParticiple}
-            editable={!showAnswer}
-            autoCapitalize="none"
-          />
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={[
+                styles.input,
+                !isDark && styles.inputLight,
+                Boolean(inputPastParticiple && !showAnswer) && styles.inputWithClearBtn,
+                showAnswer &&
+                  (evaluations[currentIndex]?.isPastParticipleCorrect
+                    ? styles.inputCorrect
+                    : styles.inputWrong),
+              ]}
+              placeholder="Ej: gone / seen / done"
+              placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+              value={inputPastParticiple}
+              onChangeText={setInputPastParticiple}
+              editable={!showAnswer}
+              autoCapitalize="none"
+            />
+            {Boolean(inputPastParticiple && !showAnswer) && (
+              <TouchableOpacity
+                onPress={(e) => {
+                  if (Platform.OS === 'web') {
+                    e?.preventDefault?.();
+                    e?.stopPropagation?.();
+                  }
+                  setInputPastParticiple('');
+                }}
+                {...(Platform.OS === 'web'
+                  ? ({
+                      onMouseDown: (e: any) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      },
+                      onClick: (e: any) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setInputPastParticiple('');
+                      },
+                    } as any)
+                  : {})}
+                style={[styles.clearFieldBtn, !isDark && styles.clearFieldBtnLight]}
+                activeOpacity={0.6}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Borrar participio"
+              >
+                <X size={13} color={!isDark ? '#64748b' : '#cbd5e1'} strokeWidth={2.2} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Show feedback if answered */}
@@ -601,6 +669,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: THEME.colors.textMuted,
   },
+  inputWrapper: {
+    position: 'relative',
+    width: '100%',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
@@ -610,7 +684,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     color: '#ffffff',
     fontSize: 14,
-    marginBottom: 10,
+    width: '100%',
+  },
+  inputWithClearBtn: {
+    paddingRight: 40,
+  },
+  clearFieldBtn: {
+    position: 'absolute',
+    right: 11,
+    top: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    zIndex: 10,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer', userSelect: 'none' } as any) : {}),
+  },
+  clearFieldBtnLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
   },
   inputCorrect: {
     borderColor: THEME.colors.emerald,

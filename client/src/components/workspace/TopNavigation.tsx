@@ -25,6 +25,7 @@ import {
   UserX,
   Sun,
   Moon,
+  X,
 } from 'lucide-react-native';
 import { UserProfile, MainNavTab } from '../../types';
 import { THEME } from '../../theme';
@@ -263,9 +264,40 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
               value={searchTerm}
               onChangeText={onSearchChange}
             />
-            <View style={[styles.kbdBadge, !isDark && styles.kbdBadgeLight]}>
-              <Text style={[styles.kbdText, !isDark && styles.kbdTextLight]}>⌘K</Text>
-            </View>
+            {searchTerm.length > 0 ? (
+              <TouchableOpacity
+                onPress={(e) => {
+                  if (Platform.OS === 'web') {
+                    e?.preventDefault?.();
+                    e?.stopPropagation?.();
+                  }
+                  onSearchChange?.('');
+                }}
+                {...(Platform.OS === 'web'
+                  ? ({
+                      onMouseDown: (e: any) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      },
+                      onClick: (e: any) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onSearchChange?.('');
+                      },
+                    } as any)
+                  : {})}
+                style={[styles.clearSearchBtn, !isDark && styles.clearSearchBtnLight]}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Borrar búsqueda"
+              >
+                <X size={12} color={!isDark ? '#64748b' : '#cbd5e1'} strokeWidth={2.2} />
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.kbdBadge, !isDark && styles.kbdBadgeLight]}>
+                <Text style={[styles.kbdText, !isDark && styles.kbdTextLight]}>⌘K</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -544,6 +576,18 @@ const styles = StyleSheet.create({
     color: THEME.colors.textSubtle,
     fontSize: 10,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  clearSearchBtn: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  clearSearchBtnLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
   },
   userWrapper: {
     position: 'relative',

@@ -338,9 +338,42 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
               setCurrentPage(1);
             }}
           />
-          <View style={[styles.kbdBadge, !isDark && styles.kbdBadgeLight]}>
-            <Text style={[styles.kbdText, !isDark && styles.kbdTextLight]}>⌘F</Text>
-          </View>
+          {searchTerm.length > 0 ? (
+            <TouchableOpacity
+              onPress={(e) => {
+                if (Platform.OS === 'web') {
+                  e?.preventDefault?.();
+                  e?.stopPropagation?.();
+                }
+                setSearchTerm('');
+                setCurrentPage(1);
+              }}
+              {...(Platform.OS === 'web'
+                ? ({
+                    onMouseDown: (e: any) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    },
+                    onClick: (e: any) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSearchTerm('');
+                      setCurrentPage(1);
+                    },
+                  } as any)
+                : {})}
+              style={[styles.clearSearchBtn, !isDark && styles.clearSearchBtnLight]}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Borrar búsqueda"
+            >
+              <X size={13} color={!isDark ? '#64748b' : '#cbd5e1'} strokeWidth={2.2} />
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.kbdBadge, !isDark && styles.kbdBadgeLight]}>
+              <Text style={[styles.kbdText, !isDark && styles.kbdTextLight]}>⌘F</Text>
+            </View>
+          )}
         </View>
 
         {/* Dropdown 1: Level */}
@@ -1244,6 +1277,18 @@ const styles = StyleSheet.create({
     color: THEME.colors.textSubtle,
     fontSize: 10,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  clearSearchBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  clearSearchBtnLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
   },
   selectWrapper: {
     flexDirection: 'row',

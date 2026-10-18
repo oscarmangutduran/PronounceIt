@@ -216,29 +216,66 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                 <Text style={[styles.label, !isDark && styles.labelLight]}>
                   {isSubcategory ? 'Nombre de la subcategoría *' : 'Nombre de la categoría principal *'}
                 </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    !isDark && styles.inputLight,
-                    isFocused && (isDark ? styles.inputFocused : styles.inputFocusedLight),
-                    !!error && styles.inputError,
-                  ]}
-                  value={name}
-                  onChangeText={(t) => {
-                    setName(t);
-                    if (error) setError(null);
-                    if (duplicateError) setDuplicateError(null);
-                  }}
-                  placeholder={placeholder}
-                  placeholderTextColor={!isDark ? "#94a3b8" : THEME.colors.textSubtle}
-                  autoFocus={Platform.OS === 'web' ? (typeof window !== 'undefined' && window.innerWidth >= 768) : true}
-                  autoCapitalize="sentences"
-                  autoCorrect={false}
-                  returnKeyType={allowsSubcategories ? "next" : "done"}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
-                  onSubmitEditing={allowsSubcategories ? undefined : handleSubmit}
-                />
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      !isDark && styles.inputLight,
+                      isFocused && (isDark ? styles.inputFocused : styles.inputFocusedLight),
+                      !!error && styles.inputError,
+                      Boolean(name) && styles.inputWithClearBtn,
+                    ]}
+                    value={name}
+                    onChangeText={(t) => {
+                      setName(t);
+                      if (error) setError(null);
+                      if (duplicateError) setDuplicateError(null);
+                    }}
+                    placeholder={placeholder}
+                    placeholderTextColor={!isDark ? "#94a3b8" : THEME.colors.textSubtle}
+                    autoFocus={Platform.OS === 'web' ? (typeof window !== 'undefined' && window.innerWidth >= 768) : true}
+                    autoCapitalize="sentences"
+                    autoCorrect={false}
+                    returnKeyType={allowsSubcategories ? "next" : "done"}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                    onSubmitEditing={allowsSubcategories ? undefined : handleSubmit}
+                  />
+                  {Boolean(name && name.length > 0) && (
+                    <TouchableOpacity
+                      style={[styles.clearFieldBtn, !isDark && styles.clearFieldBtnLight]}
+                      onPress={(e) => {
+                        if (Platform.OS === 'web') {
+                          e?.preventDefault?.();
+                          e?.stopPropagation?.();
+                        }
+                        setName('');
+                        if (error) setError(null);
+                        if (duplicateError) setDuplicateError(null);
+                      }}
+                      {...(Platform.OS === 'web'
+                        ? ({
+                            onMouseDown: (e: any) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            },
+                            onClick: (e: any) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setName('');
+                              if (error) setError(null);
+                              if (duplicateError) setDuplicateError(null);
+                            },
+                          } as any)
+                        : {})}
+                      activeOpacity={0.6}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityLabel="Borrar contenido del campo"
+                    >
+                      <X size={13} color={!isDark ? '#64748b' : '#cbd5e1'} strokeWidth={2.2} />
+                    </TouchableOpacity>
+                  )}
+                </View>
                 {error && <Text style={styles.errorText}>{error}</Text>}
               </View>
 
@@ -295,24 +332,57 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                 </Text>
 
                 <View style={styles.subInputRow}>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.subInput,
-                      !isDark && styles.inputLight,
-                      isSubFocused && (isDark ? styles.inputFocused : styles.inputFocusedLight),
-                    ]}
-                    value={subInput}
-                    onChangeText={setSubInput}
-                    placeholder="Ej: Phrasal Verbs, Familia, Finanzas, Comida..."
-                    placeholderTextColor={!isDark ? "#94a3b8" : THEME.colors.textSubtle}
-                    autoCapitalize="sentences"
-                    autoCorrect={false}
-                    returnKeyType="done"
-                    onFocus={() => setIsSubFocused(true)}
-                    onBlur={() => setIsSubFocused(false)}
-                    onSubmitEditing={handleAddSubcategoryChip}
-                  />
+                  <View style={[styles.inputWrapper, { flex: 1 }]}>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.subInput,
+                        !isDark && styles.inputLight,
+                        isSubFocused && (isDark ? styles.inputFocused : styles.inputFocusedLight),
+                        Boolean(subInput) && styles.inputWithClearBtn,
+                      ]}
+                      value={subInput}
+                      onChangeText={setSubInput}
+                      placeholder="Ej: Phrasal Verbs, Familia, Finanzas, Comida..."
+                      placeholderTextColor={!isDark ? "#94a3b8" : THEME.colors.textSubtle}
+                      autoCapitalize="sentences"
+                      autoCorrect={false}
+                      returnKeyType="done"
+                      onFocus={() => setIsSubFocused(true)}
+                      onBlur={() => setIsSubFocused(false)}
+                      onSubmitEditing={handleAddSubcategoryChip}
+                    />
+                    {Boolean(subInput && subInput.length > 0) && (
+                      <TouchableOpacity
+                        style={[styles.clearFieldBtn, !isDark && styles.clearFieldBtnLight]}
+                        onPress={(e) => {
+                          if (Platform.OS === 'web') {
+                            e?.preventDefault?.();
+                            e?.stopPropagation?.();
+                          }
+                          setSubInput('');
+                        }}
+                        {...(Platform.OS === 'web'
+                          ? ({
+                              onMouseDown: (e: any) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              },
+                              onClick: (e: any) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setSubInput('');
+                              },
+                            } as any)
+                          : {})}
+                        activeOpacity={0.6}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityLabel="Borrar contenido del campo"
+                      >
+                        <X size={13} color={!isDark ? '#64748b' : '#cbd5e1'} strokeWidth={2.2} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                   <TouchableOpacity
                     style={[
                       styles.addSubBtn,
@@ -584,6 +654,11 @@ const styles = StyleSheet.create({
   labelLight: {
     color: "#475569",
   },
+  inputWrapper: {
+    position: 'relative',
+    width: '100%',
+    justifyContent: 'center',
+  },
   input: {
     backgroundColor: "#0f0c18",
     borderWidth: 1,
@@ -599,6 +674,28 @@ const styles = StyleSheet.create({
         outlineStyle: "none",
       } as any,
     }),
+  },
+  inputWithClearBtn: {
+    paddingRight: 38,
+  },
+  clearFieldBtn: {
+    position: 'absolute',
+    right: 11,
+    top: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    zIndex: 10,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer', userSelect: 'none' } as any) : {}),
+  },
+  clearFieldBtnLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
   },
   inputLight: {
     backgroundColor: "#f8fafc",

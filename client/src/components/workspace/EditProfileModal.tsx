@@ -377,6 +377,38 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   autoCapitalize="none"
                   editable={!isSaving}
                 />
+                {Boolean(username && username.length > 0) && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      if (Platform.OS === 'web') {
+                        e?.preventDefault?.();
+                        e?.stopPropagation?.();
+                      }
+                      setUsername('');
+                      if (error) setError(null);
+                    }}
+                    {...(Platform.OS === 'web'
+                      ? ({
+                          onMouseDown: (e: any) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          },
+                          onClick: (e: any) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setUsername('');
+                            if (error) setError(null);
+                          },
+                        } as any)
+                      : {})}
+                    style={[styles.clearBtn, isLight && styles.clearBtnLight]}
+                    activeOpacity={0.6}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityLabel="Borrar nombre de usuario"
+                  >
+                    <X size={13} color={isLight ? '#64748b' : '#cbd5e1'} strokeWidth={2.2} />
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
@@ -392,6 +424,36 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   placeholderTextColor={isLight ? '#94a3b8' : THEME.colors.textSubtle}
                   editable={!isSaving}
                 />
+                {Boolean(fullName && fullName.length > 0) && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      if (Platform.OS === 'web') {
+                        e?.preventDefault?.();
+                        e?.stopPropagation?.();
+                      }
+                      setFullName('');
+                    }}
+                    {...(Platform.OS === 'web'
+                      ? ({
+                          onMouseDown: (e: any) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          },
+                          onClick: (e: any) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setFullName('');
+                          },
+                        } as any)
+                      : {})}
+                    style={[styles.clearBtn, isLight && styles.clearBtnLight]}
+                    activeOpacity={0.6}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityLabel="Borrar nombre completo"
+                  >
+                    <X size={13} color={isLight ? '#64748b' : '#cbd5e1'} strokeWidth={2.2} />
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
@@ -717,6 +779,19 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     height: '100%',
+  },
+  clearBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginLeft: 6,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer', userSelect: 'none' } as any) : {}),
+  },
+  clearBtnLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
   },
   passwordDivider: {
     marginTop: 10,
