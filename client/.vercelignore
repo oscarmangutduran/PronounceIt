@@ -1,0 +1,8 @@
+android/
+ios/
+.gradle/
+*.apk
+*.aab
+node_modules/
+.expo/
+dist/
