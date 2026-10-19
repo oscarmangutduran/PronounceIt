@@ -365,13 +365,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 Consigue la versión móvil
               </Text>
               <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 0 }]}>
-                Descarga e instala la app oficial en tu Android (v1.6.4 APK)
+                Descarga e instala la app oficial en tu Android (v1.6.5 APK)
               </Text>
             </View>
           </View>
           <TouchableOpacity
             style={styles.downloadApkBtn}
-            onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.4/PronounceIt-v1.6.4.apk')}
+            onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.5/PronounceIt-v1.6.5.apk')}
             activeOpacity={0.85}
           >
             <Download size={16} color="#ffffff" style={{ marginRight: 6 }} />
@@ -430,10 +430,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* Version Information */}
       <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 8 }}>
         <Text style={{ fontSize: 13, color: THEME.colors.textSubtle, fontWeight: '700' }}>
-          PronounceIt v1.6.4
+          PronounceIt v1.6.5
         </Text>
         <Text style={{ fontSize: 11, color: THEME.colors.textSubtle, opacity: 0.75, marginTop: 4 }}>
-          Versión 1.6.4 Oficial · Todos los derechos reservados
+          Versión 1.6.5 Oficial · Todos los derechos reservados
         </Text>
       </View>
       </View>
