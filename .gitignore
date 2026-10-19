@@ -6,6 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+*.env.local
 .expo/
 
 # Android build outputs & binaries
@@ -15,3 +16,14 @@ coverage/
 client/android/app/build/
 client/android/.gradle/
 .vercel
+
+# Firebase & Cloud Credentials & Secrets
+*serviceAccountKey*.json
+*firebase-adminsdk*.json
+*service-account*.json
+*.pem
+*.key
+.runtimeconfig.json
+.secret.local
+functions/lib/
+functions/node_modules/
