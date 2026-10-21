@@ -846,7 +846,8 @@ class FirebaseService {
 
   public async signUpWithStandardPassword(
     email: string,
-    username: string
+    username: string,
+    password?: string
   ): Promise<{
     success: boolean;
     message?: string;
@@ -863,6 +864,10 @@ class FirebaseService {
     if (!cleanEmail || !cleanUsername) {
       return { success: false, message: 'El correo y el nombre de usuario son obligatorios.' };
     }
+
+    const isCustomPass = Boolean(password && password.trim() && password.trim().length >= 6);
+    const effectivePass = isCustomPass ? password!.trim() : '12345';
+    const mustChange = !isCustomPass;
 
     // 1. Check if user already exists in Firestore Cloud Database (WORKS ACROSS ALL DEVICES)
     if (this.db) {
@@ -911,8 +916,8 @@ class FirebaseService {
       email: cleanEmail,
       username: cleanUsername,
       fullName: cleanUsername,
-      password: '12345',
-      mustChangePassword: true,
+      password: effectivePass,
+      mustChangePassword: mustChange,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -929,7 +934,7 @@ class FirebaseService {
             username: cleanUsername,
             full_name: cleanUsername,
             categories: [], // Cada nuevo usuario comienza con 0 categorías y 0 subcategorías
-            must_change_password: true,
+            must_change_password: mustChange,
             created_at: newAccount.createdAt,
             updated_at: newAccount.updatedAt,
           }, { merge: true }),
@@ -939,7 +944,7 @@ class FirebaseService {
             username: cleanUsername,
             full_name: cleanUsername,
             categories: [],
-            must_change_password: true,
+            must_change_password: mustChange,
             created_at: newAccount.createdAt,
             updated_at: newAccount.updatedAt,
           }, { merge: true }),
@@ -990,7 +995,7 @@ class FirebaseService {
       email: cleanEmail,
       full_name: cleanUsername,
       username: cleanUsername,
-      must_change_password: true,
+      must_change_password: mustChange,
       role: 'user',
       created_at: newAccount.createdAt,
     };
@@ -1001,7 +1006,9 @@ class FirebaseService {
 
     return {
       success: true,
-      message: `Cuenta creada con éxito. Ya puedes iniciar sesión con tu usuario (${cleanUsername}) y la contraseña estándar (12345).`,
+      message: mustChange
+        ? `Cuenta creada con éxito. Ya puedes iniciar sesión con tu usuario (${cleanUsername}) y la contraseña estándar (12345).`
+        : `Cuenta creada con éxito. ¡Bienvenido, ${cleanUsername}!`,
       emailNotice,
       welcomeEmailNotice: emailNotice,
       user: userProfile,

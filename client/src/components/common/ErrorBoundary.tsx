@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { AlertTriangle, RefreshCw } from 'lucide-react-native';
 import { THEME } from '../../theme';
 
@@ -43,6 +43,13 @@ export class ErrorBoundary extends Component<Props, State> {
             <Text style={styles.message}>
               La interfaz ha detectado una interrupción en el renderizado. Tus datos están a salvo.
             </Text>
+            {this.state.error && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>
+                  {this.state.error.name || 'Error'}: {this.state.error.message || String(this.state.error)}
+                </Text>
+              </View>
+            )}
             <TouchableOpacity style={styles.button} onPress={this.handleReload} activeOpacity={0.85}>
               <RefreshCw size={16} color="#ffffff" style={{ marginRight: 8 }} />
               <Text style={styles.buttonText}>Recargar Aplicación</Text>
@@ -100,5 +107,20 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  errorBox: {
+    width: '100%',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: '#fca5a5',
+    fontSize: 11,
+    fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
+    textAlign: 'center',
   },
 });

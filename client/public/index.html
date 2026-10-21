@@ -1,10 +1,31 @@
 <!DOCTYPE html>
-<html lang="%LANG_ISO_CODE%">
+<html lang="es" class="notranslate" translate="no">
   <head>
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-    <title>%WEB_TITLE%</title>
+    <meta name="google" content="notranslate" />
+    <meta name="googlebot" content="notranslate" />
+    <script>
+      // Prevent React crash when Chrome/Google Translate modifies DOM text nodes
+      if (typeof Node === 'function' && Node.prototype) {
+        var origRemoveChild = Node.prototype.removeChild;
+        Node.prototype.removeChild = function(child) {
+          if (child.parentNode !== this) {
+            return child;
+          }
+          return origRemoveChild.apply(this, arguments);
+        };
+        var origInsertBefore = Node.prototype.insertBefore;
+        Node.prototype.insertBefore = function(newNode, refNode) {
+          if (refNode && refNode.parentNode !== this) {
+            return newNode;
+          }
+          return origInsertBefore.apply(this, arguments);
+        };
+      }
+    </script>
+    <title>PronounceIt - Inglés & Fonética</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/favicon.png" />

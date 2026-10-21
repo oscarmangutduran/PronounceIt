@@ -234,19 +234,30 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
     // 3. SIGNUP
     if (mode === 'signup') {
-      if (!email.trim() || !username.trim()) {
+      if (!email.trim() || !username.trim() || !password) {
         setError('Por favor completa todos los campos requeridos.');
         return;
       }
 
+      if (password.length < 6) {
+        setError('La contraseña debe tener al menos 6 caracteres.');
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setError('Las contraseñas no coinciden.');
+        return;
+      }
+
       setLoading(true);
-      const res = await firebaseService.signUpWithStandardPassword(email.trim(), username.trim());
+      const res = await firebaseService.signUpWithStandardPassword(email.trim(), username.trim(), password.trim());
       setLoading(false);
 
       if (res.success) {
         if (rememberMe) {
           appStorage.setItem('pronounceit_remember_me', 'true');
           appStorage.setItem('pronounceit_saved_email', email.trim());
+          appStorage.setItem('pronounceit_saved_password', password.trim());
           appStorage.setItem('pronounceit_saved_username', username.trim());
         }
         const notice = (res as any).welcomeEmailNotice || (res as any).emailNotice;
@@ -259,10 +270,8 @@ export const LoginView: React.FC<LoginViewProps> = ({
         const newUid = (res as any).user?.id || (res as any).userId || email.trim().toLowerCase();
         vocabService.resetForNewUser(newUid, email.trim().toLowerCase());
         testHistoryService.resetForNewUser(newUid, email.trim().toLowerCase());
-        setSuccess('¡Cuenta creada con éxito! Por seguridad, debes cambiar tu contraseña provisional (12345) ahora.');
-        setMode('change_password');
-        setNewPassword('');
-        setConfirmPassword('');
+        setSuccess('¡Cuenta creada con éxito! Entrando a PronounceIt...');
+        setTimeout(() => onSuccess(), 400);
       } else {
         setError(res.message || 'Error al registrar la cuenta.');
       }
@@ -413,7 +422,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
               <>
                 <Text style={styles.cardHeaderTitle}>Cambiar Contraseña Obligatorio</Text>
                 <Text style={styles.cardHeaderSubtitle}>
-                  Has iniciado sesión con la contraseña provisional (12345). Por seguridad, debes definir una contraseña nueva para proteger tu cuenta ({email || initialEmail || initialUsername || 'de usuario'}) antes de acceder.
+                  {`Has iniciado sesión con la contraseña provisional (12345). Por seguridad, debes definir una contraseña nueva para proteger tu cuenta (${email || initialEmail || initialUsername || 'de usuario'}) antes de acceder.`}
                 </Text>
               </>
             )}
@@ -510,13 +519,17 @@ export const LoginView: React.FC<LoginViewProps> = ({
               </View>
             )}
 
-            {mode === 'signin' && (
+            {(mode === 'signin' || mode === 'signup') && (
               <View style={styles.inputGroup}>
                 <View style={styles.passwordHeader}>
-                  <Text style={styles.inputLabel}>Contraseña</Text>
-                  <TouchableOpacity onPress={() => setMode('forgot_password')}>
-                    <Text style={styles.forgotLink}>¿Olvidaste tu contraseña?</Text>
-                  </TouchableOpacity>
+                  <Text style={styles.inputLabel}>
+                    {mode === 'signup' ? 'Contraseña (mínimo 6 caracteres)' : 'Contraseña'}
+                  </Text>
+                  {mode === 'signin' && (
+                    <TouchableOpacity onPress={() => setMode('forgot_password')}>
+                      <Text style={styles.forgotLink}>¿Olvidaste tu contraseña?</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
                 <View
                   style={[
@@ -531,7 +544,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   />
                   <TextInput
                     style={styles.textInput}
-                    placeholder="Tu contraseña secreta"
+                    placeholder={mode === 'signup' ? 'Crea una contraseña segura' : 'Tu contraseña secreta'}
                     placeholderTextColor={THEME.colors.textSubtle}
                     value={password}
                     onChangeText={setPassword}
@@ -541,8 +554,8 @@ export const LoginView: React.FC<LoginViewProps> = ({
                     autoCapitalize="none"
                     autoCorrect={false}
                     spellCheck={false}
-                    textContentType="password"
-                    autoComplete="current-password"
+                    textContentType={mode === 'signup' ? 'newPassword' : 'password'}
+                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                     underlineColorAndroid="transparent"
                   />
                   <TouchableOpacity
@@ -555,6 +568,40 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       <Eye size={18} color={THEME.colors.textSubtle} />
                     )}
                   </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {mode === 'signup' && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Confirmar Contraseña</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    focusedField === 'confirmPassword' && styles.inputWrapperFocused,
+                  ]}
+                >
+                  <Lock
+                    size={18}
+                    color={focusedField === 'confirmPassword' ? THEME.colors.crimson : THEME.colors.textSubtle}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Repite tu contraseña"
+                    placeholderTextColor={THEME.colors.textSubtle}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    onFocus={() => setFocusedField('confirmPassword')}
+                    onBlur={() => setFocusedField(null)}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    spellCheck={false}
+                    textContentType="newPassword"
+                    autoComplete="new-password"
+                    underlineColorAndroid="transparent"
+                  />
                 </View>
               </View>
             )}
