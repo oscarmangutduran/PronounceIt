@@ -245,7 +245,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     }
   };
 
-  const initial = (fullName || username || currentUser?.email || 'U')[0].toUpperCase();
+  const initial = (() => {
+    const raw = fullName?.trim() || username?.trim() || currentUser?.email?.trim() || 'U';
+    return (raw.charAt(0) || 'U').toUpperCase();
+  })();
 
   return (
     <Modal visible={isOpen} animationType="fade" transparent onRequestClose={onClose}>

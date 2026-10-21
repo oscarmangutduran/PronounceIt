@@ -96,11 +96,9 @@ export const LoginView: React.FC<LoginViewProps> = ({
   useEffect(() => {
     if (initialMode === 'change_password') {
       setMode('change_password');
-    } else if (initialMode && mode !== 'change_password') {
-      setMode(initialMode);
     }
-    if (initialEmail) setEmail(initialEmail);
-    if (initialUsername) setUsername(initialUsername);
+    if (initialEmail && !email) setEmail(initialEmail);
+    if (initialUsername && !username) setUsername(initialUsername);
   }, [initialMode, initialEmail, initialUsername]);
 
   useEffect(() => {

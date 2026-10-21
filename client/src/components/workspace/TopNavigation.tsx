@@ -74,7 +74,10 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
     Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : (Platform.OS === 'ios' ? 44 : 12)
   );
 
-  const initial = (currentUser?.full_name || currentUser?.username || 'U')[0].toUpperCase();
+  const initial = (() => {
+    const raw = currentUser?.full_name?.trim() || currentUser?.username?.trim() || currentUser?.email?.trim() || 'U';
+    return (raw.charAt(0) || 'U').toUpperCase();
+  })();
 
   return (
     <View style={[styles.container, !isDark && styles.containerLight, { paddingTop: topPadding }]}>

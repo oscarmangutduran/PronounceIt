@@ -147,7 +147,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <Image source={{ uri: currentUser.avatar_url }} style={styles.avatarImg} />
             ) : (
               <Text style={styles.avatarText}>
-                {(currentUser?.full_name || currentUser?.username || 'U')[0].toUpperCase()}
+                {((currentUser?.full_name?.trim() || currentUser?.username?.trim() || currentUser?.email?.trim() || 'U').charAt(0) || 'U').toUpperCase()}
               </Text>
             )}
           </View>

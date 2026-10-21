@@ -44,7 +44,7 @@ export const enrichVocabularyWithAi = onCall<EnrichWordRequest, Promise<EnrichWo
     }
 
     const uid = request.auth.uid;
-    const { word, targetLanguage = 'es' } = request.data || {};
+    const { word, targetLanguage: _targetLanguage = 'es' } = request.data || {};
 
     // B. Validación y saneamiento de entradas
     if (!word || typeof word !== 'string' || word.trim().length === 0) {

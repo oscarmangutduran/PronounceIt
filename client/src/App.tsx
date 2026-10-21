@@ -53,6 +53,7 @@ import { CategoryFormModal } from './components/workspace/CategoryFormModal';
 import { ConfirmModal } from './components/common/ConfirmModal';
 import { useResponsive } from './lib/useResponsive';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 function MainApp() {
   const insets = useSafeAreaInsets();
@@ -858,9 +859,11 @@ function MainApp() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <MainApp />
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <MainApp />
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
 

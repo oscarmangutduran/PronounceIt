@@ -874,7 +874,7 @@ class FirebaseService {
         ]);
         const [eSnap, uSnap, nSnap] = await Promise.race([
           checkPromise,
-          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
+          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
         ]);
         if (eSnap?.exists?.()) {
           return {
@@ -950,7 +950,7 @@ class FirebaseService {
 
         await Promise.race([
           Promise.all(writes),
-          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
+          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
         ]);
       } catch (err) {
         console.warn('[Firestore] Offline o timeout guardando cuenta en Firestore:', err);
@@ -994,6 +994,10 @@ class FirebaseService {
       role: 'user',
       created_at: newAccount.createdAt,
     };
+
+    this.currentUser = userProfile;
+    this.persistCurrentUser();
+    this.notify();
 
     return {
       success: true,
@@ -1098,7 +1102,7 @@ class FirebaseService {
 
     if (this.currentUser) {
       this.currentUser.must_change_password = false;
-      appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(this.currentUser));
+      this.persistCurrentUser();
       this.notify();
     } else if (account) {
       const profile: UserProfile = {
@@ -1112,9 +1116,10 @@ class FirebaseService {
         created_at: account.createdAt,
       };
       this.currentUser = profile;
-      appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
+      this.persistCurrentUser();
       this.notify();
     } else {
+      let loggedIn = false;
       try {
         const sLogin = await backendApi.login(input, newPassword);
         if (sLogin?.user) {
@@ -1129,10 +1134,28 @@ class FirebaseService {
             created_at: sLogin.user.created_at,
           };
           this.currentUser = profile;
-          appStorage.setItem(STORAGE_KEY_FIREBASE_USER, JSON.stringify(profile));
+          this.persistCurrentUser();
           this.notify();
+          loggedIn = true;
         }
       } catch {}
+
+      if (!loggedIn) {
+        const cleanName = input.includes('@') ? input.split('@')[0] : input;
+        const cleanMail = input.includes('@') ? input : `${cleanName}@pronounceit.app`;
+        const profile: UserProfile = {
+          id: targetUserId || `usr-${Date.now().toString(36)}`,
+          email: cleanMail,
+          full_name: cleanName,
+          username: cleanName,
+          must_change_password: false,
+          role: 'user',
+          created_at: new Date().toISOString(),
+        };
+        this.currentUser = profile;
+        this.persistCurrentUser();
+        this.notify();
+      }
     }
 
     return { success: true, message: 'Contraseña actualizada correctamente.' };

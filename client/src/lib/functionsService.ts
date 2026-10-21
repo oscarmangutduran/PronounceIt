@@ -1,4 +1,4 @@
-import { getFunctions, httpsCallable, HttpsError, Functions } from 'firebase/functions';
+import { getFunctions, httpsCallable, FunctionsError, Functions } from 'firebase/functions';
 import { getApps, getApp, initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 
@@ -63,7 +63,7 @@ export function getSafeFunctionsInstance(): Functions {
  */
 export function formatHttpsErrorMessage(error: any): { message: string; code: string } {
   if (error && typeof error === 'object' && 'code' in error) {
-    const httpsError = error as HttpsError;
+    const httpsError = error as FunctionsError;
     const code = httpsError.code;
 
     switch (code) {
