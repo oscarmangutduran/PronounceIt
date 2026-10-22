@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { WordItem, WordLevel, WordStatus } from '../types';
@@ -69,31 +69,69 @@ export function wordsToCsv(words: WordItem[], delimiter: string = ';'): string {
     ...rows.map((r) => r.join(delimiter)),
   ].join('\r\n');
 
-  // Prefix with UTF-8 BOM (\uFEFF) and Excel separator instruction (sep=;)
-  // to guarantee Excel splits each item into separate columns.
-  return `\uFEFFsep=${delimiter}\r\n${csvBody}`;
+  // Retornamos el cuerpo CSV estándar y limpio (sin sep= ni artefactos en pantalla)
+  return csvBody;
 }
 
 /**
- * Downloads a CSV string as a physical .csv file on web
+ * Downloads a CSV string as a physical .csv file on web ensuring UTF-8 BOM encoding.
+ * Optimized for desktop, mobile and tablet browsers (Safari, Chrome, iPadOS, Android).
  */
-export function downloadCsvFile(filename: string, content: string): void {
-  if (typeof document === 'undefined') return;
+export async function downloadCsvFile(filename: string, content: string): Promise<boolean> {
+  if (typeof document === 'undefined') return false;
 
   const finalName = filename.toLowerCase().endsWith('.csv') ? filename : `${filename}.csv`;
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+
+  // Limpiar cualquier BOM o sep= previo para garantizar que el BOM esté exactamente en el byte 0
+  const cleanContent = content.replace(/^\uFEFF/, '').replace(/^sep=[^\r\n]*\r?\n/i, '');
+  // \uFEFF al inicio del Blob le indica inequívocamente a Excel y visores que el archivo es UTF-8
+  const blob = new Blob(['\uFEFF' + cleanContent], { type: 'text/csv;charset=utf-8;' });
+
+  // 1. Web Share API para navegadores móviles y tablets (iPad Safari, Android Chrome)
+  const nav = typeof navigator !== 'undefined' ? (navigator as any) : null;
+  if (nav && typeof nav.canShare === 'function' && typeof File !== 'undefined') {
+    try {
+      const file = new File([blob], finalName, { type: 'text/csv;charset=utf-8' });
+      if (nav.canShare({ files: [file] })) {
+        await nav.share({
+          files: [file],
+          title: 'Exportar Vocabulario PronounceIt',
+          text: `Vocabulario: ${finalName}`,
+        });
+        return true;
+      }
+    } catch (shareErr: any) {
+      if (shareErr?.name === 'AbortError') {
+        return true;
+      }
+    }
+  }
+
+  // 2. Método estándar de enlace de descarga <a>
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.setAttribute('download', finalName);
+  link.style.display = 'none';
   document.body.appendChild(link);
   link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+
+  // IMPORTANTE para tablets y smartphones: NO revocar inmediatamente
+  // Los gestores de descarga móviles son asíncronos y necesitan la URL viva.
+  setTimeout(() => {
+    try {
+      if (link.parentNode) {
+        document.body.removeChild(link);
+      }
+      URL.revokeObjectURL(url);
+    } catch {}
+  }, 60000);
+
+  return true;
 }
 
 /**
- * Exports a CSV file across both Web (download) and Mobile (native share / save sheet)
+ * Exports a CSV file across Web, Tablets and Mobile devices
  */
 export async function exportCsvFileAsync(
   filename: string,
@@ -101,37 +139,90 @@ export async function exportCsvFileAsync(
 ): Promise<{ success: boolean; message?: string }> {
   const finalName = filename.toLowerCase().endsWith('.csv') ? filename : `${filename}.csv`;
 
-  // 1. Web
+  // Limpiar cualquier residuo y asegurar BOM UTF-8 puro
+  const cleanContent = content.replace(/^\uFEFF/, '').replace(/^sep=[^\r\n]*\r?\n/i, '');
+  const contentWithBom = `\uFEFF${cleanContent}`;
+
+  // 1. Entorno Web (tanto en PC como en tablets / móviles navegando vía web)
   if (Platform.OS === 'web' && typeof document !== 'undefined') {
-    downloadCsvFile(finalName, content);
+    await downloadCsvFile(finalName, contentWithBom);
     return { success: true };
   }
 
-  // 2. Mobile (Android & iOS)
+  // 2. Entorno Nativo Mobile & Tablet (Android / iOS / iPadOS)
   try {
-    const fsAny = FileSystem as any;
-    const dir = fsAny.cacheDirectory || fsAny.documentDirectory || '';
-    const fileUri = `${dir}${finalName}`;
-    if (fsAny.writeAsStringAsync) {
-      await fsAny.writeAsStringAsync(fileUri, content, {
-        encoding: fsAny.EncodingType?.UTF8 || 'utf8',
-      });
+    const rawDir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
+    if (!rawDir) {
+      throw new Error('No se pudo acceder al directorio del dispositivo.');
     }
+    const dir = rawDir.endsWith('/') ? rawDir : `${rawDir}/`;
+    const fileUri = `${dir}${finalName}`;
 
+    // Escribir el archivo con codificación UTF-8 y BOM
+    await FileSystem.writeAsStringAsync(fileUri, contentWithBom, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+
+    // Intentar compartir mediante el Share Sheet nativo
     const isAvailable = await Sharing.isAvailableAsync();
     if (isAvailable) {
-      await Sharing.shareAsync(fileUri, {
-        mimeType: 'text/csv',
-        dialogTitle: 'Exportar Vocabulario PronounceIt',
-        UTI: 'public.comma-separated-values-text',
-      });
-      return { success: true };
+      try {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'text/csv',
+          dialogTitle: 'Exportar Vocabulario PronounceIt',
+          UTI: 'public.comma-separated-values-text',
+        });
+        return { success: true };
+      } catch (shareErr) {
+        console.warn('Sharing no completado o sin visor asociado en tablet:', shareErr);
+      }
     }
 
-    return { success: true, message: `Guardado en: ${fileUri}` };
+    // Fallback Android / Tablet Android: StorageAccessFramework para guardar en Descargas
+    if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
+      try {
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (permissions.granted) {
+          const createdUri = await FileSystem.StorageAccessFramework.createFileAsync(
+            permissions.directoryUri,
+            finalName,
+            'text/csv'
+          );
+          await FileSystem.writeAsStringAsync(createdUri, contentWithBom, {
+            encoding: FileSystem.EncodingType.UTF8,
+          });
+          return { success: true, message: 'Archivo CSV guardado correctamente en tu carpeta seleccionada.' };
+        }
+      } catch (safErr) {
+        console.warn('SAF fallback no completado:', safErr);
+      }
+    }
+
+    return { success: true, message: `Archivo guardado en: ${fileUri}` };
   } catch (err: any) {
-    console.error('Error exportando CSV en móvil:', err);
-    return { success: false, message: err?.message || 'Error al exportar archivo CSV' };
+    console.error('Error exportando CSV en tablet/móvil:', err);
+
+    // Reintento final mediante StorageAccessFramework si está en Android
+    if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
+      try {
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (permissions.granted) {
+          const createdUri = await FileSystem.StorageAccessFramework.createFileAsync(
+            permissions.directoryUri,
+            finalName,
+            'text/csv'
+          );
+          await FileSystem.writeAsStringAsync(createdUri, contentWithBom, {
+            encoding: FileSystem.EncodingType.UTF8,
+          });
+          return { success: true, message: 'Archivo CSV guardado correctamente en tu carpeta seleccionada.' };
+        }
+      } catch (fallbackErr: any) {
+        console.error('Error en fallback SAF:', fallbackErr);
+      }
+    }
+
+    return { success: false, message: err?.message || 'Error al exportar archivo CSV en el dispositivo' };
   }
 }
 

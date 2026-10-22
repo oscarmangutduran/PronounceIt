@@ -50,9 +50,10 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
       setStatusModal({
         title: '¡Exportación Exitosa!',
         message:
-          Platform.OS === 'web'
+          res.message ||
+          (Platform.OS === 'web'
             ? `Se ha descargado el archivo "pronounceit_vocabulario.csv" con ${words.length} palabras separadas en columnas individuales.`
-            : `Se ha generado el archivo CSV con ${words.length} palabras. Puedes guardarlo en tus Archivos o compartirlo.`,
+            : `Se ha generado el archivo CSV con ${words.length} palabras. Puedes guardarlo en tus Archivos o compartirlo.`),
         variant: 'success',
       });
     } else {
