@@ -40,6 +40,7 @@ import {
   translatePhrase,
   generateExampleSentencesWithAI,
   isGeminiConfigured,
+  getWordLevel,
 } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
@@ -1007,7 +1008,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       definition: finalTranslation,
       exampleEn: finalExampleEn,
       exampleEs: finalExampleEs,
-      level: initialWord ? initialWord.level : 'B1',
+      level:
+        initialWord &&
+        initialWord.level &&
+        initialWord.level !== 'B1' &&
+        initialWord.word.trim().toLowerCase() === cleanWord.trim().toLowerCase()
+          ? initialWord.level
+          : getWordLevel(cleanWord),
       partOfSpeech: finalPos,
       categoryGroup: finalGroupString,
       categorySub: finalSubString,

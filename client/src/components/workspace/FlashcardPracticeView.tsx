@@ -4,8 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
-  Dimensions,
 } from 'react-native';
 import {
   Volume2,
@@ -135,15 +133,15 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
   }
 
   return (
-    <ScrollView
-      style={[styles.scrollView, !isDark && styles.scrollViewLight]}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={[styles.scrollView, !isDark && styles.scrollViewLight]}>
       <View style={styles.container}>
         {/* Top Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backIconBtn} onPress={onBackToVocabulary}>
+          <TouchableOpacity
+            style={styles.backIconBtn}
+            onPress={onBackToVocabulary}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
             <ArrowLeft size={18} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
             <Text style={[styles.headerBackText, !isDark && styles.headerBackTextLight]}>Salir</Text>
           </TouchableOpacity>
@@ -153,6 +151,7 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
               style={[styles.navArrowBtn, currentIndex === 0 && styles.navArrowBtnDisabled]}
               onPress={handlePrevious}
               disabled={currentIndex === 0}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               accessibilityLabel="Palabra anterior"
             >
               <ChevronLeft
@@ -169,6 +168,7 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
               style={[styles.navArrowBtn, currentIndex >= deck.length - 1 && styles.navArrowBtnDisabled]}
               onPress={handleSkipNext}
               disabled={currentIndex >= deck.length - 1}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               accessibilityLabel="Siguiente palabra"
             >
               <ChevronRight
@@ -178,7 +178,11 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.shuffleBtn} onPress={handleRestart}>
+          <TouchableOpacity
+            style={styles.shuffleBtn}
+            onPress={handleRestart}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
             <RotateCcw size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
           </TouchableOpacity>
         </View>
@@ -325,24 +329,18 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
         </TouchableOpacity>
       </View>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   scrollView: {
-    flex: 1,
     backgroundColor: THEME.colors.bgDark,
     width: '100%',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
     paddingVertical: 12,
   },
   container: {
-    flex: 1,
-    backgroundColor: THEME.colors.bgDark,
+    backgroundColor: 'transparent',
     paddingHorizontal: 16,
     paddingTop: 10,
     width: '100%',
@@ -372,7 +370,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   navArrowBtn: {
-    padding: 4,
+    padding: 8,
     borderRadius: THEME.radius.sm,
     justifyContent: 'center',
     alignItems: 'center',
@@ -403,12 +401,11 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   cardContainer: {
-    flex: 1,
-    maxHeight: 460,
+    minHeight: 360,
     marginBottom: 20,
   },
   card: {
-    flex: 1,
+    minHeight: 360,
     backgroundColor: THEME.colors.bgCard,
     borderWidth: 1,
     borderColor: THEME.colors.border,
@@ -586,10 +583,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   centerContainer: {
-    flex: 1,
+    minHeight: 420,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 30,
+    paddingVertical: 40,
   },
   completeBadge: {
     width: 80,

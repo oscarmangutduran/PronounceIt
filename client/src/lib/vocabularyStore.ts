@@ -6,6 +6,7 @@ import { appStorage } from './storage';
 import { deduplicateCategories } from './categoryUtils';
 
 import { networkService } from './networkService';
+import { getWordLevel } from './dictionaryService';
 
 const STORAGE_KEY_WORDS = 'pronounceit_vocab_words_v5';
 const STORAGE_KEY_CATEGORIES = 'pronounceit_user_categories_v4';
@@ -94,6 +95,7 @@ class VocabularyService {
       });
 
       this.words = merged;
+      this.reclassifyLegacyLevels();
       this.saveWordsToDisk();
       this.notify();
     });
@@ -259,6 +261,7 @@ class VocabularyService {
           });
 
           this.words = merged;
+          this.reclassifyLegacyLevels();
           this.saveWordsToDisk();
         }
 
@@ -306,6 +309,9 @@ class VocabularyService {
       const stored = appStorage.getItem(this.getWordsStorageKey());
       if (stored) {
         this.words = JSON.parse(stored);
+        if (this.reclassifyLegacyLevels() > 0) {
+          this.saveWordsToDisk();
+        }
       } else {
         // Every new user account begins with an empty vocabulary
         this.words = [];
@@ -329,6 +335,33 @@ class VocabularyService {
       this.customCategories = [];
     }
     this.notify();
+  }
+
+  /**
+   * Older versions saved every new word with level 'B1' by default.
+   * Recompute the real CEFR level for those words (idempotent: a genuine B1 word stays B1)
+   * and push the corrected values to the cloud so web and APK stay in sync.
+   * Returns the number of corrected words.
+   */
+  private reclassifyLegacyLevels(): number {
+    const changed: WordItem[] = [];
+    this.words = this.words.map((w) => {
+      if (!w || !w.word) return w;
+      if (w.level && w.level !== 'B1') return w;
+      const estimated = getWordLevel(w.word);
+      if (estimated === w.level) return w;
+      const updated = { ...w, level: estimated };
+      changed.push(updated);
+      return updated;
+    });
+
+    if (changed.length > 0 && firebaseService.isFirebaseConnected()) {
+      changed.forEach((w) => {
+        firebaseService.upsertWord(w).catch(() => {});
+        backendApi.updateWord(w.id, w).catch(() => {});
+      });
+    }
+    return changed.length;
   }
 
   private saveCategories() {

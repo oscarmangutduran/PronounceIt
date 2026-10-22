@@ -3,6 +3,7 @@ import { appStorage } from './storage';
 import { networkService } from './networkService';
 import { IRREGULAR_VERBS } from '../data/irregularVerbs';
 import { backendApi } from './apiClient';
+import { estimateCefrLevel } from './cefrLevel';
 
 const IRREGULAR_VERB_SET = new Set<string>();
 const IRREGULAR_VERB_PHONETICS: Record<string, string> = {};
@@ -590,6 +591,21 @@ for (const [enKey, item] of Object.entries(BUILTIN_VOCABULARY)) {
       }
     }
   }
+}
+
+const VALID_LEVELS: WordLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+/**
+ * Returns the CEFR level (A1–C2) for an English word or expression.
+ * Uses the curated built-in vocabulary first, then the frequency-list estimator.
+ */
+export function getWordLevel(rawWord: string): WordLevel {
+  const clean = (rawWord || '').trim().toLowerCase().replace(/^to\s+/, '');
+  const builtin = BUILTIN_VOCABULARY[clean];
+  if (builtin?.level && VALID_LEVELS.includes(builtin.level)) {
+    return builtin.level;
+  }
+  return estimateCefrLevel(clean);
 }
 
 // In-memory cache for ultra-fast instant field auto-fill
@@ -1791,7 +1807,7 @@ export function getInstantEnrichmentSync(
       return {
         word: enKey.charAt(0).toUpperCase() + enKey.slice(1),
         partOfSpeech: pos,
-        level: item.level || 'B1',
+        level: item.level || getWordLevel(enKey),
         ipa: phon.ipa,
         phoneticGuide: phon.phoneticGuide,
         phoneticNote: item.phoneticNote || 'Sílaba tónica destacada / Fonética estándar',
@@ -1816,7 +1832,7 @@ export function getInstantEnrichmentSync(
     return {
       word: rawWord.trim().charAt(0).toUpperCase() + rawWord.trim().slice(1),
       partOfSpeech: pos,
-      level: item.level || 'B1',
+      level: item.level || getWordLevel(clean),
       ipa: phon.ipa,
       phoneticGuide: phon.phoneticGuide,
       phoneticNote: item.phoneticNote || 'Sílaba tónica destacada / Fonética estándar',
@@ -1902,7 +1918,7 @@ export async function autoEnrichWord(
       const result: AutoEnrichResult = {
         word: capitalizedEn,
         partOfSpeech: pos,
-        level: item.level || 'B1',
+        level: item.level || getWordLevel(enKey),
         ipa: item.ipa || phon.ipa,
         phoneticGuide: item.phoneticGuide || phon.phoneticGuide,
         phoneticNote: item.phoneticNote || 'Sílaba tónica destacada / Fonética estándar',
@@ -1949,13 +1965,7 @@ export async function autoEnrichWord(
       };
     }
 
-    let level: WordLevel = 'B1';
-    if (finalEnWord.length > 9 || finalEnWord.endsWith('tion') || finalEnWord.endsWith('ism') || finalEnWord.endsWith('ment')) {
-      level = 'B2';
-    }
-    if (finalEnWord.length > 11 || ['leverage', 'resilience', 'ubiquitous', 'paradigm', 'empirical', 'benchmark'].includes(finalEnWord)) {
-      level = 'C1';
-    }
+    const level: WordLevel = getWordLevel(finalEnWord);
 
     const altsSet = new Set<string>();
     if (googleDict?.alternatives && Array.isArray(googleDict.alternatives)) {
@@ -2009,7 +2019,7 @@ export async function autoEnrichWord(
     const result: AutoEnrichResult = {
       word: capitalizedWord,
       partOfSpeech: pos,
-      level: data.level || 'B2',
+      level: data.level || getWordLevel(clean),
       ipa: data.ipa || phon.ipa,
       phoneticGuide: data.phoneticGuide || phon.phoneticGuide,
       phoneticNote: data.phoneticNote || 'Sílaba tónica destacada / Fonética estándar',
@@ -2124,13 +2134,7 @@ export async function autoEnrichWord(
     };
   }
 
-  let level: WordLevel = 'B1';
-  if (clean.length > 9 || clean.endsWith('tion') || clean.endsWith('ism') || clean.endsWith('ment')) {
-    level = 'B2';
-  }
-  if (clean.length > 11 || ['leverage', 'resilience', 'ubiquitous', 'paradigm', 'empirical', 'benchmark'].includes(clean)) {
-    level = 'C1';
-  }
+  const level: WordLevel = getWordLevel(clean);
 
   const altsSet = new Set<string>();
   if (googleDict?.alternatives && Array.isArray(googleDict.alternatives)) {

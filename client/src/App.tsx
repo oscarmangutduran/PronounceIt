@@ -550,6 +550,7 @@ function MainApp() {
       {/* Workspace Content */}
       <ScrollView
         style={styles.mainContent}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.mainScrollContent,
           !showBottomBar && styles.mainScrollContentDesktop,
@@ -632,16 +633,16 @@ function MainApp() {
         {!showBottomBar && (
           <View style={[styles.footerContainer, !isDark && styles.footerContainerLight]}>
             <Text style={[styles.footerCopyright, !isDark && styles.footerTextBlack]}>
-              © PronounceIt v1.6.7 | Desarrollado con ❤️ Oscar Mangut Dev
+              © PronounceIt v1.6.8 | Desarrollado con ❤️ Oscar Mangut Dev
             </Text>
             <TouchableOpacity
               style={[styles.footerMobileBtn, !isDark && styles.footerMobileBtnLight]}
-              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.7/PronounceIt-v1.6.7.apk')}
+              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk')}
               activeOpacity={0.8}
             >
               <Smartphone size={15} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
               <Text style={[styles.footerMobileText, !isDark && styles.footerMobileTextLight]}>
-                Consigue la versión móvil (v1.6.7)
+                Consigue la versión móvil (v1.6.8)
               </Text>
               <Download size={13} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
             </TouchableOpacity>

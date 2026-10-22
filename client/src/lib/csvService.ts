@@ -3,7 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { WordItem, WordLevel, WordStatus } from '../types';
-import { normalizePartOfSpeech, getPhoneticsForEnglishWord } from './dictionaryService';
+import { normalizePartOfSpeech, getPhoneticsForEnglishWord, getWordLevel } from './dictionaryService';
 
 /**
  * Escapes a single CSV value according to RFC 4180
@@ -536,7 +536,7 @@ export function parseCsvToWords(csvText: string): WordItem[] {
     const rawLevel = getVal('level').toUpperCase();
     const level: WordLevel = validLevels.includes(rawLevel as WordLevel)
       ? (rawLevel as WordLevel)
-      : 'B1';
+      : getWordLevel(word);
 
     const rawStatus = getVal('status').toLowerCase();
     const status: WordStatus = validStatuses.includes(rawStatus as WordStatus)
