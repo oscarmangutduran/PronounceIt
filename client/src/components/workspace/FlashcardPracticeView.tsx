@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import {
   AlertTriangle,
   Sparkles,
   Layers,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react-native';
 import { WordItem, WordStatus } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
@@ -34,26 +36,56 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
   onUpdateStatus,
   isDark = true,
 }) => {
-  const [deck, setDeck] = useState<WordItem[]>([]);
+  const isInitializedRef = useRef(false);
+  const [deck, setDeck] = useState<WordItem[]>(() => {
+    if (words && words.length > 0) {
+      isInitializedRef.current = true;
+      return [...words].sort(() => Math.random() - 0.5);
+    }
+    return [];
+  });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
 
   useEffect(() => {
-    // Shuffle words for practice session
-    const shuffled = [...words].sort(() => Math.random() - 0.5);
-    setDeck(shuffled);
-    setCurrentIndex(0);
-    setIsFlipped(false);
+    // Only initialize deck if it was previously empty and words arrived
+    if (!isInitializedRef.current && words.length > 0) {
+      isInitializedRef.current = true;
+      const shuffled = [...words].sort(() => Math.random() - 0.5);
+      setDeck(shuffled);
+      setCurrentIndex(0);
+      setIsFlipped(false);
+    }
   }, [words]);
 
   const currentWord = deck[currentIndex];
 
   const handleNext = (statusUpdate?: WordStatus) => {
-    if (currentWord && statusUpdate) {
-      onUpdateStatus(currentWord.id, statusUpdate);
+    if (currentWord) {
+      const nextStatus = statusUpdate || (currentWord.status === 'nueva' ? 'en_repaso' : currentWord.status) || 'en_repaso';
+      onUpdateStatus(currentWord.id, nextStatus);
+      setDeck((prevDeck) =>
+        prevDeck.map((item, idx) =>
+          idx === currentIndex ? { ...item, status: nextStatus } : item
+        )
+      );
     }
     setIsFlipped(false);
     setCurrentIndex((prev) => prev + 1);
+  };
+
+  const handleSkipNext = () => {
+    if (currentIndex < deck.length - 1) {
+      setIsFlipped(false);
+      setCurrentIndex((prev) => prev + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setIsFlipped(false);
+      setCurrentIndex((prev) => prev - 1);
+    }
   };
 
   const handleRestart = () => {
@@ -111,19 +143,45 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
       <View style={styles.container}>
         {/* Top Header */}
         <View style={styles.header}>
-        <TouchableOpacity style={styles.backIconBtn} onPress={onBackToVocabulary}>
-          <ArrowLeft size={18} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
-          <Text style={[styles.headerBackText, !isDark && styles.headerBackTextLight]}>Salir</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.backIconBtn} onPress={onBackToVocabulary}>
+            <ArrowLeft size={18} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
+            <Text style={[styles.headerBackText, !isDark && styles.headerBackTextLight]}>Salir</Text>
+          </TouchableOpacity>
 
-        <Text style={[styles.progressText, !isDark && styles.progressTextLight]}>
-          {currentIndex + 1} / {deck.length}
-        </Text>
+          <View style={styles.progressContainer}>
+            <TouchableOpacity
+              style={[styles.navArrowBtn, currentIndex === 0 && styles.navArrowBtnDisabled]}
+              onPress={handlePrevious}
+              disabled={currentIndex === 0}
+              accessibilityLabel="Palabra anterior"
+            >
+              <ChevronLeft
+                size={18}
+                color={currentIndex === 0 ? (isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1') : (!isDark ? '#64748b' : THEME.colors.textMuted)}
+              />
+            </TouchableOpacity>
 
-        <TouchableOpacity style={styles.shuffleBtn} onPress={handleRestart}>
-          <RotateCcw size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
-        </TouchableOpacity>
-      </View>
+            <Text style={[styles.progressText, !isDark && styles.progressTextLight]}>
+              {currentIndex + 1} / {deck.length}
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.navArrowBtn, currentIndex >= deck.length - 1 && styles.navArrowBtnDisabled]}
+              onPress={handleSkipNext}
+              disabled={currentIndex >= deck.length - 1}
+              accessibilityLabel="Siguiente palabra"
+            >
+              <ChevronRight
+                size={18}
+                color={currentIndex >= deck.length - 1 ? (isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1') : (!isDark ? '#64748b' : THEME.colors.textMuted)}
+              />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.shuffleBtn} onPress={handleRestart}>
+            <RotateCcw size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
+          </TouchableOpacity>
+        </View>
 
       {/* Progress Bar */}
       <View style={[styles.progressBarTrack, !isDark && styles.progressBarTrackLight]}>
@@ -209,7 +267,22 @@ export const FlashcardPracticeView: React.FC<FlashcardPracticeViewProps> = ({
 
               {currentWord.exampleEn ? (
                 <View style={[styles.exampleCard, !isDark && styles.exampleCardLight]}>
-                  <Text style={[styles.exampleEn, !isDark && styles.exampleEnLight]}>{currentWord.exampleEn}</Text>
+                  <View style={styles.exampleHeaderRow}>
+                    <Text style={[styles.exampleEn, !isDark && styles.exampleEnLight, { flex: 1 }]}>
+                      {currentWord.exampleEn}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        vocabService.speak(currentWord.exampleEn!);
+                      }}
+                      style={styles.exampleSpeakerBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityLabel="Escuchar ejemplo"
+                    >
+                      <Volume2 size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
                   {currentWord.exampleEs ? (
                     <Text style={[styles.exampleEs, !isDark && styles.exampleEsLight]}>{currentWord.exampleEs}</Text>
                   ) : null}
@@ -293,10 +366,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  navArrowBtn: {
+    padding: 4,
+    borderRadius: THEME.radius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  navArrowBtnDisabled: {
+    opacity: 0.35,
+  },
   progressText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '700',
+    minWidth: 50,
+    textAlign: 'center',
   },
   shuffleBtn: {
     padding: 6,
@@ -438,6 +527,16 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: THEME.colors.emerald,
     gap: 4,
+  },
+  exampleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  exampleSpeakerBtn: {
+    padding: 2,
+    marginTop: 1,
   },
   exampleEn: {
     color: '#ffffff',
