@@ -1,6 +1,28 @@
 {
   "buildCommand": "npm run build --prefix client",
   "outputDirectory": "client/dist",
+  "redirects": [
+    {
+      "source": "/PronounceIt.apk",
+      "destination": "https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk",
+      "permanent": false
+    },
+    {
+      "source": "/PronounceIt-v1.6.8.apk",
+      "destination": "https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk",
+      "permanent": false
+    },
+    {
+      "source": "/download-apk",
+      "destination": "https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk",
+      "permanent": false
+    },
+    {
+      "source": "/apk",
+      "destination": "https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
