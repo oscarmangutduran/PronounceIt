@@ -646,12 +646,12 @@ function MainApp() {
         {!showBottomBar && (
           <View style={[styles.footerContainer, !isDark && styles.footerContainerLight]}>
             <Text style={[styles.footerCopyright, !isDark && styles.footerTextBlack]}>
-              © PronounceIt v1.6.8 | Desarrollado con ❤️ Oscar Mangut Dev
+              © PronounceIt v1.6.9 | Desarrollado con ❤️ Oscar Mangut Dev
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <TouchableOpacity
                 style={[styles.footerMobileBtn, !isDark && styles.footerMobileBtnLight]}
-                onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk')}
+                onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.9/PronounceIt-v1.6.9.apk')}
                 activeOpacity={0.8}
               >
                 <Smartphone size={15} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
@@ -661,16 +661,18 @@ function MainApp() {
                 <Download size={13} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.footerMobileBtn, !isDark && styles.footerMobileBtnLight]}
-                onPress={() => setShowAppleModal(true)}
-                activeOpacity={0.8}
-              >
-                <Apple size={15} color={!isDark ? '#000000' : '#ffffff'} />
-                <Text style={[styles.footerMobileText, !isDark && styles.footerMobileTextLight]}>
-                  Apple (iOS)
-                </Text>
-              </TouchableOpacity>
+              {Platform.OS === 'web' && (
+                <TouchableOpacity
+                  style={[styles.footerMobileBtn, !isDark && styles.footerMobileBtnLight]}
+                  onPress={() => setShowAppleModal(true)}
+                  activeOpacity={0.8}
+                >
+                  <Apple size={15} color={!isDark ? '#000000' : '#ffffff'} />
+                  <Text style={[styles.footerMobileText, !isDark && styles.footerMobileTextLight]}>
+                    Apple (iOS)
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}

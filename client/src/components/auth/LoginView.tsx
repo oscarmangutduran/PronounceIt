@@ -743,29 +743,33 @@ export const LoginView: React.FC<LoginViewProps> = ({
             <View style={styles.mobileDownloadRow}>
               <TouchableOpacity
                 style={styles.mobileDownloadBtn}
-                onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk')}
+                onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.9/PronounceIt-v1.6.9.apk')}
                 activeOpacity={0.85}
               >
                 <View style={styles.mobileDownloadIconBox}>
                   <Smartphone size={15} color="#ffffff" />
                 </View>
-                <Text style={styles.mobileDownloadTitle}>Android (APK)</Text>
+                <Text style={styles.mobileDownloadTitle}>
+                  {Platform.OS === 'web' ? 'Android (APK)' : 'Descargar APK'}
+                </Text>
                 <Download size={14} color={THEME.colors.crimsonLight} />
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.mobileDownloadAppleBtn}
-                onPress={() => setShowAppleModal(true)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.mobileDownloadAppleIconBox}>
-                  <Apple size={15} color="#ffffff" />
-                </View>
-                <Text style={styles.mobileDownloadTitle}>Apple (iOS)</Text>
-              </TouchableOpacity>
+              {Platform.OS === 'web' && (
+                <TouchableOpacity
+                  style={styles.mobileDownloadAppleBtn}
+                  onPress={() => setShowAppleModal(true)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.mobileDownloadAppleIconBox}>
+                    <Apple size={15} color="#ffffff" />
+                  </View>
+                  <Text style={styles.mobileDownloadTitle}>Apple (iOS)</Text>
+                </TouchableOpacity>
+              )}
             </View>
             <Text style={{ fontSize: 11, color: THEME.colors.textSubtle, marginTop: 12, fontWeight: '500' }}>
-              PronounceIt v1.6.8
+              PronounceIt v1.6.9
             </Text>
           </View>
         </ScrollView>

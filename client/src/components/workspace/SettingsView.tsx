@@ -9,6 +9,7 @@ import {
   Image,
   Linking,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import {
   Settings,
@@ -368,27 +369,33 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 Consigue la versión móvil
               </Text>
               <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 0 }]}>
-                Instala la app oficial en tu Android (APK) o dispositivo Apple (iOS)
+                {Platform.OS === 'web'
+                  ? 'Instala la app oficial en tu Android (APK) o dispositivo Apple (iOS)'
+                  : 'Descarga e instala la última versión oficial en tu Android (v1.6.9 APK)'}
               </Text>
             </View>
           </View>
           <View style={styles.downloadButtonsRow}>
             <TouchableOpacity
               style={styles.downloadApkBtn}
-              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk')}
+              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.9/PronounceIt-v1.6.9.apk')}
               activeOpacity={0.85}
             >
               <Download size={15} color="#ffffff" style={{ marginRight: 6 }} />
-              <Text style={styles.downloadApkBtnText}>Android (APK)</Text>
+              <Text style={styles.downloadApkBtnText}>
+                {Platform.OS === 'web' ? 'Android (APK)' : 'Descargar APK'}
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.downloadAppleBtn, !isDark && styles.downloadAppleBtnLight]}
-              onPress={() => setShowAppleModal(true)}
-              activeOpacity={0.85}
-            >
-              <Apple size={15} color={!isDark ? '#000000' : '#ffffff'} style={{ marginRight: 6 }} />
-              <Text style={[styles.downloadAppleBtnText, !isDark && styles.downloadAppleBtnTextLight]}>Apple (iOS)</Text>
-            </TouchableOpacity>
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                style={[styles.downloadAppleBtn, !isDark && styles.downloadAppleBtnLight]}
+                onPress={() => setShowAppleModal(true)}
+                activeOpacity={0.85}
+              >
+                <Apple size={15} color={!isDark ? '#000000' : '#ffffff'} style={{ marginRight: 6 }} />
+                <Text style={[styles.downloadAppleBtnText, !isDark && styles.downloadAppleBtnTextLight]}>Apple (iOS)</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
