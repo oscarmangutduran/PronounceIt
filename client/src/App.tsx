@@ -22,6 +22,7 @@ import {
   Settings,
   Smartphone,
   Download,
+  Apple,
 } from 'lucide-react-native';
 
 import { MainNavTab, WordItem, WordStatus, UserProfile } from './types';
@@ -51,6 +52,7 @@ import { ExportImportModal } from './components/workspace/ExportImportModal';
 import { EditProfileModal } from './components/workspace/EditProfileModal';
 import { CategoryFormModal } from './components/workspace/CategoryFormModal';
 import { ConfirmModal } from './components/common/ConfirmModal';
+import { AppleInstallModal } from './components/common/AppleInstallModal';
 import { useResponsive } from './lib/useResponsive';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -91,6 +93,17 @@ function MainApp() {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
+  const [showAppleModal, setShowAppleModal] = useState(false);
+
+  // Check URL query parameters for direct modal open (e.g. /?install=apple)
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.search) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('install') === 'apple' || params.get('install') === 'ios') {
+        setShowAppleModal(true);
+      }
+    }
+  }, []);
 
   // Theme mode: dark by default, persists in storage
   // NOTE: On Android, appStorage.cache is empty until init() resolves (async).
@@ -635,17 +648,30 @@ function MainApp() {
             <Text style={[styles.footerCopyright, !isDark && styles.footerTextBlack]}>
               © PronounceIt v1.6.8 | Desarrollado con ❤️ Oscar Mangut Dev
             </Text>
-            <TouchableOpacity
-              style={[styles.footerMobileBtn, !isDark && styles.footerMobileBtnLight]}
-              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk')}
-              activeOpacity={0.8}
-            >
-              <Smartphone size={15} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
-              <Text style={[styles.footerMobileText, !isDark && styles.footerMobileTextLight]}>
-                Consigue la versión móvil (v1.6.8)
-              </Text>
-              <Download size={13} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <TouchableOpacity
+                style={[styles.footerMobileBtn, !isDark && styles.footerMobileBtnLight]}
+                onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk')}
+                activeOpacity={0.8}
+              >
+                <Smartphone size={15} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
+                <Text style={[styles.footerMobileText, !isDark && styles.footerMobileTextLight]}>
+                  Android (APK)
+                </Text>
+                <Download size={13} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.footerMobileBtn, !isDark && styles.footerMobileBtnLight]}
+                onPress={() => setShowAppleModal(true)}
+                activeOpacity={0.8}
+              >
+                <Apple size={15} color={!isDark ? '#000000' : '#ffffff'} />
+                <Text style={[styles.footerMobileText, !isDark && styles.footerMobileTextLight]}>
+                  Apple (iOS)
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </ScrollView>
@@ -854,6 +880,13 @@ function MainApp() {
           }}
         />
       )}
+
+      {/* Apple / iOS Install Modal */}
+      <AppleInstallModal
+        isOpen={showAppleModal}
+        onClose={() => setShowAppleModal(false)}
+        isDark={isDark}
+      />
     </View>
   );
 }

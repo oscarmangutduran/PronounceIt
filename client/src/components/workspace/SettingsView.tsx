@@ -28,6 +28,7 @@ import {
   Trash2,
   Languages,
   AlertCircle,
+  Apple,
 } from 'lucide-react-native';
 import { UserProfile } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
@@ -38,6 +39,7 @@ import {
 } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { AppleInstallModal } from '../common/AppleInstallModal';
 import { useResponsive } from '../../lib/useResponsive';
 
 interface SettingsViewProps {
@@ -71,6 +73,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
+  const [showAppleModal, setShowAppleModal] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
   const handleUpdateRate = (rate: number) => {
@@ -365,18 +368,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 Consigue la versión móvil
               </Text>
               <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 0 }]}>
-                Descarga e instala la app oficial en tu Android (v1.6.8 APK)
+                Instala la app oficial en tu Android (APK) o dispositivo Apple (iOS)
               </Text>
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.downloadApkBtn}
-            onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk')}
-            activeOpacity={0.85}
-          >
-            <Download size={16} color="#ffffff" style={{ marginRight: 6 }} />
-            <Text style={styles.downloadApkBtnText}>Descargar APK</Text>
-          </TouchableOpacity>
+          <View style={styles.downloadButtonsRow}>
+            <TouchableOpacity
+              style={styles.downloadApkBtn}
+              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk')}
+              activeOpacity={0.85}
+            >
+              <Download size={15} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={styles.downloadApkBtnText}>Android (APK)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.downloadAppleBtn, !isDark && styles.downloadAppleBtnLight]}
+              onPress={() => setShowAppleModal(true)}
+              activeOpacity={0.85}
+            >
+              <Apple size={15} color={!isDark ? '#000000' : '#ffffff'} style={{ marginRight: 6 }} />
+              <Text style={[styles.downloadAppleBtnText, !isDark && styles.downloadAppleBtnTextLight]}>Apple (iOS)</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -485,6 +498,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           }
         }}
         onCancel={() => setShowClearModal(false)}
+        isDark={isDark}
+      />
+
+      <AppleInstallModal
+        isOpen={showAppleModal}
+        onClose={() => setShowAppleModal(false)}
         isDark={isDark}
       />
     </ScrollView>
@@ -876,6 +895,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  downloadButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
   downloadApkBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -894,6 +919,29 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
+  },
+  downloadAppleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: THEME.radius.md,
+  },
+  downloadAppleBtnLight: {
+    backgroundColor: '#0f172a',
+    borderColor: '#0f172a',
+  },
+  downloadAppleBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  downloadAppleBtnTextLight: {
+    color: '#ffffff',
   },
   deleteAccountBtn: {
     flexDirection: 'row',

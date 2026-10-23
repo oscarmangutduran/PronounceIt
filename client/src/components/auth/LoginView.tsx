@@ -27,6 +27,7 @@ import {
   WifiOff,
   Smartphone,
   Download,
+  Apple,
 } from 'lucide-react-native';
 import { firebaseService, WelcomeEmailNotice } from '../../lib/firebaseClient';
 import { vocabService } from '../../lib/vocabularyStore';
@@ -35,6 +36,7 @@ import { appStorage } from '../../lib/storage';
 import { networkService } from '../../lib/networkService';
 import { THEME } from '../../theme';
 import { PronounceItLogo } from '../common/PronounceItLogo';
+import { AppleInstallModal } from '../common/AppleInstallModal';
 
 interface LoginViewProps {
   onSuccess: () => void;
@@ -88,6 +90,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const [success, setSuccess] = useState<string | null>(null);
   const [welcomeNotice, setWelcomeNotice] = useState<WelcomeEmailNotice | null>(null);
   const [isOnline, setIsOnline] = useState(networkService.isOnline());
+  const [showAppleModal, setShowAppleModal] = useState(false);
 
   useEffect(() => {
     return networkService.subscribe(setIsOnline);
@@ -737,17 +740,30 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
           {/* Consigue la versión móvil */}
           <View style={styles.mobileDownloadFooter}>
-            <TouchableOpacity
-              style={styles.mobileDownloadBtn}
-              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk')}
-              activeOpacity={0.85}
-            >
-              <View style={styles.mobileDownloadIconBox}>
-                <Smartphone size={16} color="#ffffff" />
-              </View>
-              <Text style={styles.mobileDownloadTitle}>Consigue la versión móvil (v1.6.8)</Text>
-              <Download size={15} color={THEME.colors.crimsonLight} />
-            </TouchableOpacity>
+            <View style={styles.mobileDownloadRow}>
+              <TouchableOpacity
+                style={styles.mobileDownloadBtn}
+                onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk')}
+                activeOpacity={0.85}
+              >
+                <View style={styles.mobileDownloadIconBox}>
+                  <Smartphone size={15} color="#ffffff" />
+                </View>
+                <Text style={styles.mobileDownloadTitle}>Android (APK)</Text>
+                <Download size={14} color={THEME.colors.crimsonLight} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.mobileDownloadAppleBtn}
+                onPress={() => setShowAppleModal(true)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.mobileDownloadAppleIconBox}>
+                  <Apple size={15} color="#ffffff" />
+                </View>
+                <Text style={styles.mobileDownloadTitle}>Apple (iOS)</Text>
+              </TouchableOpacity>
+            </View>
             <Text style={{ fontSize: 11, color: THEME.colors.textSubtle, marginTop: 12, fontWeight: '500' }}>
               PronounceIt v1.6.8
             </Text>
@@ -755,6 +771,12 @@ export const LoginView: React.FC<LoginViewProps> = ({
         </ScrollView>
         </KeyboardAvoidingView>
       </ImageBackground>
+
+      <AppleInstallModal
+        isOpen={showAppleModal}
+        onClose={() => setShowAppleModal(false)}
+        isDark={true}
+      />
     </View>
   );
 };
@@ -1033,7 +1055,14 @@ const styles = StyleSheet.create({
     marginTop: 26,
     alignItems: 'center',
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 440,
+  },
+  mobileDownloadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
   },
   mobileDownloadBtn: {
     flexDirection: 'row',
@@ -1042,22 +1071,42 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(230, 46, 76, 0.12)',
     borderWidth: 1,
     borderColor: 'rgba(230, 46, 76, 0.35)',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
     borderRadius: THEME.radius.md,
-    gap: 10,
+    gap: 8,
+  },
+  mobileDownloadAppleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: THEME.radius.md,
+    gap: 8,
   },
   mobileDownloadIconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: THEME.colors.crimson,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileDownloadAppleIconBox: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
   },
   mobileDownloadTitle: {
     color: '#ffffff',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
     letterSpacing: 0.2,
   },

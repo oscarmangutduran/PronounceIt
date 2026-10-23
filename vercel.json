@@ -21,6 +21,26 @@
       "source": "/apk",
       "destination": "https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.8/PronounceIt-v1.6.8.apk",
       "permanent": false
+    },
+    {
+      "source": "/apple",
+      "destination": "/?install=apple",
+      "permanent": false
+    },
+    {
+      "source": "/ios",
+      "destination": "/?install=apple",
+      "permanent": false
+    },
+    {
+      "source": "/download-apple",
+      "destination": "/?install=apple",
+      "permanent": false
+    },
+    {
+      "source": "/download-ios",
+      "destination": "/?install=apple",
+      "permanent": false
     }
   ],
   "rewrites": [
