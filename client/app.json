@@ -20,7 +20,13 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "PronounceIt - Inglés & Fonética",
+      "shortName": "PronounceIt",
+      "backgroundColor": "#0f0c18",
+      "themeColor": "#0f0c18",
+      "display": "standalone",
+      "orientation": "portrait"
     }
   }
 }

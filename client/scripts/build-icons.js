@@ -170,6 +170,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
       results['assets/favicon.png'] = await renderSvg(faviconSvg, 512, 512, 'image/png');
       results['public/favicon.png'] = await renderSvg(faviconSvg, 512, 512, 'image/png');
       results['public/apple-touch-icon.png'] = await renderSvg(faviconSvg, 180, 180, 'image/png');
+      results['public/icon-192.png'] = await renderSvg(faviconSvg, 192, 192, 'image/png');
+      results['public/icon-512.png'] = await renderSvg(faviconSvg, 512, 512, 'image/png');
       results['assets/splash-icon.png'] = await renderSvg(faviconSvg, 512, 512, 'image/png');
 
       // 2. Android mipmap density variants - EXACT same as favicon!
