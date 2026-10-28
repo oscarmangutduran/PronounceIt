@@ -5,6 +5,7 @@ import authRoutes from './routes/auth.js';
 import wordsRoutes from './routes/words.js';
 import testsRoutes from './routes/tests.js';
 import { initDb } from './db.js';
+import { createDiscordBot } from './discordBot.js';
 
 dotenv.config();
 
@@ -72,6 +73,9 @@ initDb()
       console.log(`   - Tests API:  http://localhost:${PORT}/api/tests`);
       console.log(`   - Health:     http://localhost:${PORT}/api/health`);
       console.log(`======================================================\n`);
+
+      // Initialize Discord Bot service
+      createDiscordBot();
     });
   })
   .catch((err) => {
