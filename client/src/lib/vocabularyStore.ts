@@ -847,6 +847,37 @@ class VocabularyService {
     return true;
   }
 
+  public deleteLanguageBoard(langCode: string): { deletedWordsCount: number; deletedCategoriesCount: number } {
+    const cleanLang = (langCode || '').trim().toLowerCase();
+    if (!cleanLang) return { deletedWordsCount: 0, deletedCategoriesCount: 0 };
+
+    const wordsToDelete = this.words.filter((w) => (w.language || 'en').toLowerCase() === cleanLang);
+    this.words = this.words.filter((w) => (w.language || 'en').toLowerCase() !== cleanLang);
+
+    wordsToDelete.forEach((w) => {
+      this.pendingSyncIds.delete(w.id);
+      this.deletedWordIds.add(w.id);
+      backendApi.deleteWord(w.id).catch(() => {});
+      if (firebaseService.isFirebaseConnected()) {
+        firebaseService.deleteWord(w.id).catch(() => {});
+      }
+    });
+
+    const categoriesToDelete = this.customCategories.filter((c) => (c.language || 'en').toLowerCase() === cleanLang);
+    this.customCategories = this.customCategories.filter((c) => (c.language || 'en').toLowerCase() !== cleanLang);
+
+    this.saveWords();
+    this.saveCategories();
+
+    if (this.activeLanguage.toLowerCase() === cleanLang) {
+      const remainingLanguages = Array.from(new Set(this.words.map((w) => (w.language || 'en').toLowerCase())));
+      this.activeLanguage = remainingLanguages[0] || 'en';
+    }
+
+    this.notify();
+    return { deletedWordsCount: wordsToDelete.length, deletedCategoriesCount: categoriesToDelete.length };
+  }
+
   public toggleFavorite(id: string) {
     const word = this.words.find((w) => w.id === id);
     if (word) {

@@ -491,6 +491,17 @@ function MainApp() {
     setSelectedFilter({ type: 'all' });
   };
 
+  const handleDeleteLanguage = async (langCode: string) => {
+    vocabService.deleteLanguageBoard(langCode);
+    const res = await firebaseService.removeLearningLanguage(langCode);
+    if (res.success && res.nextActiveLang) {
+      setActiveLanguage(res.nextActiveLang);
+      vocabService.setActiveLanguage(res.nextActiveLang);
+    }
+    setCurrentUser(firebaseService.getCurrentUser());
+    setSelectedFilter({ type: 'all' });
+  };
+
   const handleSaveWord = (wordData: Omit<WordItem, 'id'>) => {
     const dataWithLang: Omit<WordItem, 'id'> = {
       ...wordData,
@@ -689,6 +700,11 @@ function MainApp() {
                 onOpenExportModal={() => setIsExportModalOpen(true)}
                 isDark={isDark}
                 onToggleTheme={handleToggleTheme}
+                learningLanguages={learningLanguages}
+                activeLanguage={activeLanguage}
+                onDeleteLanguage={handleDeleteLanguage}
+                onSelectLanguage={handleSelectLanguage}
+                onAddLanguage={handleAddLanguage}
               />
             </View>
           )}

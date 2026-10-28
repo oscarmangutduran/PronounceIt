@@ -39,9 +39,10 @@ import {
   Mail,
   Send,
   Instagram,
+  Plus,
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
-import { UserProfile } from '../../types';
+import { UserProfile, SUPPORTED_LANGUAGES } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
 import {
   getGeminiApiKey,
@@ -51,6 +52,8 @@ import {
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { AppleInstallModal } from '../common/AppleInstallModal';
+import { CountryFlag } from '../common/CountryFlag';
+import { LanguagePickerModal } from '../common/LanguagePickerModal';
 import { useResponsive } from '../../lib/useResponsive';
 
 const DiscordIcon = ({ size = 20, color = '#ffffff' }: { size?: number; color?: string }) => (
@@ -73,6 +76,11 @@ interface SettingsViewProps {
   onOpenExportModal?: () => void;
   isDark?: boolean;
   onToggleTheme?: () => void;
+  learningLanguages?: string[];
+  activeLanguage?: string;
+  onDeleteLanguage?: (langCode: string) => Promise<void> | void;
+  onSelectLanguage?: (langCode: string) => void;
+  onAddLanguage?: (langCode: string) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -83,8 +91,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onOpenExportModal,
   isDark = true,
   onToggleTheme,
+  learningLanguages,
+  activeLanguage,
+  onDeleteLanguage,
+  onSelectLanguage,
+  onAddLanguage,
 }) => {
   const { isPhone } = useResponsive();
+  const [langToDelete, setLangToDelete] = useState<string | null>(null);
+  const [showConfirmDeleteLangModal, setShowConfirmDeleteLangModal] = useState(false);
+  const [showAddLangModal, setShowAddLangModal] = useState(false);
+
+  const languagesList = (learningLanguages && learningLanguages.length > 0)
+    ? Array.from(new Set(learningLanguages))
+    : (currentUser?.learning_languages && currentUser.learning_languages.length > 0)
+      ? Array.from(new Set(currentUser.learning_languages))
+      : [activeLanguage || currentUser?.target_language || 'en'];
+
+  const getLangName = (code: string) => {
+    const found = SUPPORTED_LANGUAGES.find((l) => l.code.toLowerCase() === code.toLowerCase());
+    return found ? found.name : code.toUpperCase();
+  };
+
   const [audioSettings, setAudioSettings] = useState(() => vocabService.getAudioSettings());
   const [apiKey, setApiKey] = useState(() => getGeminiApiKey());
   const [isSavedKey, setIsSavedKey] = useState(false);
@@ -277,6 +305,115 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <Text style={styles.logoutBtnText}>Cerrar Sesión</Text>
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* Idiomas de Aprendizaje & Tableros */}
+      <View style={[styles.card, !isDark && styles.cardLight]}>
+        <View style={styles.langHeaderRow}>
+          <View style={{ flex: 1, minWidth: 220 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <Languages size={18} color={THEME.colors.crimsonLight} />
+              <Text style={[styles.sectionTitle, !isDark && styles.titleLight, { marginBottom: 0 }]}>
+                Idiomas de Aprendizaje
+              </Text>
+            </View>
+            <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 0 }]}>
+              Gestiona los tableros de cada idioma que estás aprendiendo. Puedes cambiar de tablero, añadir idiomas o eliminar los que ya no uses.
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.addLangHeaderBtn}
+            onPress={() => setShowAddLangModal(true)}
+            activeOpacity={0.8}
+          >
+            <Plus size={14} color="#ffffff" strokeWidth={2.5} style={{ marginRight: 6 }} />
+            <Text style={styles.addLangHeaderBtnText}>Agregar Idioma</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.langListContainer}>
+          {languagesList.map((langCode) => {
+            const isActive = langCode.toLowerCase() === (activeLanguage || 'en').toLowerCase();
+            const langName = getLangName(langCode);
+            const wordCount = vocabService.getWords(langCode).length;
+            const canDelete = languagesList.length > 1;
+
+            return (
+              <View
+                key={langCode}
+                style={[
+                  styles.langCardItem,
+                  !isDark && styles.langCardItemLight,
+                  isActive && styles.langCardItemActive,
+                  isActive && !isDark && styles.langCardItemActiveLight,
+                ]}
+              >
+                <View style={styles.langCardLeft}>
+                  <CountryFlag code={langCode} size={28} />
+                  <View style={{ marginLeft: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={[styles.langCardName, !isDark && styles.titleLight]}>
+                        {langName}
+                      </Text>
+                      {isActive && (
+                        <View style={styles.activeLangBadge}>
+                          <Text style={styles.activeLangBadgeText}>Tablero Activo</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.langCardCount, !isDark && styles.subtitleLight]}>
+                      {wordCount} {wordCount === 1 ? 'palabra guardada' : 'palabras guardadas'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.langCardActions}>
+                  {!isActive && onSelectLanguage && (
+                    <TouchableOpacity
+                      style={[styles.switchLangBtn, !isDark && styles.switchLangBtnLight]}
+                      onPress={() => onSelectLanguage(langCode)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.switchLangBtnText, !isDark && styles.switchLangBtnTextLight]}>
+                        Activar Tablero
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {canDelete ? (
+                    <TouchableOpacity
+                      style={styles.deleteLangBtn}
+                      onPress={() => {
+                        setLangToDelete(langCode);
+                        setShowConfirmDeleteLangModal(true);
+                      }}
+                      activeOpacity={0.8}
+                      accessibilityLabel={`Eliminar idioma ${langName}`}
+                    >
+                      <Trash2 size={16} color="#f87171" />
+                    </TouchableOpacity>
+                  ) : (
+                    <View
+                      style={styles.disabledDeleteLangBtn}
+                      accessibilityLabel="No puedes eliminar tu único idioma"
+                    >
+                      <Trash2 size={16} color={!isDark ? '#cbd5e1' : 'rgba(255, 255, 255, 0.2)'} />
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {languagesList.length <= 1 && (
+          <View style={[styles.singleLangNoteBox, !isDark && styles.singleLangNoteBoxLight]}>
+            <Info size={15} color={!isDark ? '#0284c7' : '#38bdf8'} style={{ marginRight: 8, marginTop: 1, flexShrink: 0 }} />
+            <Text style={[styles.singleLangNote, !isDark && styles.singleLangNoteLight]}>
+              Para poder eliminar este idioma, primero debes agregar al menos otro idioma de aprendizaje.
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Apariencia y Tema Visual */}
@@ -831,6 +968,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <AppleInstallModal
         isOpen={showAppleModal}
         onClose={() => setShowAppleModal(false)}
+        isDark={isDark}
+      />
+
+      {/* Modal de confirmación para eliminar idioma de aprendizaje */}
+      <ConfirmModal
+        isOpen={showConfirmDeleteLangModal}
+        title="Eliminar idioma de aprendizaje"
+        message={`¿Estás seguro de que deseas eliminar "${langToDelete ? getLangName(langToDelete) : 'este idioma'}" de tus idiomas de aprendizaje? Se eliminarán permanentemente todas las palabras, categorías y progreso de aprendizaje asociados a este tablero. Esta acción no se puede deshacer.`}
+        confirmText="Sí, eliminar idioma"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={async () => {
+          if (langToDelete) {
+            const toDelete = langToDelete;
+            setShowConfirmDeleteLangModal(false);
+            setLangToDelete(null);
+            await onDeleteLanguage?.(toDelete);
+          }
+        }}
+        onCancel={() => {
+          setShowConfirmDeleteLangModal(false);
+          setLangToDelete(null);
+        }}
+        isDark={isDark}
+      />
+
+      {/* Modal para agregar idioma desde configuración */}
+      <LanguagePickerModal
+        isOpen={showAddLangModal}
+        onClose={() => setShowAddLangModal(false)}
+        selectedCode={activeLanguage}
+        onSelect={(code) => {
+          setShowAddLangModal(false);
+          onAddLanguage?.(code);
+        }}
+        title="Agregar idioma para aprender"
         isDark={isDark}
       />
     </ScrollView>
@@ -1728,6 +1901,153 @@ const styles = StyleSheet.create({
   emailInfoBoxLight: {
     backgroundColor: 'rgba(230, 46, 76, 0.05)',
     borderColor: 'rgba(230, 46, 76, 0.2)',
+  },
+
+  // Language management card styles
+  langHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  addLangHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.crimson,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: THEME.radius.md,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  addLangHeaderBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  langListContainer: {
+    gap: 10,
+  },
+  langCardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: THEME.radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  langCardItemLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  langCardItemActive: {
+    borderColor: 'rgba(230, 46, 76, 0.4)',
+    backgroundColor: 'rgba(230, 46, 76, 0.06)',
+  },
+  langCardItemActiveLight: {
+    borderColor: 'rgba(230, 46, 76, 0.35)',
+    backgroundColor: 'rgba(230, 46, 76, 0.04)',
+  },
+  langCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  langCardName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  activeLangBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    backgroundColor: 'rgba(230, 46, 76, 0.2)',
+    borderWidth: 1,
+    borderColor: THEME.colors.crimson,
+  },
+  activeLangBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: THEME.colors.crimsonLight,
+    textTransform: 'uppercase',
+  },
+  langCardCount: {
+    fontSize: 12,
+    color: THEME.colors.textMuted,
+    marginTop: 2,
+  },
+  langCardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  switchLangBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: THEME.radius.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  switchLangBtnLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#cbd5e1',
+  },
+  switchLangBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  switchLangBtnTextLight: {
+    color: '#1e293b',
+  },
+  deleteLangBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(248, 113, 113, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  disabledDeleteLangBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.4,
+  },
+  singleLangNoteBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.2)',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  singleLangNoteBoxLight: {
+    backgroundColor: 'rgba(2, 132, 199, 0.06)',
+    borderColor: 'rgba(2, 132, 199, 0.15)',
+  },
+  singleLangNote: {
+    fontSize: 12,
+    color: '#93c5fd',
+    flex: 1,
+    lineHeight: 16,
+  },
+  singleLangNoteLight: {
+    color: '#0369a1',
   },
 });
 

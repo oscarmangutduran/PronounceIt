@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
   Image,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -24,6 +25,8 @@ import {
   Sun,
   Moon,
   Plus,
+  ChevronDown,
+  Check,
 } from 'lucide-react-native';
 import { UserProfile, MainNavTab, SUPPORTED_LANGUAGES } from '../../types';
 import { THEME } from '../../theme';
@@ -69,6 +72,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
 }) => {
   const { showTopNavTabs, isPhone } = useResponsive();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAddLangModal, setShowAddLangModal] = useState(false);
   const [isOnline, setIsOnline] = useState(networkService.isOnline());
@@ -257,36 +261,122 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
 
       {/* RIGHT: Language Switcher Flags + Add (+) Button + Offline Badge + User Avatar */}
       <View style={styles.rightActions}>
-        {/* Language Switcher Bar (flags of learning languages + plus button to add more) */}
-        <View style={[styles.langSwitcherContainer, !isDark && styles.langSwitcherContainerLight]}>
-          {langList.map((langCode) => {
-            const isActive = langCode.toLowerCase() === activeLang.toLowerCase();
-            return (
+        {/* Language Switcher Bar: Dropdown if multiple languages, or single flag if 1 language */}
+        <View style={styles.langSwitcherWrapper}>
+          <View style={[styles.langSwitcherContainer, !isDark && styles.langSwitcherContainerLight]}>
+            {langList.length > 1 ? (
               <TouchableOpacity
-                key={langCode}
                 style={[
-                  styles.langFlagBtn,
-                  !isDark && styles.langFlagBtnLight,
-                  isActive && styles.langFlagBtnActive,
-                  isActive && !isDark && styles.langFlagBtnActiveLight,
+                  styles.langDropdownTrigger,
+                  showLangDropdown && styles.langDropdownTriggerOpen,
+                  showLangDropdown && !isDark && styles.langDropdownTriggerOpenLight,
                 ]}
-                onPress={() => onSelectLanguage?.(langCode)}
+                onPress={() => {
+                  setShowLangDropdown((prev) => !prev);
+                  setShowDropdown(false);
+                }}
                 activeOpacity={0.7}
-                accessibilityLabel={`Cambiar idioma a ${langCode}`}
+                accessibilityLabel="Cambiar idioma de aprendizaje"
               >
-                <CountryFlag code={langCode} size={20} />
-                {isActive && <View style={styles.langActiveDot} />}
+                <CountryFlag code={activeLang} size={20} />
+                <ChevronDown
+                  size={13}
+                  color={!isDark ? '#64748b' : '#94a3b8'}
+                  style={{
+                    transform: [{ rotate: showLangDropdown ? '180deg' : '0deg' }],
+                    marginLeft: 4,
+                  }}
+                />
               </TouchableOpacity>
-            );
-          })}
-          <TouchableOpacity
-            style={[styles.langAddBtn, !isDark && styles.langAddBtnLight]}
-            onPress={() => setShowAddLangModal(true)}
-            activeOpacity={0.7}
-            accessibilityLabel="Agregar nuevo idioma"
-          >
-            <Plus size={14} color={!isDark ? '#475569' : '#cbd5e1'} strokeWidth={2.4} />
-          </TouchableOpacity>
+            ) : (
+              <View style={styles.langSingleFlagBox}>
+                <CountryFlag code={activeLang} size={20} />
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.langAddBtn, !isDark && styles.langAddBtnLight]}
+              onPress={() => {
+                setShowLangDropdown(false);
+                setShowAddLangModal(true);
+              }}
+              activeOpacity={0.7}
+              accessibilityLabel="Agregar nuevo idioma"
+            >
+              <Plus size={14} color={!isDark ? '#475569' : '#cbd5e1'} strokeWidth={2.4} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Language Dropdown Menu (shown when user has more than 1 language) */}
+          {langList.length > 1 && showLangDropdown && (
+            <View style={[styles.langDropdownMenu, !isDark && styles.langDropdownMenuLight]}>
+              <View style={[styles.langDropdownHeader, !isDark && styles.langDropdownHeaderLight]}>
+                <Text style={[styles.langDropdownHeaderText, !isDark && styles.langDropdownHeaderTextLight]}>
+                  Mis idiomas ({langList.length})
+                </Text>
+              </View>
+
+              <ScrollView style={{ maxHeight: 220 }} bounces={false}>
+                {langList.map((langCode) => {
+                  const isActive = langCode.toLowerCase() === activeLang.toLowerCase();
+                  const langObj = SUPPORTED_LANGUAGES.find((l) => l.code.toLowerCase() === langCode.toLowerCase());
+                  const name = langObj ? langObj.name : langCode.toUpperCase();
+
+                  return (
+                    <TouchableOpacity
+                      key={langCode}
+                      style={[
+                        styles.langDropdownItem,
+                        !isDark && styles.langDropdownItemLight,
+                        isActive && styles.langDropdownItemActive,
+                        isActive && !isDark && styles.langDropdownItemActiveLight,
+                      ]}
+                      onPress={() => {
+                        onSelectLanguage?.(langCode);
+                        setShowLangDropdown(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.langDropdownItemLeft}>
+                        <CountryFlag code={langCode} size={20} />
+                        <Text
+                          style={[
+                            styles.langDropdownItemName,
+                            !isDark && styles.langDropdownItemNameLight,
+                            isActive && { color: THEME.colors.crimson, fontWeight: '700' },
+                          ]}
+                        >
+                          {name}
+                        </Text>
+                      </View>
+
+                      {isActive ? (
+                        <Check size={15} color={THEME.colors.crimson} strokeWidth={2.5} />
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              <View style={[styles.dropdownDivider, !isDark && styles.dropdownDividerLight]} />
+
+              <TouchableOpacity
+                style={styles.langDropdownAddOption}
+                onPress={() => {
+                  setShowLangDropdown(false);
+                  setShowAddLangModal(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.langDropdownAddIconBox}>
+                  <Plus size={13} color="#ffffff" strokeWidth={2.5} />
+                </View>
+                <Text style={[styles.langDropdownAddText, !isDark && styles.langDropdownAddTextLight]}>
+                  Agregar otro idioma
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Theme Toggle Mobile */}
@@ -320,7 +410,10 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
         <View style={styles.userWrapper}>
           <TouchableOpacity
             style={styles.avatarButton}
-            onPress={() => setShowDropdown(!showDropdown)}
+            onPress={() => {
+              setShowDropdown(!showDropdown);
+              setShowLangDropdown(false);
+            }}
             activeOpacity={0.8}
           >
             {currentUser?.avatar_url ? (
@@ -566,12 +659,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  langSwitcherWrapper: {
+    position: 'relative',
+    zIndex: 102,
+  },
   langSwitcherContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    gap: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
@@ -581,39 +678,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f5f9',
     borderColor: 'rgba(0, 0, 0, 0.08)',
   },
-  langFlagBtn: {
-    position: 'relative',
-    padding: 3,
-    borderRadius: 8,
+  langDropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer', transition: 'all 0.15s ease' } as any) : {}),
   },
-  langFlagBtnLight: {
-    borderColor: 'transparent',
-  },
-  langFlagBtnActive: {
+  langDropdownTriggerOpen: {
+    backgroundColor: 'rgba(230, 46, 76, 0.14)',
     borderColor: THEME.colors.crimson,
-    backgroundColor: 'rgba(230, 46, 76, 0.15)',
-    shadowColor: THEME.colors.crimson,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  langFlagBtnActiveLight: {
+  langDropdownTriggerOpenLight: {
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
     borderColor: THEME.colors.crimson,
-    backgroundColor: 'rgba(230, 46, 76, 0.1)',
   },
-  langActiveDot: {
-    position: 'absolute',
-    bottom: -3,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: THEME.colors.crimson,
+  langSingleFlagBox: {
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   langAddBtn: {
     width: 26,
@@ -624,13 +711,117 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 2,
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer', transition: 'all 0.15s ease' } as any) : {}),
   },
   langAddBtnLight: {
     borderColor: 'rgba(0, 0, 0, 0.22)',
     backgroundColor: '#ffffff',
+  },
+  langDropdownMenu: {
+    position: 'absolute',
+    right: 0,
+    top: 42,
+    width: 220,
+    backgroundColor: '#161026',
+    borderRadius: THEME.radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 10,
+    zIndex: 200,
+  },
+  langDropdownMenuLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.12,
+  },
+  langDropdownHeader: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  langDropdownHeaderLight: {
+    borderBottomColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  langDropdownHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  langDropdownHeaderTextLight: {
+    color: '#64748b',
+  },
+  langDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer', transition: 'all 0.15s ease' } as any) : {}),
+  },
+  langDropdownItemLight: {},
+  langDropdownItemActive: {
+    backgroundColor: 'rgba(230, 46, 76, 0.14)',
+  },
+  langDropdownItemActiveLight: {
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
+  },
+  langDropdownItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  langDropdownItemName: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#f8fafc',
+  },
+  langDropdownItemNameLight: {
+    color: '#1e293b',
+  },
+  langDropdownItemNative: {
+    fontSize: 11,
+    color: '#94a3b8',
+  },
+  langDropdownItemNativeLight: {
+    color: '#64748b',
+  },
+  langDropdownAddOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer', transition: 'all 0.15s ease' } as any) : {}),
+  },
+  langDropdownAddIconBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: THEME.colors.crimson,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  langDropdownAddText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#f8fafc',
+  },
+  langDropdownAddTextLight: {
+    color: '#0f172a',
   },
   userWrapper: {
     position: 'relative',

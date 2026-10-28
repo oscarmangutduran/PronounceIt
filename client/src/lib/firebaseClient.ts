@@ -1295,6 +1295,53 @@ class FirebaseService {
     return true;
   }
 
+  public async removeLearningLanguage(langCode: string): Promise<{ success: boolean; nextActiveLang?: string }> {
+    const cleanCode = (langCode || '').trim().toLowerCase();
+    const current = this.currentUser;
+    const existing: string[] = (current?.learning_languages && current.learning_languages.length > 0)
+      ? [...current.learning_languages]
+      : [current?.target_language || 'en'];
+
+    if (existing.length <= 1) {
+      return { success: false };
+    }
+
+    const updatedList = existing.filter((l) => l.toLowerCase() !== cleanCode);
+    const nextActiveLang = (current?.target_language?.toLowerCase() === cleanCode)
+      ? updatedList[0]
+      : (current?.target_language || updatedList[0]);
+
+    if (current) {
+      current.learning_languages = updatedList;
+      current.target_language = nextActiveLang;
+      this.persistCurrentUser();
+
+      const uid = current.id;
+      const email = current.email?.toLowerCase();
+
+      try {
+        appStorage.setItem('pronounceit_current_target_lang', nextActiveLang);
+        appStorage.setItem('pronounceit_learning_languages', JSON.stringify(updatedList));
+      } catch {}
+
+      if (this.db) {
+        try {
+          const writes = [
+            setDoc(doc(this.db, 'users', uid), { target_language: nextActiveLang, learning_languages: updatedList }, { merge: true }),
+          ];
+          if (email) {
+            writes.push(setDoc(doc(this.db, 'accounts', email), { targetLanguage: nextActiveLang, learningLanguages: updatedList }, { merge: true }));
+          }
+          await Promise.all(writes);
+        } catch (e) {
+          console.warn('[FirebaseClient] Error eliminando idioma en Firestore:', e);
+        }
+      }
+      this.notify();
+    }
+    return { success: true, nextActiveLang };
+  }
+
   public async resetPassword(
     emailOrUsername: string,
     newPassword?: string
