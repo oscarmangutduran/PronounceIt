@@ -35,6 +35,10 @@ import {
   Copy,
   ExternalLink,
   Info,
+  MessageCircle,
+  Mail,
+  Send,
+  Instagram,
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { UserProfile } from '../../types';
@@ -138,6 +142,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleOpenLinkedin = () => {
     Linking.openURL(LINKEDIN_GROUP_URL).catch(() => {});
+  };
+
+  const [copiedEmail, setCopiedEmail] = useState(false);
+  const SUPPORT_EMAIL = 'hola@oscarmangutdev.es';
+
+  const handleCopyEmail = async () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(SUPPORT_EMAIL);
+      } else {
+        await Share.share({
+          title: 'Correo de soporte de PronounceIt',
+          message: SUPPORT_EMAIL,
+        });
+      }
+    } catch {}
+    setCopiedEmail(true);
+    setTimeout(() => setCopiedEmail(false), 2500);
+  };
+
+  const handleOpenEmail = () => {
+    Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {});
   };
 
   const handleUpdateRate = (rate: number) => {
@@ -570,6 +596,83 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <Text style={[styles.discordInfoText, !isDark && styles.discordInfoTextLight]}>
             <Text style={[styles.discordInfoBold, !isDark && styles.discordInfoBoldLight]}>Networking profesional: </Text>
             Conecta con otros miembros de PronounceIt, amplía tu red de contactos y comparte oportunidades para practicar inglés en entornos laborales y entrevistas.
+          </Text>
+        </View>
+      </View>
+
+      {/* Atención y Soporte por Correo Electrónico */}
+      <View style={[styles.emailCard, !isDark && styles.emailCardLight]}>
+        {/* Encabezado: Icono Correo + Título + Badge + Subtítulo */}
+        <View style={styles.discordHeaderRow}>
+          <View style={styles.emailIconBadge}>
+            <Mail size={24} color="#ffffff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={styles.discordTitleRow}>
+              <Text style={[styles.discordTitle, !isDark && styles.titleLight]}>
+                Atención y Soporte por Correo
+              </Text>
+              <View style={[styles.emailPillBadge, !isDark && styles.emailPillBadgeLight]}>
+                <View style={styles.discordPillDot} />
+                <Text style={styles.emailPillText}>Soporte Directo</Text>
+              </View>
+            </View>
+            <Text style={[styles.discordDescription, !isDark && styles.discordDescriptionLight]}>
+              ¿Tienes dudas técnicas, sugerencias de nuevas palabras o consultas pedagógicas? Escríbenos directamente y te atenderemos de forma personalizada.
+            </Text>
+          </View>
+        </View>
+
+        {/* Fila del correo electrónico */}
+        <View style={styles.discordShareBlock}>
+          <View style={styles.discordShareLabelRow}>
+            <Mail size={16} color={!isDark ? '#e62e4c' : '#f87171'} style={{ marginRight: 8 }} />
+            <Text style={[styles.discordShareLabel, !isDark && styles.discordShareLabelLight]}>
+              Dirección oficial de atención y soporte:
+            </Text>
+          </View>
+          <Text
+            style={[styles.emailShareLink, !isDark && styles.emailShareLinkLight]}
+            selectable
+          >
+            {SUPPORT_EMAIL}
+          </Text>
+        </View>
+
+        {/* Botones de acción */}
+        <View style={styles.discordActionsRow}>
+          <TouchableOpacity
+            style={[styles.discordCopyBtn, !isDark && styles.discordCopyBtnLight]}
+            onPress={handleCopyEmail}
+            activeOpacity={0.8}
+          >
+            {copiedEmail ? (
+              <Check size={16} color="#10b981" style={{ marginRight: 8 }} />
+            ) : (
+              <Copy size={16} color={!isDark ? '#334155' : '#ffffff'} style={{ marginRight: 8 }} />
+            )}
+            <Text style={[styles.discordCopyBtnText, !isDark && styles.discordCopyBtnTextLight, copiedEmail && { color: '#10b981' }]}>
+              {copiedEmail ? '¡Correo copiado!' : 'Copiar correo'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.emailJoinBtn}
+            onPress={handleOpenEmail}
+            activeOpacity={0.85}
+          >
+            <Send size={15} color="#ffffff" style={{ marginRight: 2 }} />
+            <Text style={styles.discordJoinBtnText}>Escribir Correo</Text>
+            <ExternalLink size={15} color="#ffffff" style={{ marginLeft: 2 }} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Mensaje informativo */}
+        <View style={[styles.emailInfoBox, !isDark && styles.emailInfoBoxLight]}>
+          <Info size={18} color={!isDark ? '#e62e4c' : '#f87171'} style={{ marginTop: 1, marginRight: 10, flexShrink: 0 }} />
+          <Text style={[styles.discordInfoText, !isDark && styles.discordInfoTextLight]}>
+            <Text style={[styles.discordInfoBold, !isDark && styles.discordInfoBoldLight]}>Atención personalizada: </Text>
+            Revisamos y respondemos personalmente todas las solicitudes. Si tu consulta se refiere a tu cuenta o historial de tests, incluye tu usuario para darte una solución más rápida.
           </Text>
         </View>
       </View>
@@ -1536,6 +1639,95 @@ const styles = StyleSheet.create({
   linkedinInfoBoxLight: {
     backgroundColor: 'rgba(10, 102, 194, 0.06)',
     borderColor: 'rgba(10, 102, 194, 0.2)',
+  },
+  // Email Community/Support Card
+  emailCard: {
+    backgroundColor: '#161014',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.35)',
+    borderRadius: THEME.radius.lg,
+    padding: 20,
+    marginBottom: 16,
+    width: '100%',
+  },
+  emailCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(230, 46, 76, 0.25)',
+    shadowColor: '#e62e4c',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  emailIconBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#e62e4c',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#e62e4c',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  emailPillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 9,
+    borderRadius: 16,
+    backgroundColor: 'rgba(230, 46, 76, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.35)',
+  },
+  emailPillBadgeLight: {
+    backgroundColor: 'rgba(230, 46, 76, 0.1)',
+    borderColor: 'rgba(230, 46, 76, 0.25)',
+  },
+  emailPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#f87171',
+  },
+  emailShareLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#f87171',
+    marginLeft: 24,
+  },
+  emailShareLinkLight: {
+    color: '#e62e4c',
+  },
+  emailJoinBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    backgroundColor: '#e62e4c',
+    gap: 8,
+    shadowColor: '#e62e4c',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  emailInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(230, 46, 76, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.25)',
+    borderRadius: 10,
+    padding: 12,
+  },
+  emailInfoBoxLight: {
+    backgroundColor: 'rgba(230, 46, 76, 0.05)',
+    borderColor: 'rgba(230, 46, 76, 0.2)',
   },
 });
 

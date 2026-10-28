@@ -28,6 +28,8 @@ import {
   Smartphone,
   Download,
   Apple,
+  Globe,
+  ChevronDown,
 } from 'lucide-react-native';
 import { firebaseService, WelcomeEmailNotice } from '../../lib/firebaseClient';
 import { vocabService } from '../../lib/vocabularyStore';
@@ -35,8 +37,10 @@ import { testHistoryService } from '../../lib/testHistoryStore';
 import { appStorage } from '../../lib/storage';
 import { networkService } from '../../lib/networkService';
 import { THEME } from '../../theme';
+import { SUPPORTED_LANGUAGES } from '../../types';
 import { PronounceItLogo } from '../common/PronounceItLogo';
 import { AppleInstallModal } from '../common/AppleInstallModal';
+import { LanguagePickerModal } from '../common/LanguagePickerModal';
 
 interface LoginViewProps {
   onSuccess: () => void;
@@ -91,6 +95,9 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const [welcomeNotice, setWelcomeNotice] = useState<WelcomeEmailNotice | null>(null);
   const [isOnline, setIsOnline] = useState(networkService.isOnline());
   const [showAppleModal, setShowAppleModal] = useState(false);
+  const [nativeLang, setNativeLang] = useState('es');
+  const [targetLang, setTargetLang] = useState('en');
+  const [pickerTarget, setPickerTarget] = useState<'native' | 'target' | null>(null);
 
   useEffect(() => {
     return networkService.subscribe(setIsOnline);
@@ -253,7 +260,13 @@ export const LoginView: React.FC<LoginViewProps> = ({
       }
 
       setLoading(true);
-      const res = await firebaseService.signUpWithStandardPassword(email.trim(), username.trim(), password.trim());
+      const res = await firebaseService.signUpWithStandardPassword(
+        email.trim(),
+        username.trim(),
+        password.trim(),
+        nativeLang,
+        targetLang
+      );
       setLoading(false);
 
       if (res.success) {
@@ -522,6 +535,56 @@ export const LoginView: React.FC<LoginViewProps> = ({
               </View>
             )}
 
+            {mode === 'signup' && (
+              <View style={styles.langSection}>
+                <View style={styles.langSectionHeader}>
+                  <Globe size={13} color={THEME.colors.crimson} style={{ marginRight: 6 }} />
+                  <Text style={styles.langSectionTitle}>Preferencias de Idioma</Text>
+                </View>
+                <View style={styles.langRow}>
+                  {/* Idioma Nativo */}
+                  <View style={styles.langCol}>
+                    <Text style={styles.inputLabel}>Tu Idioma Nativo</Text>
+                    <TouchableOpacity
+                      style={styles.langBtn}
+                      onPress={() => setPickerTarget('native')}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.langBtnContent}>
+                        <Text style={styles.langFlag}>
+                          {SUPPORTED_LANGUAGES.find((l) => l.code === nativeLang)?.flag || '🇪🇸'}
+                        </Text>
+                        <Text style={styles.langText} numberOfLines={1}>
+                          {SUPPORTED_LANGUAGES.find((l) => l.code === nativeLang)?.name || 'Español'}
+                        </Text>
+                      </View>
+                      <ChevronDown size={14} color={THEME.colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Idioma que quieres aprender */}
+                  <View style={styles.langCol}>
+                    <Text style={styles.inputLabel}>Quiero Aprender</Text>
+                    <TouchableOpacity
+                      style={styles.langBtn}
+                      onPress={() => setPickerTarget('target')}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.langBtnContent}>
+                        <Text style={styles.langFlag}>
+                          {SUPPORTED_LANGUAGES.find((l) => l.code === targetLang)?.flag || '🇬🇧'}
+                        </Text>
+                        <Text style={styles.langText} numberOfLines={1}>
+                          {SUPPORTED_LANGUAGES.find((l) => l.code === targetLang)?.name || 'Inglés'}
+                        </Text>
+                      </View>
+                      <ChevronDown size={14} color={THEME.colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+
             {(mode === 'signin' || mode === 'signup') && (
               <View style={styles.inputGroup}>
                 <View style={styles.passwordHeader}>
@@ -781,6 +844,26 @@ export const LoginView: React.FC<LoginViewProps> = ({
         onClose={() => setShowAppleModal(false)}
         isDark={true}
       />
+
+      <LanguagePickerModal
+        isOpen={pickerTarget !== null}
+        onClose={() => setPickerTarget(null)}
+        title={pickerTarget === 'native' ? 'Selecciona tu Idioma Nativo' : '¿Qué idioma quieres aprender?'}
+        subtitle={
+          pickerTarget === 'native'
+            ? 'Tu lengua materna para explicaciones y traducciones'
+            : 'El idioma que practicarás y perfeccionarás con la app'
+        }
+        selectedCode={pickerTarget === 'native' ? nativeLang : targetLang}
+        onSelect={(code) => {
+          if (pickerTarget === 'native') {
+            setNativeLang(code);
+          } else {
+            setTargetLang(code);
+          }
+        }}
+        isDark={true}
+      />
     </View>
   );
 };
@@ -944,6 +1027,54 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 16,
+  },
+  langSection: {
+    marginBottom: 16,
+  },
+  langSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  langSectionTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: THEME.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  langRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  langCol: {
+    flex: 1,
+  },
+  langBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.radius.md,
+    paddingHorizontal: 10,
+    height: 48,
+  },
+  langBtnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 4,
+  },
+  langFlag: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  langText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#ffffff',
   },
   inputLabel: {
     fontSize: 12,

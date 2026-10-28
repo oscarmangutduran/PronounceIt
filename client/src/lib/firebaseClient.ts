@@ -55,6 +55,10 @@ export interface StoredAccount {
   avatarUrl?: string;
   mustChangePassword?: boolean;
   must_change_password?: boolean;
+  nativeLanguage?: string;
+  native_language?: string;
+  targetLanguage?: string;
+  target_language?: string;
   [key: string]: any;
 }
 
@@ -775,6 +779,8 @@ class FirebaseService {
         avatar_url: avatarUrl,
         role: 'user',
         created_at: foundAccount.createdAt,
+        native_language: foundAccount.nativeLanguage || foundAccount.native_language || 'es',
+        target_language: foundAccount.targetLanguage || foundAccount.target_language || 'en',
       };
 
       this.currentUser = profile;
@@ -847,7 +853,9 @@ class FirebaseService {
   public async signUpWithStandardPassword(
     email: string,
     username: string,
-    password?: string
+    password?: string,
+    nativeLanguage: string = 'es',
+    targetLanguage: string = 'en'
   ): Promise<{
     success: boolean;
     message?: string;
@@ -910,6 +918,9 @@ class FirebaseService {
       };
     }
 
+    const cleanNative = (nativeLanguage || 'es').trim();
+    const cleanTarget = (targetLanguage || 'en').trim();
+
     const userId = `usr-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
     const newAccount: StoredAccount = {
       id: userId,
@@ -918,6 +929,10 @@ class FirebaseService {
       fullName: cleanUsername,
       password: effectivePass,
       mustChangePassword: mustChange,
+      nativeLanguage: cleanNative,
+      native_language: cleanNative,
+      targetLanguage: cleanTarget,
+      target_language: cleanTarget,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -935,6 +950,8 @@ class FirebaseService {
             full_name: cleanUsername,
             categories: [], // Cada nuevo usuario comienza con 0 categorías y 0 subcategorías
             must_change_password: mustChange,
+            native_language: cleanNative,
+            target_language: cleanTarget,
             created_at: newAccount.createdAt,
             updated_at: newAccount.updatedAt,
           }, { merge: true }),
@@ -945,6 +962,8 @@ class FirebaseService {
             full_name: cleanUsername,
             categories: [],
             must_change_password: mustChange,
+            native_language: cleanNative,
+            target_language: cleanTarget,
             created_at: newAccount.createdAt,
             updated_at: newAccount.updatedAt,
           }, { merge: true }),
@@ -998,7 +1017,14 @@ class FirebaseService {
       must_change_password: mustChange,
       role: 'user',
       created_at: newAccount.createdAt,
+      native_language: cleanNative,
+      target_language: cleanTarget,
     };
+
+    try {
+      appStorage.setItem('pronounceit_current_native_lang', cleanNative);
+      appStorage.setItem('pronounceit_current_target_lang', cleanTarget);
+    } catch {}
 
     this.currentUser = userProfile;
     this.persistCurrentUser();
@@ -1166,6 +1192,34 @@ class FirebaseService {
     }
 
     return { success: true, message: 'Contraseña actualizada correctamente.' };
+  }
+
+  public async updateUserLanguages(nativeLang: string, targetLang: string): Promise<boolean> {
+    if (!this.currentUser) return false;
+    const uid = this.currentUser.id;
+    const email = this.currentUser.email?.toLowerCase();
+    this.currentUser.native_language = nativeLang;
+    this.currentUser.target_language = targetLang;
+    this.persistCurrentUser();
+    try {
+      appStorage.setItem('pronounceit_current_native_lang', nativeLang);
+      appStorage.setItem('pronounceit_current_target_lang', targetLang);
+    } catch {}
+    if (this.db) {
+      try {
+        const writes = [
+          setDoc(doc(this.db, 'users', uid), { native_language: nativeLang, target_language: targetLang }, { merge: true }),
+        ];
+        if (email) {
+          writes.push(setDoc(doc(this.db, 'accounts', email), { nativeLanguage: nativeLang, targetLanguage: targetLang }, { merge: true }));
+        }
+        await Promise.all(writes);
+      } catch (e) {
+        console.warn('[FirebaseClient] Error actualizando idiomas en Firestore:', e);
+      }
+    }
+    this.notify();
+    return true;
   }
 
   public async resetPassword(

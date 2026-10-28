@@ -23,11 +23,14 @@ import {
   Upload,
   AlertCircle,
   Sparkles,
+  Globe,
+  ChevronDown,
 } from 'lucide-react-native';
-import { UserProfile } from '../../types';
+import { UserProfile, SUPPORTED_LANGUAGES } from '../../types';
 import { firebaseService } from '../../lib/firebaseClient';
 import { backendApi } from '../../lib/apiClient';
 import { THEME } from '../../theme';
+import { LanguagePickerModal } from '../common/LanguagePickerModal';
 import * as ImagePicker from 'expo-image-picker';
 
 interface EditProfileModalProps {
@@ -60,6 +63,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [nativeLang, setNativeLang] = useState(currentUser?.native_language || 'es');
+  const [targetLang, setTargetLang] = useState(currentUser?.target_language || 'en');
+  const [pickerTarget, setPickerTarget] = useState<'native' | 'target' | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -72,6 +78,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setFullName(currentUser.full_name || '');
       setUsername(currentUser.username || '');
       setAvatarUrl(currentUser.avatar_url);
+      setNativeLang(currentUser.native_language || 'es');
+      setTargetLang(currentUser.target_language || 'en');
       setNewPassword('');
       setConfirmPassword('');
       setShowPassword(false);
@@ -215,7 +223,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         return;
       }
 
-      // 2. Synchronize directly with backend Express API
+      // 2. Synchronize languages in Firebase / local storage
+      await firebaseService.updateUserLanguages(nativeLang, targetLang);
+
+      // 3. Synchronize directly with backend Express API
       await backendApi
         .updateProfile(currentUser.id, {
           username: cleanUsername,
@@ -230,6 +241,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         username: cleanUsername,
         full_name: cleanFullName || currentUser.full_name,
         avatar_url: avatarUrl,
+        native_language: nativeLang,
+        target_language: targetLang,
       };
 
       setSuccessMsg('Perfil actualizado correctamente.');
@@ -460,6 +473,58 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               </View>
             </View>
 
+            {/* IDIOMAS DE LA CUENTA */}
+            <View style={[styles.passwordDivider, isLight && styles.passwordDividerLight, { marginTop: 12 }]}>
+              <Text style={styles.passwordSectionTitle}>IDIOMAS DE LA CUENTA</Text>
+              <Text style={[styles.passwordSectionHint, isLight && styles.passwordSectionHintLight]}>
+                Selecciona tu lengua materna y el idioma que estás aprendiendo
+              </Text>
+            </View>
+
+            <View style={styles.langRow}>
+              {/* Idioma Nativo */}
+              <View style={styles.langCol}>
+                <Text style={[styles.label, isLight && styles.labelLight]}>Idioma Nativo</Text>
+                <TouchableOpacity
+                  style={[styles.langSelectBtn, isLight && styles.langSelectBtnLight]}
+                  onPress={() => setPickerTarget('native')}
+                  activeOpacity={0.7}
+                  disabled={isSaving}
+                >
+                  <View style={styles.langBtnInner}>
+                    <Text style={styles.langFlag}>
+                      {SUPPORTED_LANGUAGES.find((l) => l.code === nativeLang)?.flag || '🇪🇸'}
+                    </Text>
+                    <Text style={[styles.langText, isLight && styles.langTextLight]} numberOfLines={1}>
+                      {SUPPORTED_LANGUAGES.find((l) => l.code === nativeLang)?.name || 'Español'}
+                    </Text>
+                  </View>
+                  <ChevronDown size={14} color={isLight ? '#64748b' : THEME.colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Idioma que quieres aprender */}
+              <View style={styles.langCol}>
+                <Text style={[styles.label, isLight && styles.labelLight]}>Quiero Aprender</Text>
+                <TouchableOpacity
+                  style={[styles.langSelectBtn, isLight && styles.langSelectBtnLight]}
+                  onPress={() => setPickerTarget('target')}
+                  activeOpacity={0.7}
+                  disabled={isSaving}
+                >
+                  <View style={styles.langBtnInner}>
+                    <Text style={styles.langFlag}>
+                      {SUPPORTED_LANGUAGES.find((l) => l.code === targetLang)?.flag || '🇬🇧'}
+                    </Text>
+                    <Text style={[styles.langText, isLight && styles.langTextLight]} numberOfLines={1}>
+                      {SUPPORTED_LANGUAGES.find((l) => l.code === targetLang)?.name || 'Inglés'}
+                    </Text>
+                  </View>
+                  <ChevronDown size={14} color={isLight ? '#64748b' : THEME.colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
             {/* PASSWORD SECTION */}
             <View style={[styles.passwordDivider, isLight && styles.passwordDividerLight]}>
               <Text style={styles.passwordSectionTitle}>CAMBIAR CONTRASEÑA</Text>
@@ -561,6 +626,26 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           </View>
         </View>
       </View>
+
+      <LanguagePickerModal
+        isOpen={pickerTarget !== null}
+        onClose={() => setPickerTarget(null)}
+        title={pickerTarget === 'native' ? 'Selecciona tu Idioma Nativo' : '¿Qué idioma quieres aprender?'}
+        subtitle={
+          pickerTarget === 'native'
+            ? 'Tu lengua materna para explicaciones y traducciones'
+            : 'El idioma que practicarás y perfeccionarás con la app'
+        }
+        selectedCode={pickerTarget === 'native' ? nativeLang : targetLang}
+        onSelect={(code) => {
+          if (pickerTarget === 'native') {
+            setNativeLang(code);
+          } else {
+            setTargetLang(code);
+          }
+        }}
+        isDark={!isLight}
+      />
     </Modal>
   );
 };
@@ -813,6 +898,47 @@ const styles = StyleSheet.create({
   passwordSectionHint: {
     fontSize: 10,
     color: THEME.colors.textSubtle,
+  },
+  langRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  langCol: {
+    flex: 1,
+  },
+  langSelectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    height: 44,
+  },
+  langSelectBtnLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  langBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 4,
+  },
+  langFlag: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  langText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  langTextLight: {
+    color: '#1e293b',
   },
   footer: {
     flexDirection: 'row',

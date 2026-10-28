@@ -15,6 +15,25 @@ export interface TaskItem {
   tags?: string[];
 }
 
+export interface LanguageOption {
+  code: string;
+  name: string;
+  flag: string;
+}
+
+export const SUPPORTED_LANGUAGES: LanguageOption[] = [
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'en', name: 'Inglés', flag: '🇬🇧' },
+  { code: 'fr', name: 'Francés', flag: '🇫🇷' },
+  { code: 'de', name: 'Alemán', flag: '🇩🇪' },
+  { code: 'it', name: 'Italiano', flag: '🇮🇹' },
+  { code: 'pt', name: 'Portugués', flag: '🇵🇹' },
+  { code: 'ru', name: 'Ruso', flag: '🇷🇺' },
+  { code: 'zh', name: 'Chino', flag: '🇨🇳' },
+  { code: 'ja', name: 'Japonés', flag: '🇯🇵' },
+  { code: 'ar', name: 'Árabe', flag: '🇸🇦' },
+];
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -24,6 +43,8 @@ export interface UserProfile {
   avatar_url?: string;
   role?: string;
   created_at?: string;
+  native_language?: string;
+  target_language?: string;
 }
 
 
