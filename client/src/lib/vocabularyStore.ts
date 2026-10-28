@@ -56,6 +56,19 @@ class VocabularyService {
   private unsubscribeCategories?: () => void;
   private pendingSyncIds: Set<string> = new Set();
   private deletedWordIds: Set<string> = new Set();
+  private activeLanguage: string = 'en';
+
+  public setActiveLanguage(lang: string) {
+    const clean = (lang || 'en').trim().toLowerCase();
+    if (this.activeLanguage !== clean) {
+      this.activeLanguage = clean;
+      this.notify();
+    }
+  }
+
+  public getActiveLanguage(): string {
+    return this.activeLanguage || 'en';
+  }
 
   constructor() {
     this.init();
@@ -397,23 +410,42 @@ class VocabularyService {
     this.notify();
   }
 
-  public getWords(): WordItem[] {
+  public getWords(language?: string): WordItem[] {
+    const target = (language || this.activeLanguage || 'en').trim().toLowerCase();
+    return this.words.filter((w) => (w.language || 'en').toLowerCase() === target);
+  }
+
+  public getAllWords(): WordItem[] {
     return [...this.words];
   }
 
-  public getCategories(): CategoryItem[] {
+  public getCategories(language?: string): CategoryItem[] {
+    const target = (language || this.activeLanguage || 'en').trim().toLowerCase();
+    const targetWords = this.getWords(target);
+
     // 1. Ensure internal list is strictly deduplicated
     this.customCategories = deduplicateCategories(this.customCategories);
 
-    // 2. Ensure any words with categoryGroup / categoryGroups are represented
-    for (const w of this.words) {
+    // 2. Filter categories relevant to this language
+    const relevantCats: CategoryItem[] = [];
+    for (const c of this.customCategories) {
+      if (!c.language || c.language.toLowerCase() === target) {
+        relevantCats.push({
+          ...c,
+          subcategories: c.subcategories ? [...c.subcategories] : [],
+        });
+      }
+    }
+
+    // 3. Ensure any words in targetWords with categoryGroup / categoryGroups are represented
+    for (const w of targetWords) {
       const groups = getWordCategories(w);
       const subs = getWordSubcategories(w);
       for (const groupRaw of groups) {
         const groupTrimmed = groupRaw.trim();
         if (!groupTrimmed) continue;
 
-        let cat = this.customCategories.find(
+        let cat = relevantCats.find(
           (c) => c.name.trim().toLowerCase() === groupTrimmed.toLowerCase()
         );
         if (!cat) {
@@ -423,8 +455,9 @@ class VocabularyService {
             icon: 'Folder',
             count: 0,
             subcategories: [],
+            language: target,
           };
-          this.customCategories.push(cat);
+          relevantCats.push(cat);
         }
 
         for (const subRaw of subs) {
@@ -445,11 +478,11 @@ class VocabularyService {
       }
     }
 
-    // 3. Final deduplication pass to guarantee uniqueness
-    this.customCategories = deduplicateCategories(this.customCategories);
+    // 4. Final deduplication pass to guarantee uniqueness
+    const deduplicated = deduplicateCategories(relevantCats);
 
-    return this.customCategories.map((cat) => {
-      const groupWords = this.words.filter((w) =>
+    return deduplicated.map((cat) => {
+      const groupWords = targetWords.filter((w) =>
         getWordCategories(w).some(
           (g) => g.trim().toLowerCase() === cat.name.trim().toLowerCase()
         )
@@ -474,14 +507,15 @@ class VocabularyService {
     });
   }
 
-  public addCategory(name: string, initialSubcategories: string[] = []): CategoryItem {
+  public addCategory(name: string, initialSubcategories: string[] = [], language?: string): CategoryItem {
     const trimmed = name.trim();
     if (!trimmed) throw new Error('El nombre de la categoría es requerido.');
+    const lang = (language || this.activeLanguage || 'en').trim().toLowerCase();
 
     this.customCategories = deduplicateCategories(this.customCategories);
 
     const existing = this.customCategories.find(
-      (c) => c.name.trim().toLowerCase() === trimmed.toLowerCase()
+      (c) => c.name.trim().toLowerCase() === trimmed.toLowerCase() && (!c.language || c.language.toLowerCase() === lang)
     );
     if (existing) {
       if (initialSubcategories && initialSubcategories.length > 0) {
@@ -508,6 +542,7 @@ class VocabularyService {
       icon: 'Folder',
       count: 0,
       subcategories: validSubs,
+      language: lang,
     };
     this.customCategories = deduplicateCategories([...this.customCategories, newCat]);
     this.saveCategories();
@@ -743,9 +778,11 @@ class VocabularyService {
     return { deletedWordsCount };
   }
 
-  public addWord(wordData: Omit<WordItem, 'id'>): WordItem {
+  public addWord(wordData: Omit<WordItem, 'id'>, language?: string): WordItem {
+    const lang = (wordData.language || language || this.activeLanguage || 'en').trim().toLowerCase();
     const newWord: WordItem = {
       ...wordData,
+      language: lang,
       id: `word_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString(),
       srsIntervalDays: wordData.srsIntervalDays ?? 1,

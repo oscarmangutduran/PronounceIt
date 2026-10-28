@@ -45,6 +45,7 @@ export interface UserProfile {
   created_at?: string;
   native_language?: string;
   target_language?: string;
+  learning_languages?: string[];
 }
 
 
@@ -115,6 +116,7 @@ export interface WordItem {
   srsIntervalDays?: number;
   lastReviewedAt?: string;
   createdAt?: string;
+  language?: string;
 }
 
 export interface CategoryItem {
@@ -127,6 +129,7 @@ export interface CategoryItem {
     name: string;
     count: number;
   }[];
+  language?: string;
 }
 
 export type MainNavTab = 'vocabulary' | 'flashcards' | 'test' | 'stats' | 'settings';

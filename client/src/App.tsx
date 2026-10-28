@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -80,9 +80,39 @@ function MainApp() {
 
   const [activeTab, setActiveTab] = useState<MainNavTab>('vocabulary');
 
-  // Words & Categories
+  // Active learning language board & multi-language management
+  const [activeLanguage, setActiveLanguage] = useState<string>(() => {
+    return firebaseService.getCurrentUser()?.target_language || appStorage.getItem('pronounceit_current_target_lang') || 'en';
+  });
+
+  // Keep active language synced if user profile changes
+  useEffect(() => {
+    if (currentUser?.target_language) {
+      setActiveLanguage(currentUser.target_language);
+      vocabService.setActiveLanguage(currentUser.target_language);
+    }
+  }, [currentUser?.target_language]);
+
+  const learningLanguages = useMemo(() => {
+    const userLangs = currentUser?.learning_languages;
+    if (Array.isArray(userLangs) && userLangs.length > 0) {
+      return Array.from(new Set(userLangs));
+    }
+    return [activeLanguage || 'en'];
+  }, [currentUser?.learning_languages, activeLanguage]);
+
+  // Words & Categories (Isolated board per active learning language)
   const [words, setWords] = useState<WordItem[]>([]);
   const [categories, setCategories] = useState(vocabService.getCategories());
+
+  const currentWords = useMemo(() => {
+    return words.filter((w) => (w.language || 'en').toLowerCase() === activeLanguage.toLowerCase());
+  }, [words, activeLanguage]);
+
+  const currentCategories = useMemo(() => {
+    return vocabService.getCategories(activeLanguage);
+  }, [categories, words, activeLanguage]);
+
   const [selectedFilter, setSelectedFilter] = useState<SelectedFilter>({ type: 'all' });
   const [globalSearch, setGlobalSearch] = useState('');
 
@@ -447,12 +477,30 @@ function MainApp() {
     }
   };
 
+  const handleSelectLanguage = (langCode: string) => {
+    setActiveLanguage(langCode);
+    vocabService.setActiveLanguage(langCode);
+    firebaseService.switchLearningLanguage(langCode);
+    setSelectedFilter({ type: 'all' });
+  };
+
+  const handleAddLanguage = (newLang: string) => {
+    setActiveLanguage(newLang);
+    vocabService.setActiveLanguage(newLang);
+    firebaseService.addLearningLanguage(newLang);
+    setSelectedFilter({ type: 'all' });
+  };
+
   const handleSaveWord = (wordData: Omit<WordItem, 'id'>) => {
+    const dataWithLang: Omit<WordItem, 'id'> = {
+      ...wordData,
+      language: wordData.language || activeLanguage || 'en',
+    };
     if (editingWord) {
-      vocabService.updateWord(editingWord.id, wordData);
+      vocabService.updateWord(editingWord.id, dataWithLang);
       setEditingWord(null);
     } else {
-      vocabService.addWord(wordData);
+      vocabService.addWord(dataWithLang, activeLanguage);
     }
   };
 
@@ -476,16 +524,16 @@ function MainApp() {
   const handleImportWords = (newWords: WordItem[]) => {
     newWords.forEach((nw) => {
       if (nw.word && nw.translation) {
-        vocabService.addWord(nw);
+        vocabService.addWord({ ...nw, language: nw.language || activeLanguage }, activeLanguage);
       }
     });
   };
 
-  // Counts for filters
-  const totalWords = words.length;
-  const favoritesCount = words.filter((w) => w.isFavorite).length;
-  const reviewCount = words.filter((w) => w.status === 'en_repaso').length;
-  const masteredCount = words.filter((w) => w.status === 'dominada').length;
+  // Counts for filters (isolated per active learning board)
+  const totalWords = currentWords.length;
+  const favoritesCount = currentWords.filter((w) => w.isFavorite).length;
+  const reviewCount = currentWords.filter((w) => w.status === 'en_repaso').length;
+  const masteredCount = currentWords.filter((w) => w.status === 'dominada').length;
 
   // Initializing Splash Screen (avoids flashing login if session is restored from disk)
   if (isInitializing) {
@@ -558,6 +606,10 @@ function MainApp() {
         onOpenEditProfile={() => setIsEditProfileOpen(true)}
         isDark={isDark}
         onToggleTheme={handleToggleTheme}
+        activeLanguage={activeLanguage}
+        learningLanguages={learningLanguages}
+        onSelectLanguage={handleSelectLanguage}
+        onAddLanguage={handleAddLanguage}
       />
 
       {/* Workspace Content */}
@@ -573,7 +625,7 @@ function MainApp() {
           {activeTab === 'vocabulary' && (
             <View style={showSidebarSplit ? styles.vocabularyRowDesktop : styles.vocabularyColumnMobile}>
               <SidebarCategories
-                categories={categories}
+                categories={currentCategories}
                 selectedFilter={selectedFilter}
                 onSelectFilter={setSelectedFilter}
                 totalWords={totalWords}
@@ -588,7 +640,7 @@ function MainApp() {
               />
 
               <VocabularyTableView
-                words={words}
+                words={currentWords}
                 selectedFilter={selectedFilter}
                 onOpenAddCategoryModal={() => setIsCategoryModalOpen(true)}
                 onOpenAddModal={() => {
@@ -608,7 +660,7 @@ function MainApp() {
 
           {activeTab === 'flashcards' && (
             <FlashcardPracticeView
-              words={words}
+              words={currentWords}
               onBackToVocabulary={() => setActiveTab('vocabulary')}
               onUpdateStatus={handleUpdateStatus}
               isDark={isDark}
@@ -618,14 +670,14 @@ function MainApp() {
           {activeTab === 'test' && (
             <View style={styles.testSectionContainer}>
               <TestView
-                words={words}
+                words={currentWords}
                 onBackToVocabulary={() => setActiveTab('vocabulary')}
                 isDark={isDark}
               />
             </View>
           )}
 
-          {activeTab === 'stats' && <StatsDashboardView words={words} isDark={isDark} />}
+          {activeTab === 'stats' && <StatsDashboardView words={currentWords} isDark={isDark} />}
 
           {activeTab === 'settings' && (
             <View style={styles.settingsSectionContainer}>
@@ -833,7 +885,7 @@ function MainApp() {
           }}
           onSave={handleSaveWord}
           initialWord={editingWord}
-          categories={categories}
+          categories={currentCategories}
           defaultCategoryGroup={
             selectedFilter.type === 'category' ? selectedFilter.group : undefined
           }
@@ -849,7 +901,7 @@ function MainApp() {
         <ExportImportModal
           isOpen={isExportModalOpen}
           onClose={() => setIsExportModalOpen(false)}
-          words={words}
+          words={currentWords}
           onImportWords={handleImportWords}
           isDark={isDark}
         />
@@ -873,10 +925,10 @@ function MainApp() {
           mode="create_category"
           initialValue=""
           isDark={isDark}
-          existingCategories={categories.map((c) => c.name)}
+          existingCategories={currentCategories.map((c) => c.name)}
           onClose={() => setIsCategoryModalOpen(false)}
           onSubmit={(name, subcategories) => {
-            const created = vocabService.addCategory(name, subcategories || []);
+            const created = vocabService.addCategory(name, subcategories || [], activeLanguage);
             setSelectedFilter({ type: 'category', group: created.name });
             setIsCategoryModalOpen(false);
           }}

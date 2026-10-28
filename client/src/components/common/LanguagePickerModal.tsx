@@ -18,7 +18,7 @@ interface LanguagePickerModalProps {
   onClose: () => void;
   title: string;
   subtitle?: string;
-  selectedCode: string;
+  selectedCode?: string;
   onSelect: (code: string) => void;
   isDark?: boolean;
 }
@@ -28,7 +28,7 @@ export const LanguagePickerModal: React.FC<LanguagePickerModalProps> = ({
   onClose,
   title,
   subtitle,
-  selectedCode,
+  selectedCode = '',
   onSelect,
   isDark = true,
 }) => {

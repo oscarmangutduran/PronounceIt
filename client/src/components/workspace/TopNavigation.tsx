@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,13 +23,16 @@ import {
   UserX,
   Sun,
   Moon,
+  Plus,
 } from 'lucide-react-native';
-import { UserProfile, MainNavTab } from '../../types';
+import { UserProfile, MainNavTab, SUPPORTED_LANGUAGES } from '../../types';
 import { THEME } from '../../theme';
 import { PronounceItLogo } from '../common/PronounceItLogo';
 import { useResponsive } from '../../lib/useResponsive';
 import { networkService } from '../../lib/networkService';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { CountryFlag } from '../common/CountryFlag';
+import { LanguagePickerModal } from '../common/LanguagePickerModal';
 
 interface TopNavigationProps {
   activeTab: MainNavTab;
@@ -42,6 +45,10 @@ interface TopNavigationProps {
   onOpenEditProfile: () => void;
   isDark?: boolean;
   onToggleTheme?: () => void;
+  activeLanguage?: string;
+  learningLanguages?: string[];
+  onSelectLanguage?: (langCode: string) => void;
+  onAddLanguage?: (langCode: string) => void;
 }
 
 export const TopNavigation: React.FC<TopNavigationProps> = ({
@@ -55,10 +62,15 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   onOpenEditProfile,
   isDark = true,
   onToggleTheme,
+  activeLanguage,
+  learningLanguages,
+  onSelectLanguage,
+  onAddLanguage,
 }) => {
   const { showTopNavTabs, isPhone } = useResponsive();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showAddLangModal, setShowAddLangModal] = useState(false);
   const [isOnline, setIsOnline] = useState(networkService.isOnline());
 
   useEffect(() => {
@@ -74,6 +86,17 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
     const raw = currentUser?.full_name?.trim() || currentUser?.username?.trim() || currentUser?.email?.trim() || 'U';
     return (raw.charAt(0) || 'U').toUpperCase();
   })();
+
+  const activeLang = activeLanguage || currentUser?.target_language || 'en';
+  const langList = useMemo(() => {
+    if (learningLanguages && learningLanguages.length > 0) {
+      return Array.from(new Set(learningLanguages));
+    }
+    if (currentUser?.learning_languages && currentUser.learning_languages.length > 0) {
+      return Array.from(new Set(currentUser.learning_languages));
+    }
+    return [activeLang];
+  }, [learningLanguages, currentUser?.learning_languages, activeLang]);
 
   return (
     <View style={[styles.container, !isDark && styles.containerLight, { paddingTop: topPadding }]}>
@@ -232,8 +255,40 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
         </View>
       )}
 
-      {/* RIGHT: Search + User Avatar */}
+      {/* RIGHT: Language Switcher Flags + Add (+) Button + Offline Badge + User Avatar */}
       <View style={styles.rightActions}>
+        {/* Language Switcher Bar (flags of learning languages + plus button to add more) */}
+        <View style={[styles.langSwitcherContainer, !isDark && styles.langSwitcherContainerLight]}>
+          {langList.map((langCode) => {
+            const isActive = langCode.toLowerCase() === activeLang.toLowerCase();
+            return (
+              <TouchableOpacity
+                key={langCode}
+                style={[
+                  styles.langFlagBtn,
+                  !isDark && styles.langFlagBtnLight,
+                  isActive && styles.langFlagBtnActive,
+                  isActive && !isDark && styles.langFlagBtnActiveLight,
+                ]}
+                onPress={() => onSelectLanguage?.(langCode)}
+                activeOpacity={0.7}
+                accessibilityLabel={`Cambiar idioma a ${langCode}`}
+              >
+                <CountryFlag code={langCode} size={20} />
+                {isActive && <View style={styles.langActiveDot} />}
+              </TouchableOpacity>
+            );
+          })}
+          <TouchableOpacity
+            style={[styles.langAddBtn, !isDark && styles.langAddBtnLight]}
+            onPress={() => setShowAddLangModal(true)}
+            activeOpacity={0.7}
+            accessibilityLabel="Agregar nuevo idioma"
+          >
+            <Plus size={14} color={!isDark ? '#475569' : '#cbd5e1'} strokeWidth={2.4} />
+          </TouchableOpacity>
+        </View>
+
         {/* Theme Toggle Mobile */}
         {!showTopNavTabs && (
           <TouchableOpacity
@@ -396,6 +451,19 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
         }}
         onCancel={() => setShowDeleteModal(false)}
       />
+
+      {/* Modal para agregar nuevo idioma de aprendizaje */}
+      <LanguagePickerModal
+        isOpen={showAddLangModal}
+        onClose={() => setShowAddLangModal(false)}
+        selectedCode={activeLang}
+        onSelect={(code) => {
+          setShowAddLangModal(false);
+          onAddLanguage?.(code);
+        }}
+        title="Agregar idioma para aprender"
+        isDark={isDark}
+      />
     </View>
   );
 };
@@ -496,7 +564,73 @@ const styles = StyleSheet.create({
   rightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 12,
+  },
+  langSwitcherContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  langSwitcherContainerLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  langFlagBtn: {
+    position: 'relative',
+    padding: 3,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer', transition: 'all 0.15s ease' } as any) : {}),
+  },
+  langFlagBtnLight: {
+    borderColor: 'transparent',
+  },
+  langFlagBtnActive: {
+    borderColor: THEME.colors.crimson,
+    backgroundColor: 'rgba(230, 46, 76, 0.15)',
+    shadowColor: THEME.colors.crimson,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  langFlagBtnActiveLight: {
+    borderColor: THEME.colors.crimson,
+    backgroundColor: 'rgba(230, 46, 76, 0.1)',
+  },
+  langActiveDot: {
+    position: 'absolute',
+    bottom: -3,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: THEME.colors.crimson,
+  },
+  langAddBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer', transition: 'all 0.15s ease' } as any) : {}),
+  },
+  langAddBtnLight: {
+    borderColor: 'rgba(0, 0, 0, 0.22)',
+    backgroundColor: '#ffffff',
   },
   userWrapper: {
     position: 'relative',

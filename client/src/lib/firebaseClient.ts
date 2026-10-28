@@ -59,6 +59,9 @@ export interface StoredAccount {
   native_language?: string;
   targetLanguage?: string;
   target_language?: string;
+  learningLanguage?: string;
+  learningLanguages?: string[];
+  learning_languages?: string[];
   [key: string]: any;
 }
 
@@ -781,6 +784,7 @@ class FirebaseService {
         created_at: foundAccount.createdAt,
         native_language: foundAccount.nativeLanguage || foundAccount.native_language || 'es',
         target_language: foundAccount.targetLanguage || foundAccount.target_language || 'en',
+        learning_languages: foundAccount.learningLanguages || foundAccount.learning_languages || [foundAccount.targetLanguage || foundAccount.target_language || 'en'],
       };
 
       this.currentUser = profile;
@@ -933,6 +937,8 @@ class FirebaseService {
       native_language: cleanNative,
       targetLanguage: cleanTarget,
       target_language: cleanTarget,
+      learningLanguages: [cleanTarget],
+      learning_languages: [cleanTarget],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -952,6 +958,7 @@ class FirebaseService {
             must_change_password: mustChange,
             native_language: cleanNative,
             target_language: cleanTarget,
+            learning_languages: [cleanTarget],
             created_at: newAccount.createdAt,
             updated_at: newAccount.updatedAt,
           }, { merge: true }),
@@ -964,6 +971,7 @@ class FirebaseService {
             must_change_password: mustChange,
             native_language: cleanNative,
             target_language: cleanTarget,
+            learning_languages: [cleanTarget],
             created_at: newAccount.createdAt,
             updated_at: newAccount.updatedAt,
           }, { merge: true }),
@@ -1019,11 +1027,13 @@ class FirebaseService {
       created_at: newAccount.createdAt,
       native_language: cleanNative,
       target_language: cleanTarget,
+      learning_languages: [cleanTarget],
     };
 
     try {
       appStorage.setItem('pronounceit_current_native_lang', cleanNative);
       appStorage.setItem('pronounceit_current_target_lang', cleanTarget);
+      appStorage.setItem('pronounceit_learning_languages', JSON.stringify([cleanTarget]));
     } catch {}
 
     this.currentUser = userProfile;
@@ -1216,6 +1226,69 @@ class FirebaseService {
         await Promise.all(writes);
       } catch (e) {
         console.warn('[FirebaseClient] Error actualizando idiomas en Firestore:', e);
+      }
+    }
+    this.notify();
+    return true;
+  }
+
+  public async addLearningLanguage(langCode: string): Promise<boolean> {
+    const cleanCode = (langCode || 'en').trim().toLowerCase();
+    const current = this.currentUser;
+    const existing: string[] = (current?.learning_languages && current.learning_languages.length > 0)
+      ? [...current.learning_languages]
+      : [current?.target_language || 'en'];
+    
+    if (!existing.includes(cleanCode)) {
+      existing.push(cleanCode);
+    }
+    return this.switchLearningLanguage(cleanCode, existing);
+  }
+
+  public async switchLearningLanguage(targetLang: string, customList?: string[]): Promise<boolean> {
+    const cleanTarget = (targetLang || 'en').trim().toLowerCase();
+    if (!this.currentUser) {
+      try {
+        appStorage.setItem('pronounceit_current_target_lang', cleanTarget);
+        if (customList) {
+          appStorage.setItem('pronounceit_learning_languages', JSON.stringify(customList));
+        }
+      } catch {}
+      this.notify();
+      return true;
+    }
+
+    const current = this.currentUser;
+    const uid = current.id;
+    const email = current.email?.toLowerCase();
+    const existing: string[] = customList || (current.learning_languages && current.learning_languages.length > 0
+      ? [...current.learning_languages]
+      : [current.target_language || 'en']);
+    
+    if (!existing.includes(cleanTarget)) {
+      existing.push(cleanTarget);
+    }
+
+    current.target_language = cleanTarget;
+    current.learning_languages = existing;
+    this.persistCurrentUser();
+
+    try {
+      appStorage.setItem('pronounceit_current_target_lang', cleanTarget);
+      appStorage.setItem('pronounceit_learning_languages', JSON.stringify(existing));
+    } catch {}
+
+    if (this.db) {
+      try {
+        const writes = [
+          setDoc(doc(this.db, 'users', uid), { target_language: cleanTarget, learning_languages: existing }, { merge: true }),
+        ];
+        if (email) {
+          writes.push(setDoc(doc(this.db, 'accounts', email), { targetLanguage: cleanTarget, learningLanguages: existing }, { merge: true }));
+        }
+        await Promise.all(writes);
+      } catch (e) {
+        console.warn('[FirebaseClient] Error guardando cambio de idioma en Firestore:', e);
       }
     }
     this.notify();
@@ -1636,6 +1709,7 @@ class FirebaseService {
       srsIntervalDays: data.srsIntervalDays ?? 1,
       lastReviewedAt: data.lastReviewedAt,
       createdAt: data.createdAt || new Date().toISOString(),
+      language: data.language || 'en',
     };
   }
 
@@ -1825,6 +1899,7 @@ class FirebaseService {
         categorySubs: word.categorySubs || (word.categorySub ? [word.categorySub] : ['General']),
         srsIntervalDays: word.srsIntervalDays ?? 1,
         lastReviewedAt: word.lastReviewedAt || null,
+        language: word.language || 'en',
         createdAt: word.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
