@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   backdropTouch: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   modalCard: {
     width: '100%',

@@ -10,6 +10,7 @@ import {
   Linking,
   ActivityIndicator,
   Platform,
+  Share,
 } from 'react-native';
 import {
   Settings,
@@ -30,7 +31,12 @@ import {
   Languages,
   AlertCircle,
   Apple,
+  Share2,
+  Copy,
+  ExternalLink,
+  Info,
 } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg';
 import { UserProfile } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
 import {
@@ -42,6 +48,18 @@ import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { AppleInstallModal } from '../common/AppleInstallModal';
 import { useResponsive } from '../../lib/useResponsive';
+
+const DiscordIcon = ({ size = 20, color = '#ffffff' }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+    <Path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+  </Svg>
+);
+
+const LinkedinIcon = ({ size = 20, color = '#ffffff' }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+    <Path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.75a1.62 1.62 0 1 0 0 3.24 1.62 1.62 0 0 0 0-3.24z" />
+  </Svg>
+);
 
 interface SettingsViewProps {
   currentUser: UserProfile | null;
@@ -76,6 +94,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [showClearModal, setShowClearModal] = useState(false);
   const [showAppleModal, setShowAppleModal] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [copiedDiscord, setCopiedDiscord] = useState(false);
+  const DISCORD_INVITE_URL = 'https://discord.gg/Zsv27yYBF';
+
+  const handleCopyDiscord = async () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(DISCORD_INVITE_URL);
+      } else {
+        await Share.share({
+          title: 'Únete a las salas de voz de PronounceIt en Discord',
+          message: `Únete a las salas de charla para practicar conversación en inglés con otros compañeros: ${DISCORD_INVITE_URL}`,
+          url: DISCORD_INVITE_URL,
+        });
+      }
+    } catch {}
+    setCopiedDiscord(true);
+    setTimeout(() => setCopiedDiscord(false), 2500);
+  };
+
+  const handleOpenDiscord = () => {
+    Linking.openURL(DISCORD_INVITE_URL).catch(() => {});
+  };
+
+  const [copiedLinkedin, setCopiedLinkedin] = useState(false);
+  const LINKEDIN_GROUP_URL = 'https://www.linkedin.com/groups/42835427/';
+
+  const handleCopyLinkedin = async () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(LINKEDIN_GROUP_URL);
+      } else {
+        await Share.share({
+          title: 'Únete a la comunidad de PronounceIt en LinkedIn',
+          message: `Únete a nuestro grupo en LinkedIn para conectar con otros estudiantes y profesionales: ${LINKEDIN_GROUP_URL}`,
+          url: LINKEDIN_GROUP_URL,
+        });
+      }
+    } catch {}
+    setCopiedLinkedin(true);
+    setTimeout(() => setCopiedLinkedin(false), 2500);
+  };
+
+  const handleOpenLinkedin = () => {
+    Linking.openURL(LINKEDIN_GROUP_URL).catch(() => {});
+  };
 
   const handleUpdateRate = (rate: number) => {
     const updated = { ...audioSettings, rate };
@@ -354,6 +417,160 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </Text>
             </View>
           ) : null}
+        </View>
+      </View>
+
+      {/* Conéctate con otros alumnos (Discord) */}
+      <View style={[styles.discordCard, !isDark && styles.discordCardLight]}>
+        {/* Encabezado: Icono Discord + Título + Badge + Subtítulo */}
+        <View style={styles.discordHeaderRow}>
+          <View style={styles.discordIconBadge}>
+            <DiscordIcon size={24} color="#ffffff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={styles.discordTitleRow}>
+              <Text style={[styles.discordTitle, !isDark && styles.titleLight]}>
+                Conéctate con otros alumnos
+              </Text>
+              <View style={[styles.discordPillBadge, !isDark && styles.discordPillBadgeLight]}>
+                <View style={styles.discordPillDot} />
+                <Text style={styles.discordPillText}>Salas de voz 24/7</Text>
+              </View>
+            </View>
+            <Text style={[styles.discordDescription, !isDark && styles.discordDescriptionLight]}>
+              Únete a las salas de charla para practicar conversación en inglés con otros compañeros. Comparte este enlace de invitación con otros alumnos para que se unan a las salas.
+            </Text>
+          </View>
+        </View>
+
+        {/* Fila del enlace para compartir */}
+        <View style={styles.discordShareBlock}>
+          <View style={styles.discordShareLabelRow}>
+            <Share2 size={16} color={!isDark ? '#4f46e5' : '#818cf8'} style={{ marginRight: 8 }} />
+            <Text style={[styles.discordShareLabel, !isDark && styles.discordShareLabelLight]}>
+              Enlace para compartir e invitar a otros alumnos:
+            </Text>
+          </View>
+          <Text
+            style={[styles.discordShareLink, !isDark && styles.discordShareLinkLight]}
+            selectable
+          >
+            {DISCORD_INVITE_URL}
+          </Text>
+        </View>
+
+        {/* Botones de acción */}
+        <View style={styles.discordActionsRow}>
+          <TouchableOpacity
+            style={[styles.discordCopyBtn, !isDark && styles.discordCopyBtnLight]}
+            onPress={handleCopyDiscord}
+            activeOpacity={0.8}
+          >
+            {copiedDiscord ? (
+              <Check size={16} color="#10b981" style={{ marginRight: 8 }} />
+            ) : (
+              <Copy size={16} color={!isDark ? '#334155' : '#ffffff'} style={{ marginRight: 8 }} />
+            )}
+            <Text style={[styles.discordCopyBtnText, !isDark && styles.discordCopyBtnTextLight, copiedDiscord && { color: '#10b981' }]}>
+              {copiedDiscord ? '¡Enlace copiado!' : 'Copiar enlace'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.discordJoinBtn}
+            onPress={handleOpenDiscord}
+            activeOpacity={0.85}
+          >
+            <DiscordIcon size={18} color="#ffffff" />
+            <Text style={styles.discordJoinBtnText}>Entrar a las Salas</Text>
+            <ExternalLink size={15} color="#ffffff" style={{ marginLeft: 2 }} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Mensaje de Salas automáticas */}
+        <View style={[styles.discordInfoBox, !isDark && styles.discordInfoBoxLight]}>
+          <Info size={18} color={!isDark ? '#4f46e5' : '#818cf8'} style={{ marginTop: 1, marginRight: 10, flexShrink: 0 }} />
+          <Text style={[styles.discordInfoText, !isDark && styles.discordInfoTextLight]}>
+            <Text style={[styles.discordInfoBold, !isDark && styles.discordInfoBoldLight]}>Salas automáticas: </Text>
+            Al entrar al canal de voz maestro en Discord, se creará automáticamente vuestra propia sala privada o grupal para charlar en inglés. Comparte el enlace con tus amigos para empezar a practicar juntos.
+          </Text>
+        </View>
+      </View>
+
+      {/* Comunidad y Grupo Oficial en LinkedIn */}
+      <View style={[styles.linkedinCard, !isDark && styles.linkedinCardLight]}>
+        {/* Encabezado: Icono LinkedIn + Título + Badge + Subtítulo */}
+        <View style={styles.discordHeaderRow}>
+          <View style={styles.linkedinIconBadge}>
+            <LinkedinIcon size={24} color="#ffffff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={styles.discordTitleRow}>
+              <Text style={[styles.discordTitle, !isDark && styles.titleLight]}>
+                Comunidad en LinkedIn
+              </Text>
+              <View style={[styles.linkedinPillBadge, !isDark && styles.linkedinPillBadgeLight]}>
+                <View style={styles.discordPillDot} />
+                <Text style={styles.linkedinPillText}>Networking & Empleo</Text>
+              </View>
+            </View>
+            <Text style={[styles.discordDescription, !isDark && styles.discordDescriptionLight]}>
+              Únete a nuestro grupo oficial en LinkedIn. Comparte tus avances, debates lingüísticos, consejos de entrevistas en inglés y conecta con otros profesionales y estudiantes.
+            </Text>
+          </View>
+        </View>
+
+        {/* Fila del enlace para compartir */}
+        <View style={styles.discordShareBlock}>
+          <View style={styles.discordShareLabelRow}>
+            <Share2 size={16} color={!isDark ? '#0284c7' : '#38bdf8'} style={{ marginRight: 8 }} />
+            <Text style={[styles.discordShareLabel, !isDark && styles.discordShareLabelLight]}>
+              Enlace para compartir el grupo de LinkedIn:
+            </Text>
+          </View>
+          <Text
+            style={[styles.linkedinShareLink, !isDark && styles.linkedinShareLinkLight]}
+            selectable
+          >
+            {LINKEDIN_GROUP_URL}
+          </Text>
+        </View>
+
+        {/* Botones de acción */}
+        <View style={styles.discordActionsRow}>
+          <TouchableOpacity
+            style={[styles.discordCopyBtn, !isDark && styles.discordCopyBtnLight]}
+            onPress={handleCopyLinkedin}
+            activeOpacity={0.8}
+          >
+            {copiedLinkedin ? (
+              <Check size={16} color="#10b981" style={{ marginRight: 8 }} />
+            ) : (
+              <Copy size={16} color={!isDark ? '#334155' : '#ffffff'} style={{ marginRight: 8 }} />
+            )}
+            <Text style={[styles.discordCopyBtnText, !isDark && styles.discordCopyBtnTextLight, copiedLinkedin && { color: '#10b981' }]}>
+              {copiedLinkedin ? '¡Enlace copiado!' : 'Copiar enlace'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.linkedinJoinBtn}
+            onPress={handleOpenLinkedin}
+            activeOpacity={0.85}
+          >
+            <LinkedinIcon size={18} color="#ffffff" />
+            <Text style={styles.discordJoinBtnText}>Unirme al Grupo</Text>
+            <ExternalLink size={15} color="#ffffff" style={{ marginLeft: 2 }} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Mensaje informativo de networking */}
+        <View style={[styles.linkedinInfoBox, !isDark && styles.linkedinInfoBoxLight]}>
+          <Info size={18} color={!isDark ? '#0284c7' : '#38bdf8'} style={{ marginTop: 1, marginRight: 10, flexShrink: 0 }} />
+          <Text style={[styles.discordInfoText, !isDark && styles.discordInfoTextLight]}>
+            <Text style={[styles.discordInfoBold, !isDark && styles.discordInfoBoldLight]}>Networking profesional: </Text>
+            Conecta con otros miembros de PronounceIt, amplía tu red de contactos y comparte oportunidades para practicar inglés en entornos laborales y entrevistas.
+          </Text>
         </View>
       </View>
 
@@ -1034,6 +1251,291 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderColor: '#cbd5e1',
     color: '#0f172a',
+  },
+  // Discord Community Card
+  discordCard: {
+    backgroundColor: '#121626',
+    borderWidth: 1,
+    borderColor: 'rgba(88, 101, 242, 0.28)',
+    borderRadius: THEME.radius.lg,
+    padding: 20,
+    marginBottom: 16,
+    width: '100%',
+  },
+  discordCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(88, 101, 242, 0.25)',
+    shadowColor: '#5865F2',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  discordHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    marginBottom: 16,
+  },
+  discordIconBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#5865F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#5865F2',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  discordTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 6,
+  },
+  discordTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  discordPillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 9,
+    borderRadius: 16,
+    backgroundColor: 'rgba(88, 101, 242, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(88, 101, 242, 0.35)',
+  },
+  discordPillBadgeLight: {
+    backgroundColor: 'rgba(88, 101, 242, 0.1)',
+    borderColor: 'rgba(88, 101, 242, 0.25)',
+  },
+  discordPillDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#10b981',
+  },
+  discordPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#818cf8',
+  },
+  discordDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#94a3b8',
+  },
+  discordDescriptionLight: {
+    color: '#475569',
+  },
+  discordShareBlock: {
+    backgroundColor: 'rgba(0, 0, 0, 0.22)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+  },
+  discordShareBlockLight: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  discordShareLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  discordShareLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  discordShareLabelLight: {
+    color: '#0f172a',
+  },
+  discordShareLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#818cf8',
+    marginLeft: 24,
+  },
+  discordShareLinkLight: {
+    color: '#4f46e5',
+  },
+  discordActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  discordCopyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  discordCopyBtnLight: {
+    borderColor: '#cbd5e1',
+    backgroundColor: '#ffffff',
+  },
+  discordCopyBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  discordCopyBtnTextLight: {
+    color: '#1e293b',
+  },
+  discordJoinBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    backgroundColor: '#5865F2',
+    gap: 8,
+    shadowColor: '#5865F2',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  discordJoinBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  discordInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(88, 101, 242, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(88, 101, 242, 0.22)',
+    borderRadius: 10,
+    padding: 12,
+  },
+  discordInfoBoxLight: {
+    backgroundColor: 'rgba(88, 101, 242, 0.06)',
+    borderColor: 'rgba(88, 101, 242, 0.2)',
+  },
+  discordInfoText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#94a3b8',
+  },
+  discordInfoTextLight: {
+    color: '#475569',
+  },
+  discordInfoBold: {
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  discordInfoBoldLight: {
+    color: '#0f172a',
+  },
+  // LinkedIn Community Card
+  linkedinCard: {
+    backgroundColor: '#0c1322',
+    borderWidth: 1,
+    borderColor: 'rgba(10, 102, 194, 0.35)',
+    borderRadius: THEME.radius.lg,
+    padding: 20,
+    marginBottom: 16,
+    width: '100%',
+  },
+  linkedinCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(10, 102, 194, 0.25)',
+    shadowColor: '#0A66C2',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  linkedinIconBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#0A66C2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0A66C2',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  linkedinPillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 9,
+    borderRadius: 16,
+    backgroundColor: 'rgba(10, 102, 194, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(10, 102, 194, 0.35)',
+  },
+  linkedinPillBadgeLight: {
+    backgroundColor: 'rgba(10, 102, 194, 0.1)',
+    borderColor: 'rgba(10, 102, 194, 0.25)',
+  },
+  linkedinPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#38bdf8',
+  },
+  linkedinShareLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#38bdf8',
+    marginLeft: 24,
+  },
+  linkedinShareLinkLight: {
+    color: '#0284c7',
+  },
+  linkedinJoinBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    backgroundColor: '#0A66C2',
+    gap: 8,
+    shadowColor: '#0A66C2',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  linkedinInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(10, 102, 194, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(10, 102, 194, 0.25)',
+    borderRadius: 10,
+    padding: 12,
+  },
+  linkedinInfoBoxLight: {
+    backgroundColor: 'rgba(10, 102, 194, 0.06)',
+    borderColor: 'rgba(10, 102, 194, 0.2)',
   },
 });
 
