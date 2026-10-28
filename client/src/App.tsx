@@ -714,12 +714,12 @@ function MainApp() {
         {!showBottomBar && (
           <View style={[styles.footerContainer, !isDark && styles.footerContainerLight]}>
             <Text style={[styles.footerCopyright, !isDark && styles.footerTextBlack]}>
-              © PronounceIt v1.6.9 | Desarrollado con ❤️ Oscar Mangut Dev
+              © PronounceIt v1.7.0 | Desarrollado con ❤️ Oscar Mangut Dev
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <TouchableOpacity
                 style={[styles.footerMobileBtn, !isDark && styles.footerMobileBtnLight]}
-                onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.9/PronounceIt-v1.6.9.apk')}
+                onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.7.0/PronounceIt-v1.7.0.apk')}
                 activeOpacity={0.8}
               >
                 <Smartphone size={15} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />

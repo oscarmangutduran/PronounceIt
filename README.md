@@ -2,7 +2,7 @@
 
 Plataforma inteligente de aprendizaje y práctica de pronunciación en inglés con asignación gramatical automática, tests interactivos, flashcards y verbos irregulares.
 
-[![Download Android APK](https://img.shields.io/badge/Download-Android%20APK%20(v1.6.9)-success?style=for-the-badge&logo=android)](https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.9/PronounceIt-v1.6.9.apk)
+[![Download Android APK](https://img.shields.io/badge/Download-Android%20APK%20(v1.7.0)-success?style=for-the-badge&logo=android)](https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.7.0/PronounceIt-v1.7.0.apk)
 [![Web Live](https://img.shields.io/badge/Web%20App-Online-blue?style=for-the-badge&logo=vercel)](https://pronounceit-sand.vercel.app)
 
 ---
@@ -11,8 +11,8 @@ Plataforma inteligente de aprendizaje y práctica de pronunciación en inglés c
 
 Puedes descargar la última versión de la aplicación para instalarla directamente en tu teléfono o tablet Android:
 
-- **Descarga directa del APK:** [PronounceIt-v1.6.9.apk](https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.9/PronounceIt-v1.6.9.apk)
-- **GitHub Release Oficial:** [Release v1.6.9](https://github.com/oscarmangutduran/PronounceIt/releases/tag/v1.6.9)
+- **Descarga directa del APK:** [PronounceIt-v1.7.0.apk](https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.7.0/PronounceIt-v1.7.0.apk)
+- **GitHub Release Oficial:** [Release v1.7.0](https://github.com/oscarmangutduran/PronounceIt/releases/tag/v1.7.0)
 
 ---
 

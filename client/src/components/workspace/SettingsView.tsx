@@ -936,14 +936,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 0 }]}>
                 {Platform.OS === 'web'
                   ? 'Instala la app oficial en tu Android (APK) o dispositivo Apple (iOS)'
-                  : 'Descarga e instala la última versión oficial en tu Android (v1.6.9 APK)'}
+                  : 'Descarga e instala la última versión oficial en tu Android (v1.7.0 APK)'}
               </Text>
             </View>
           </View>
           <View style={styles.downloadButtonsRow}>
             <TouchableOpacity
               style={styles.downloadApkBtn}
-              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.6.9/PronounceIt-v1.6.9.apk')}
+              onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.7.0/PronounceIt-v1.7.0.apk')}
               activeOpacity={0.85}
             >
               <Download size={15} color="#ffffff" style={{ marginRight: 6 }} />
