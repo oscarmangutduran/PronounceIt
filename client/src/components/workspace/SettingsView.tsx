@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,8 @@ import {
   Send,
   Instagram,
   Plus,
+  Radio,
+  Headphones,
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { UserProfile, SUPPORTED_LANGUAGES } from '../../types';
@@ -126,26 +128,41 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [showClearModal, setShowClearModal] = useState(false);
   const [showAppleModal, setShowAppleModal] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
-  const [copiedDiscord, setCopiedDiscord] = useState(false);
+
+  // Discord State & Classrooms by Language
+  const [selectedDiscordLang, setSelectedDiscordLang] = useState<string>(
+    activeLanguage || (languagesList && languagesList[0]) || 'en'
+  );
+  const [copiedDiscordLang, setCopiedDiscordLang] = useState<string | null>(null);
+  const [showAllDiscordRooms, setShowAllDiscordRooms] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (activeLanguage) {
+      setSelectedDiscordLang(activeLanguage);
+    }
+  }, [activeLanguage]);
+
   const DISCORD_INVITE_URL = 'https://discord.gg/Zsv27yYBF';
 
-  const handleCopyDiscord = async () => {
+  const handleCopyDiscord = async (langCode?: string) => {
+    const targetCode = langCode || selectedDiscordLang;
+    const targetName = getLangName(targetCode);
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(DISCORD_INVITE_URL);
       } else {
         await Share.share({
-          title: 'Únete a las salas de voz de PronounceIt en Discord',
-          message: `Únete a las salas de charla para practicar conversación en inglés con otros compañeros: ${DISCORD_INVITE_URL}`,
+          title: `Aula de ${targetName} - Discord PronounceIt`,
+          message: `Únete al aula de voz de ${targetName} en Discord para practicar pronunciación y conversación: ${DISCORD_INVITE_URL}`,
           url: DISCORD_INVITE_URL,
         });
       }
     } catch {}
-    setCopiedDiscord(true);
-    setTimeout(() => setCopiedDiscord(false), 2500);
+    setCopiedDiscordLang(targetCode);
+    setTimeout(() => setCopiedDiscordLang(null), 2500);
   };
 
-  const handleOpenDiscord = () => {
+  const handleOpenDiscord = (langCode?: string) => {
     Linking.openURL(DISCORD_INVITE_URL).catch(() => {});
   };
 
@@ -583,7 +600,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </View>
       </View>
 
-      {/* Conéctate con otros alumnos (Discord) */}
+      {/* Conéctate con otros alumnos - Aulas de Discord Separadas por Idioma */}
       <View style={[styles.discordCard, !isDark && styles.discordCardLight]}>
         {/* Encabezado: Icono Discord + Título + Badge + Subtítulo */}
         <View style={styles.discordHeaderRow}>
@@ -593,69 +610,160 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <View style={{ flex: 1 }}>
             <View style={styles.discordTitleRow}>
               <Text style={[styles.discordTitle, !isDark && styles.titleLight]}>
-                Conéctate con otros alumnos
+                Aulas de Voz en Discord
               </Text>
               <View style={[styles.discordPillBadge, !isDark && styles.discordPillBadgeLight]}>
                 <View style={styles.discordPillDot} />
-                <Text style={styles.discordPillText}>Salas de voz 24/7</Text>
+                <Text style={styles.discordPillText}>Salas 24/7 por idioma</Text>
               </View>
             </View>
             <Text style={[styles.discordDescription, !isDark && styles.discordDescriptionLight]}>
-              Únete a las salas de charla para practicar conversación en inglés con otros compañeros. Comparte este enlace de invitación con otros alumnos para que se unan a las salas.
+              Aulas de conversación organizadas y separadas por idioma. Practica fluidez, fonética y conversación en tiempo real con otros compañeros en el aula correspondiente.
             </Text>
           </View>
         </View>
 
-        {/* Fila del enlace para compartir */}
-        <View style={styles.discordShareBlock}>
-          <View style={styles.discordShareLabelRow}>
-            <Share2 size={16} color={!isDark ? '#4f46e5' : '#818cf8'} style={{ marginRight: 8 }} />
-            <Text style={[styles.discordShareLabel, !isDark && styles.discordShareLabelLight]}>
-              Enlace para compartir e invitar a otros alumnos:
-            </Text>
-          </View>
-          <Text
-            style={[styles.discordShareLink, !isDark && styles.discordShareLinkLight]}
-            selectable
-          >
-            {DISCORD_INVITE_URL}
+        {/* Selector de Aulas por Idioma */}
+        <View style={styles.discordTabsHeaderRow}>
+          <Text style={[styles.discordTabsTitle, !isDark && styles.discordTabsTitleLight]}>
+            {showAllDiscordRooms ? 'Todas las Aulas Disponibles' : 'Aulas de tus Idiomas'}
           </Text>
-        </View>
-
-        {/* Botones de acción */}
-        <View style={styles.discordActionsRow}>
           <TouchableOpacity
-            style={[styles.discordCopyBtn, !isDark && styles.discordCopyBtnLight]}
-            onPress={handleCopyDiscord}
-            activeOpacity={0.8}
+            style={[styles.discordTabsToggleBtn, !isDark && styles.discordTabsToggleBtnLight]}
+            onPress={() => setShowAllDiscordRooms(!showAllDiscordRooms)}
+            activeOpacity={0.7}
           >
-            {copiedDiscord ? (
-              <Check size={16} color="#10b981" style={{ marginRight: 8 }} />
-            ) : (
-              <Copy size={16} color={!isDark ? '#334155' : '#ffffff'} style={{ marginRight: 8 }} />
-            )}
-            <Text style={[styles.discordCopyBtnText, !isDark && styles.discordCopyBtnTextLight, copiedDiscord && { color: '#10b981' }]}>
-              {copiedDiscord ? '¡Enlace copiado!' : 'Copiar enlace'}
+            <Text style={[styles.discordTabsToggleBtnText, !isDark && styles.discordTabsToggleBtnTextLight]}>
+              {showAllDiscordRooms ? 'Ver solo mis idiomas' : `Ver todos (${SUPPORTED_LANGUAGES.length})`}
             </Text>
           </TouchableOpacity>
+        </View>
 
-          <TouchableOpacity
-            style={styles.discordJoinBtn}
-            onPress={handleOpenDiscord}
-            activeOpacity={0.85}
-          >
-            <DiscordIcon size={18} color="#ffffff" />
-            <Text style={styles.discordJoinBtnText}>Entrar a las Salas</Text>
-            <ExternalLink size={15} color="#ffffff" style={{ marginLeft: 2 }} />
-          </TouchableOpacity>
+        <View style={styles.discordTabsList}>
+          {(showAllDiscordRooms
+            ? SUPPORTED_LANGUAGES.map((l) => l.code)
+            : Array.from(new Set([...languagesList, selectedDiscordLang]))
+          ).map((code) => {
+            const isSelected = selectedDiscordLang.toLowerCase() === code.toLowerCase();
+            const langName = getLangName(code);
+            return (
+              <TouchableOpacity
+                key={code}
+                style={[
+                  styles.discordTabPill,
+                  !isDark && styles.discordTabPillLight,
+                  isSelected && styles.discordTabPillActive,
+                  isSelected && !isDark && styles.discordTabPillActiveLight,
+                ]}
+                onPress={() => setSelectedDiscordLang(code)}
+                activeOpacity={0.75}
+              >
+                <CountryFlag code={code} size={18} />
+                <Text
+                  style={[
+                    styles.discordTabPillText,
+                    !isDark && styles.discordTabPillTextLight,
+                    isSelected && styles.discordTabPillTextActive,
+                    isSelected && !isDark && styles.discordTabPillTextActiveLight,
+                  ]}
+                >
+                  {langName}
+                </Text>
+                {isSelected && (
+                  <View style={styles.discordRoomBadgeDot} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Tarjeta destacada del Aula Seleccionada */}
+        <View style={[styles.discordRoomSpotlight, !isDark && styles.discordRoomSpotlightLight]}>
+          <View style={styles.discordRoomHeaderRow}>
+            <View style={styles.discordRoomLeft}>
+              <View style={[styles.discordRoomFlagWrap, !isDark && styles.discordRoomFlagWrapLight]}>
+                <CountryFlag code={selectedDiscordLang} size={28} />
+              </View>
+              <View>
+                <Text style={[styles.discordRoomTitle, !isDark && styles.discordRoomTitleLight]}>
+                  Aula de {getLangName(selectedDiscordLang)}
+                </Text>
+                <Text style={[styles.discordRoomChannel, !isDark && styles.discordRoomChannelLight]}>
+                  Canal: #voz-{selectedDiscordLang.toLowerCase()} • Categoría {getLangName(selectedDiscordLang)}
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.discordRoomBadge, !isDark && styles.discordRoomBadgeLight]}>
+              <View style={styles.discordRoomBadgeDot} />
+              <Text style={styles.discordRoomBadgeText}>24/7 En directo</Text>
+            </View>
+          </View>
+
+          <Text style={[styles.discordRoomDescription, !isDark && styles.discordRoomDescriptionLight]}>
+            Canal de voz exclusivo para estudiantes de {getLangName(selectedDiscordLang)}. Conéctate para practicar conversación, perfeccionar pronunciación y resolver dudas en vivo con otros alumnos.
+          </Text>
+
+          {/* Fila del enlace para compartir el aula de este idioma */}
+          <View style={[styles.discordShareBlock, !isDark && styles.discordShareBlockLight]}>
+            <View style={styles.discordShareLabelRow}>
+              <Share2 size={16} color={!isDark ? '#4f46e5' : '#818cf8'} style={{ marginRight: 8 }} />
+              <Text style={[styles.discordShareLabel, !isDark && styles.discordShareLabelLight]}>
+                Enlace de invitación para el Aula de {getLangName(selectedDiscordLang)}:
+              </Text>
+            </View>
+            <Text
+              style={[styles.discordShareLink, !isDark && styles.discordShareLinkLight]}
+              selectable
+            >
+              {DISCORD_INVITE_URL}
+            </Text>
+          </View>
+
+          {/* Botones de acción del aula */}
+          <View style={styles.discordActionsRow}>
+            <TouchableOpacity
+              style={[styles.discordCopyBtn, !isDark && styles.discordCopyBtnLight]}
+              onPress={() => handleCopyDiscord(selectedDiscordLang)}
+              activeOpacity={0.8}
+            >
+              {copiedDiscordLang === selectedDiscordLang ? (
+                <Check size={16} color="#10b981" style={{ marginRight: 8 }} />
+              ) : (
+                <Copy size={16} color={!isDark ? '#334155' : '#ffffff'} style={{ marginRight: 8 }} />
+              )}
+              <Text
+                style={[
+                  styles.discordCopyBtnText,
+                  !isDark && styles.discordCopyBtnTextLight,
+                  copiedDiscordLang === selectedDiscordLang && { color: '#10b981' },
+                ]}
+              >
+                {copiedDiscordLang === selectedDiscordLang
+                  ? `¡Enlace de ${getLangName(selectedDiscordLang)} copiado!`
+                  : `Copiar enlace (${getLangName(selectedDiscordLang)})`}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.discordJoinBtn}
+              onPress={() => handleOpenDiscord(selectedDiscordLang)}
+              activeOpacity={0.85}
+            >
+              <DiscordIcon size={18} color="#ffffff" />
+              <Text style={styles.discordJoinBtnText}>
+                Entrar al Aula de {getLangName(selectedDiscordLang)}
+              </Text>
+              <ExternalLink size={15} color="#ffffff" style={{ marginLeft: 2 }} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Mensaje de Salas automáticas */}
         <View style={[styles.discordInfoBox, !isDark && styles.discordInfoBoxLight]}>
           <Info size={18} color={!isDark ? '#4f46e5' : '#818cf8'} style={{ marginTop: 1, marginRight: 10, flexShrink: 0 }} />
           <Text style={[styles.discordInfoText, !isDark && styles.discordInfoTextLight]}>
-            <Text style={[styles.discordInfoBold, !isDark && styles.discordInfoBoldLight]}>Salas automáticas: </Text>
-            Al entrar al canal de voz maestro en Discord, se creará automáticamente vuestra propia sala privada o grupal para charlar en inglés. Comparte el enlace con tus amigos para empezar a practicar juntos.
+            <Text style={[styles.discordInfoBold, !isDark && styles.discordInfoBoldLight]}>Salas automáticas por idioma: </Text>
+            Al entrar al canal de voz maestro de tu idioma en Discord (ej. <Text style={{ fontStyle: 'italic', fontWeight: '700' }}>#voz-{selectedDiscordLang.toLowerCase()}</Text>), el bot creará automáticamente vuestra propia sub-sala de audio para practicar sin interferencias de otros idiomas. Comparte el enlace para unirte con otros alumnos.
           </Text>
         </View>
       </View>
@@ -1723,6 +1831,181 @@ const styles = StyleSheet.create({
   },
   discordInfoBoldLight: {
     color: '#0f172a',
+  },
+  // Discord Classrooms by Language styles
+  discordTabsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  discordTabsTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    color: '#94a3b8',
+  },
+  discordTabsTitleLight: {
+    color: '#64748b',
+  },
+  discordTabsToggleBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(88, 101, 242, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(88, 101, 242, 0.35)',
+  },
+  discordTabsToggleBtnLight: {
+    backgroundColor: 'rgba(88, 101, 242, 0.08)',
+    borderColor: 'rgba(88, 101, 242, 0.22)',
+  },
+  discordTabsToggleBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#818cf8',
+  },
+  discordTabsToggleBtnTextLight: {
+    color: '#4f46e5',
+  },
+  discordTabsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  discordTabPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  discordTabPillLight: {
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+  },
+  discordTabPillActive: {
+    borderColor: '#5865F2',
+    backgroundColor: 'rgba(88, 101, 242, 0.22)',
+  },
+  discordTabPillActiveLight: {
+    borderColor: '#5865F2',
+    backgroundColor: 'rgba(88, 101, 242, 0.12)',
+  },
+  discordTabPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  discordTabPillTextLight: {
+    color: '#64748b',
+  },
+  discordTabPillTextActive: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+  discordTabPillTextActiveLight: {
+    color: '#4f46e5',
+    fontWeight: '800',
+  },
+  discordRoomSpotlight: {
+    backgroundColor: 'rgba(88, 101, 242, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(88, 101, 242, 0.28)',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+  },
+  discordRoomSpotlightLight: {
+    backgroundColor: 'rgba(88, 101, 242, 0.04)',
+    borderColor: 'rgba(88, 101, 242, 0.22)',
+  },
+  discordRoomHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  discordRoomLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  discordRoomFlagWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  discordRoomFlagWrapLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
+  },
+  discordRoomTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  discordRoomTitleLight: {
+    color: '#0f172a',
+  },
+  discordRoomChannel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#818cf8',
+    marginTop: 2,
+  },
+  discordRoomChannelLight: {
+    color: '#4f46e5',
+  },
+  discordRoomBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  discordRoomBadgeLight: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+  },
+  discordRoomBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10b981',
+  },
+  discordRoomBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#10b981',
+  },
+  discordRoomDescription: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#cbd5e1',
+    marginBottom: 14,
+  },
+  discordRoomDescriptionLight: {
+    color: '#334155',
   },
   // LinkedIn Community Card
   linkedinCard: {

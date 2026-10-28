@@ -115,7 +115,12 @@ class VocabularyService {
 
     this.unsubscribeCategories = firebaseService.subscribeCategories(userKey, (remoteCats) => {
       if (remoteCats && Array.isArray(remoteCats)) {
-        this.customCategories = deduplicateCategories(remoteCats);
+        this.customCategories = deduplicateCategories(
+          remoteCats.map((c: any) => ({
+            ...c,
+            language: (c.language || 'en').trim().toLowerCase(),
+          }))
+        );
         this.saveCategoriesToDisk();
         this.notify();
       }
@@ -321,7 +326,11 @@ class VocabularyService {
 
       const stored = appStorage.getItem(this.getWordsStorageKey());
       if (stored) {
-        this.words = JSON.parse(stored);
+        const rawWords = JSON.parse(stored);
+        this.words = (Array.isArray(rawWords) ? rawWords : []).map((w: any) => ({
+          ...w,
+          language: (w.language || 'en').trim().toLowerCase(),
+        }));
         if (this.reclassifyLegacyLevels() > 0) {
           this.saveWordsToDisk();
         }
@@ -333,7 +342,13 @@ class VocabularyService {
 
       const storedCats = appStorage.getItem(this.getCategoriesStorageKey());
       if (storedCats) {
-        this.customCategories = deduplicateCategories(JSON.parse(storedCats));
+        const rawCats = JSON.parse(storedCats);
+        this.customCategories = deduplicateCategories(
+          (Array.isArray(rawCats) ? rawCats : []).map((c: any) => ({
+            ...c,
+            language: (c.language || 'en').trim().toLowerCase(),
+          }))
+        );
       } else {
         this.customCategories = [];
         this.saveCategories();
@@ -426,10 +441,11 @@ class VocabularyService {
     // 1. Ensure internal list is strictly deduplicated
     this.customCategories = deduplicateCategories(this.customCategories);
 
-    // 2. Filter categories relevant to this language
+    // 2. Filter categories relevant strictly to this target language
     const relevantCats: CategoryItem[] = [];
     for (const c of this.customCategories) {
-      if (!c.language || c.language.toLowerCase() === target) {
+      const catLang = (c.language || 'en').trim().toLowerCase();
+      if (catLang === target) {
         relevantCats.push({
           ...c,
           subcategories: c.subcategories ? [...c.subcategories] : [],
@@ -515,7 +531,7 @@ class VocabularyService {
     this.customCategories = deduplicateCategories(this.customCategories);
 
     const existing = this.customCategories.find(
-      (c) => c.name.trim().toLowerCase() === trimmed.toLowerCase() && (!c.language || c.language.toLowerCase() === lang)
+      (c) => c.name.trim().toLowerCase() === trimmed.toLowerCase() && (c.language || 'en').trim().toLowerCase() === lang
     );
     if (existing) {
       if (initialSubcategories && initialSubcategories.length > 0) {

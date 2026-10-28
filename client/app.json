@@ -21,7 +21,7 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "name": "PronounceIt - Inglés & Fonética",
+      "name": "PronounceIt - Léxico & Pronunciación",
       "shortName": "PronounceIt",
       "backgroundColor": "#0f0c18",
       "themeColor": "#0f0c18",

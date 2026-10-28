@@ -2077,6 +2077,7 @@ class FirebaseService {
             categorySubs: w.categorySubs || (w.categorySub ? [w.categorySub] : ['General']),
             srsIntervalDays: w.srsIntervalDays ?? 1,
             lastReviewedAt: w.lastReviewedAt || null,
+            language: w.language || 'en',
             createdAt: w.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           };

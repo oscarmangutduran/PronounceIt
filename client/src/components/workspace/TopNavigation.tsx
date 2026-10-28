@@ -111,7 +111,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
           <Text style={[styles.brandTitle, !isDark && styles.brandTitleLight]}>PronounceIt</Text>
           {!isPhone && (
             <Text style={[styles.brandSubtitle, !isDark && styles.brandSubtitleLight]}>
-              Inglés & Fonética
+              Léxico & Pronunciación
             </Text>
           )}
         </View>
