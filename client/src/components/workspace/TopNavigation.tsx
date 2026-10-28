@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Platform,
@@ -17,7 +16,6 @@ import {
   ClipboardCheck,
   BarChart3,
   Settings,
-  Search,
   User,
   LogOut,
   UserPen,
@@ -25,7 +23,6 @@ import {
   UserX,
   Sun,
   Moon,
-  X,
 } from 'lucide-react-native';
 import { UserProfile, MainNavTab } from '../../types';
 import { THEME } from '../../theme';
@@ -40,8 +37,8 @@ interface TopNavigationProps {
   currentUser: UserProfile | null;
   onLogout: () => void;
   onDeleteAccount?: () => void;
-  searchTerm: string;
-  onSearchChange: (val: string) => void;
+  searchTerm?: string;
+  onSearchChange?: (val: string) => void;
   onOpenEditProfile: () => void;
   isDark?: boolean;
   onToggleTheme?: () => void;
@@ -59,8 +56,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   isDark = true,
   onToggleTheme,
 }) => {
-  const { width, showTopNavTabs, isPhone } = useResponsive();
-  const showSearch = !isPhone && width >= 800;
+  const { showTopNavTabs, isPhone } = useResponsive();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isOnline, setIsOnline] = useState(networkService.isOnline());
@@ -255,53 +251,6 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
               <Moon size={17} color="#6366f1" />
             )}
           </TouchableOpacity>
-        )}
-        {/* Quick Search */}
-        {showSearch && (
-          <View style={[styles.searchBox, !isDark && styles.searchBoxLight]}>
-            <Search size={14} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} style={styles.searchIcon} />
-            <TextInput
-              style={[styles.searchInput, !isDark && styles.searchInputLight]}
-              placeholder="Buscar término o IPA..."
-              placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
-              value={searchTerm}
-              onChangeText={onSearchChange}
-            />
-            {searchTerm.length > 0 ? (
-              <TouchableOpacity
-                onPress={(e) => {
-                  if (Platform.OS === 'web') {
-                    e?.preventDefault?.();
-                    e?.stopPropagation?.();
-                  }
-                  onSearchChange?.('');
-                }}
-                {...(Platform.OS === 'web'
-                  ? ({
-                      onMouseDown: (e: any) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      },
-                      onClick: (e: any) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onSearchChange?.('');
-                      },
-                    } as any)
-                  : {})}
-                style={[styles.clearSearchBtn, !isDark && styles.clearSearchBtnLight]}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityLabel="Borrar búsqueda"
-              >
-                <X size={12} color={!isDark ? '#64748b' : '#cbd5e1'} strokeWidth={2.2} />
-              </TouchableOpacity>
-            ) : (
-              <View style={[styles.kbdBadge, !isDark && styles.kbdBadgeLight]}>
-                <Text style={[styles.kbdText, !isDark && styles.kbdTextLight]}>⌘K</Text>
-              </View>
-            )}
-          </View>
         )}
 
         {/* Offline Badge */}
@@ -549,49 +498,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
   },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: THEME.colors.bgCardAlt,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    borderRadius: THEME.radius.md,
-    paddingHorizontal: 10,
-    height: 36,
-    width: 220,
-  },
-  searchIcon: {
-    marginRight: 6,
-  },
-  searchInput: {
-    flex: 1,
-    color: '#ffffff',
-    fontSize: 12,
-    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as any) : {}),
-  },
-  kbdBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 4,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-  },
-  kbdText: {
-    color: THEME.colors.textSubtle,
-    fontSize: 10,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  },
-  clearSearchBtn: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
-  },
-  clearSearchBtnLight: {
-    backgroundColor: 'rgba(0, 0, 0, 0.06)',
-  },
   userWrapper: {
     position: 'relative',
     zIndex: 101,
@@ -730,19 +636,6 @@ const styles = StyleSheet.create({
   navTabTextActiveLight: {
     color: '#e62e4c',
     fontWeight: '700',
-  },
-  searchBoxLight: {
-    backgroundColor: '#f1f5f9',
-    borderColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  searchInputLight: {
-    color: '#0f172a',
-  },
-  kbdBadgeLight: {
-    backgroundColor: 'rgba(0, 0, 0, 0.06)',
-  },
-  kbdTextLight: {
-    color: '#64748b',
   },
   dropdownMenuLight: {
     backgroundColor: '#ffffff',
