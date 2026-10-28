@@ -41,6 +41,7 @@ import { SUPPORTED_LANGUAGES } from '../../types';
 import { PronounceItLogo } from '../common/PronounceItLogo';
 import { AppleInstallModal } from '../common/AppleInstallModal';
 import { LanguagePickerModal } from '../common/LanguagePickerModal';
+import { CountryFlag } from '../common/CountryFlag';
 
 interface LoginViewProps {
   onSuccess: () => void;
@@ -551,9 +552,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       activeOpacity={0.7}
                     >
                       <View style={styles.langBtnContent}>
-                        <Text style={styles.langFlag}>
-                          {SUPPORTED_LANGUAGES.find((l) => l.code === nativeLang)?.flag || '🇪🇸'}
-                        </Text>
+                        <CountryFlag code={nativeLang} size={22} style={{ marginRight: 8 }} />
                         <Text style={styles.langText} numberOfLines={1}>
                           {SUPPORTED_LANGUAGES.find((l) => l.code === nativeLang)?.name || 'Español'}
                         </Text>
@@ -571,9 +570,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                       activeOpacity={0.7}
                     >
                       <View style={styles.langBtnContent}>
-                        <Text style={styles.langFlag}>
-                          {SUPPORTED_LANGUAGES.find((l) => l.code === targetLang)?.flag || '🇬🇧'}
-                        </Text>
+                        <CountryFlag code={targetLang} size={22} style={{ marginRight: 8 }} />
                         <Text style={styles.langText} numberOfLines={1}>
                           {SUPPORTED_LANGUAGES.find((l) => l.code === targetLang)?.name || 'Inglés'}
                         </Text>

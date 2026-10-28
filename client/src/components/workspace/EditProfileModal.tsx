@@ -31,6 +31,7 @@ import { firebaseService } from '../../lib/firebaseClient';
 import { backendApi } from '../../lib/apiClient';
 import { THEME } from '../../theme';
 import { LanguagePickerModal } from '../common/LanguagePickerModal';
+import { CountryFlag } from '../common/CountryFlag';
 import * as ImagePicker from 'expo-image-picker';
 
 interface EditProfileModalProps {
@@ -492,9 +493,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   disabled={isSaving}
                 >
                   <View style={styles.langBtnInner}>
-                    <Text style={styles.langFlag}>
-                      {SUPPORTED_LANGUAGES.find((l) => l.code === nativeLang)?.flag || '🇪🇸'}
-                    </Text>
+                    <CountryFlag code={nativeLang} size={22} style={{ marginRight: 8 }} />
                     <Text style={[styles.langText, isLight && styles.langTextLight]} numberOfLines={1}>
                       {SUPPORTED_LANGUAGES.find((l) => l.code === nativeLang)?.name || 'Español'}
                     </Text>
@@ -513,9 +512,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   disabled={isSaving}
                 >
                   <View style={styles.langBtnInner}>
-                    <Text style={styles.langFlag}>
-                      {SUPPORTED_LANGUAGES.find((l) => l.code === targetLang)?.flag || '🇬🇧'}
-                    </Text>
+                    <CountryFlag code={targetLang} size={22} style={{ marginRight: 8 }} />
                     <Text style={[styles.langText, isLight && styles.langTextLight]} numberOfLines={1}>
                       {SUPPORTED_LANGUAGES.find((l) => l.code === targetLang)?.name || 'Inglés'}
                     </Text>

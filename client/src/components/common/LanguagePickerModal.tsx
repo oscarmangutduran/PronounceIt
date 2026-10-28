@@ -11,6 +11,7 @@ import {
 import { X, Check, Globe } from 'lucide-react-native';
 import { SUPPORTED_LANGUAGES, LanguageOption } from '../../types';
 import { THEME } from '../../theme';
+import { CountryFlag } from './CountryFlag';
 
 interface LanguagePickerModalProps {
   isOpen: boolean;
@@ -105,7 +106,7 @@ export const LanguagePickerModal: React.FC<LanguagePickerModalProps> = ({
                   activeOpacity={0.7}
                 >
                   <View style={styles.itemLeft}>
-                    <Text style={styles.flagEmoji}>{lang.flag}</Text>
+                    <CountryFlag code={lang.code} size={26} />
                     <View>
                       <Text
                         style={[
