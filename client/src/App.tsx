@@ -727,7 +727,13 @@ function MainApp() {
             {/* Left: Copyright */}
             <View style={styles.footerLeft}>
               <Text style={[styles.footerCopyright, !isDark && styles.footerTextBlack]}>
-                © PronounceIt v1.7.0 | Desarrollado con ❤️ Oscar Mangut Dev
+                © PronounceIt v1.7.0 | Desarrollado con ❤️{' '}
+                <Text
+                  style={[styles.footerAuthorLink, !isDark && styles.footerAuthorLinkLight]}
+                  onPress={() => Linking.openURL('https://www.linkedin.com/in/oscarmangutduran/')}
+                >
+                  Oscar Mangut Dev
+                </Text>
               </Text>
             </View>
 
@@ -1104,6 +1110,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: THEME.colors.textSubtle,
     fontWeight: '500',
+  },
+  footerAuthorLink: {
+    fontSize: 12,
+    color: THEME.colors.crimsonLight,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  footerAuthorLinkLight: {
+    color: '#e11d48',
   },
   footerContainerLight: {
     backgroundColor: '#ffffff',
