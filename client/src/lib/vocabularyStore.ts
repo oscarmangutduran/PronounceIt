@@ -970,11 +970,24 @@ class VocabularyService {
   }
 
   // Audio / Speech Synthesis via Expo Speech
-  public speak(text: string) {
+  public speak(text: string, langCode?: string) {
     try {
+      const code = (langCode || this.activeLanguage || 'en').trim().toLowerCase();
+      const speechLocaleMap: Record<string, string> = {
+        en: 'en-US',
+        es: 'es-ES',
+        fr: 'fr-FR',
+        de: 'de-DE',
+        it: 'it-IT',
+        pt: 'pt-PT',
+        ru: 'ru-RU',
+        zh: 'zh-CN',
+        ja: 'ja-JP',
+        ar: 'ar-SA',
+      };
       Speech.stop();
       Speech.speak(text, {
-        language: 'en-US',
+        language: speechLocaleMap[code] || code,
         rate: this.audioSettings.rate || 0.95,
         pitch: this.audioSettings.pitch || 1.0,
       });

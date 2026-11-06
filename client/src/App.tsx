@@ -83,7 +83,9 @@ function MainApp() {
 
   // Active learning language board & multi-language management
   const [activeLanguage, setActiveLanguage] = useState<string>(() => {
-    return firebaseService.getCurrentUser()?.target_language || appStorage.getItem('pronounceit_current_target_lang') || 'en';
+    const initialLang = firebaseService.getCurrentUser()?.target_language || appStorage.getItem('pronounceit_current_target_lang') || 'en';
+    vocabService.setActiveLanguage(initialLang);
+    return initialLang;
   });
 
   // Keep active language synced if user profile changes
@@ -93,6 +95,12 @@ function MainApp() {
       vocabService.setActiveLanguage(currentUser.target_language);
     }
   }, [currentUser?.target_language]);
+
+  useEffect(() => {
+    if (activeLanguage) {
+      vocabService.setActiveLanguage(activeLanguage);
+    }
+  }, [activeLanguage]);
 
   const learningLanguages = useMemo(() => {
     const userLangs = currentUser?.learning_languages;
@@ -666,6 +674,8 @@ function MainApp() {
                 onUpdateStatus={handleUpdateStatus}
                 onDeleteWord={handleDeleteWord}
                 isDark={isDark}
+                activeLanguage={activeLanguage}
+                nativeLanguage={currentUser?.native_language || 'es'}
               />
             </View>
           )}
@@ -935,6 +945,8 @@ function MainApp() {
             selectedFilter.type === 'category' ? selectedFilter.sub : undefined
           }
           isDark={isDark}
+          activeLanguage={activeLanguage}
+          nativeLanguage={currentUser?.native_language || 'es'}
         />
       )}
 

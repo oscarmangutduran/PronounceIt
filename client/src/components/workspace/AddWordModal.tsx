@@ -28,7 +28,7 @@ import {
   RotateCcw,
   ArrowLeftRight,
 } from 'lucide-react-native';
-import { WordItem, CategoryItem, PartOfSpeech, PART_OF_SPEECH_OPTIONS } from '../../types';
+import { WordItem, CategoryItem, PartOfSpeech, PART_OF_SPEECH_OPTIONS, SUPPORTED_LANGUAGES } from '../../types';
 import { vocabService, getWordCategories, getWordSubcategories } from '../../lib/vocabularyStore';
 import {
   autoEnrichWord,
@@ -44,6 +44,89 @@ import {
 } from '../../lib/dictionaryService';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { CountryFlag } from '../common/CountryFlag';
+
+const TARGET_LANGUAGE_EXAMPLES: Record<
+  string,
+  {
+    wordPlaceholder: string;
+    secondaryWordPlaceholder: string;
+    examplePlaceholder: string;
+    phoneticPlaceholder: string;
+    ipaPlaceholder: string;
+  }
+> = {
+  en: {
+    wordPlaceholder: 'Ej: breakthrough, eloquent, serendipity...',
+    secondaryWordPlaceholder: 'Ej: apple, commitment, develop, meeting...',
+    examplePlaceholder: 'Ej: Scientists announced a major breakthrough in renewable energy.',
+    phoneticPlaceholder: 'Ej: "breik-zru", "áp-l"',
+    ipaPlaceholder: 'Ej: /ˈbreɪkˌθruː/, /ˈæp.əl/',
+  },
+  fr: {
+    wordPlaceholder: 'Ej: épanouissement, bienveillance, rendez-vous...',
+    secondaryWordPlaceholder: 'Ej: pomme, engagement, développer, réunion...',
+    examplePlaceholder: 'Ej: Nous avons trouvé une solution efficace pour ce projet.',
+    phoneticPlaceholder: 'Ej: "ran-de-vú", "bián-vei-iáns"',
+    ipaPlaceholder: 'Ej: /ʁɑ̃.de.vu/, /bjɛ̃.vɛ.jɑ̃s/',
+  },
+  de: {
+    wordPlaceholder: 'Ej: Durchbruch, Entwicklung, Sehenswürdigkeit...',
+    secondaryWordPlaceholder: 'Ej: Apfel, Engagement, entwickeln, Treffen...',
+    examplePlaceholder: 'Ej: Die Wissenschaftler verkündeten einen wichtigen Durchbruch.',
+    phoneticPlaceholder: 'Ej: "dúrj-bruj", "ent-vík-lung"',
+    ipaPlaceholder: 'Ej: /ˈdʊʁçˌbʁʊx/, /ɛntˈvɪklʊŋ/',
+  },
+  it: {
+    wordPlaceholder: 'Ej: svolta, eloquente, chiacchierata...',
+    secondaryWordPlaceholder: 'Ej: mela, impegno, sviluppare, riunione...',
+    examplePlaceholder: 'Ej: Gli scienziati hanno annunciato una svolta importante.',
+    phoneticPlaceholder: 'Ej: "zvól-ta", "kiak-kie-rá-ta"',
+    ipaPlaceholder: 'Ej: /ˈzvɔl.ta/, /kjak.kjeˈra.ta/',
+  },
+  pt: {
+    wordPlaceholder: 'Ej: descoberta, saudade, desenvolvimento...',
+    secondaryWordPlaceholder: 'Ej: maçã, compromisso, desenvolver, reunião...',
+    examplePlaceholder: 'Ej: Os cientistas anunciaram uma grande descoberta hoje.',
+    phoneticPlaceholder: 'Ej: "des-ku-bér-ta", "sau-dá-chi"',
+    ipaPlaceholder: 'Ej: /dʒis.koˈbɛʁ.tɐ/, /sawˈda.dʒi/',
+  },
+  ru: {
+    wordPlaceholder: 'Ej: прорыв, вдохновение, встреча...',
+    secondaryWordPlaceholder: 'Ej: яблоко, развитие, встреча...',
+    examplePlaceholder: 'Ej: Учёные объявили о важном научном прорыве.',
+    phoneticPlaceholder: 'Ej: "pra-rýf", "fs-trié-cha"',
+    ipaPlaceholder: 'Ej: /prɐˈrɨf/, /ˈfstrʲetɕə/',
+  },
+  zh: {
+    wordPlaceholder: 'Ej: 突破 (tūpò), 发展, 机会...',
+    secondaryWordPlaceholder: 'Ej: 苹果, 承诺, 发展, 会议...',
+    examplePlaceholder: 'Ej: 科学家们宣布了一项重大突破。',
+    phoneticPlaceholder: 'Ej: "tú-pó", "fá-chán"',
+    ipaPlaceholder: 'Ej: /tʰu˥ pʰuo˥˩/',
+  },
+  ja: {
+    wordPlaceholder: 'Ej: 発見 (hakken), 成長, 約束...',
+    secondaryWordPlaceholder: 'Ej: りんご, 約束, 発展, 会議...',
+    examplePlaceholder: 'Ej: 科学者たちは再生可能エネルギーの大きな発見を発表しました。',
+    phoneticPlaceholder: 'Ej: "jak-ken", "sei-choo"',
+    ipaPlaceholder: 'Ej: /hak.keɴ/, /seː.tɕoː/',
+  },
+  ar: {
+    wordPlaceholder: 'Ej: إنجاز, تطوير, فرصة...',
+    secondaryWordPlaceholder: 'Ej: تفاحة, التزام, تطوير, اجتماع...',
+    examplePlaceholder: 'Ej: أعلن العلماء عن إنجاز كبير في مجال الطاقة المتجددة.',
+    phoneticPlaceholder: 'Ej: "in-yáz", "tat-wír"',
+    ipaPlaceholder: 'Ej: /ʔin.dʒaːz/, /tatˤ.wiːr/',
+  },
+  es: {
+    wordPlaceholder: 'Ej: hallazgo, elocuente, serendipia...',
+    secondaryWordPlaceholder: 'Ej: manzana, compromiso, desarrollar, reunión...',
+    examplePlaceholder: 'Ej: Los científicos anunciaron un gran avance en energía renovable.',
+    phoneticPlaceholder: 'Ej: "a-lláz-go", "e-lo-kuén-te"',
+    ipaPlaceholder: 'Ej: /aˈʎaθ.ɣo/, /e.loˈkwen.te/',
+  },
+};
 
 interface AddWordModalProps {
   isOpen: boolean;
@@ -54,6 +137,8 @@ interface AddWordModalProps {
   defaultCategoryGroup?: string;
   defaultCategorySub?: string;
   isDark?: boolean;
+  activeLanguage?: string;
+  nativeLanguage?: string;
 }
 
 interface ClearInputButtonProps {
@@ -115,11 +200,37 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   defaultCategoryGroup,
   defaultCategorySub,
   isDark = true,
+  activeLanguage,
+  nativeLanguage = 'es',
 }) => {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
   const isEditing = Boolean(initialWord);
+
+  const targetLangCode = useMemo(() => {
+    return (initialWord?.language || activeLanguage || vocabService.getActiveLanguage() || 'en').toLowerCase();
+  }, [initialWord?.language, activeLanguage]);
+
+  const nativeLangCode = useMemo(() => {
+    const rawNative = (nativeLanguage || 'es').toLowerCase();
+    if (rawNative === targetLangCode) {
+      return targetLangCode === 'es' ? 'en' : 'es';
+    }
+    return rawNative;
+  }, [nativeLanguage, targetLangCode]);
+
+  const targetLangName = useMemo(() => {
+    return SUPPORTED_LANGUAGES.find((l) => l.code === targetLangCode)?.name || 'Inglés';
+  }, [targetLangCode]);
+
+  const nativeLangName = useMemo(() => {
+    return SUPPORTED_LANGUAGES.find((l) => l.code === nativeLangCode)?.name || 'Español';
+  }, [nativeLangCode]);
+
+  const langExamples = useMemo(() => {
+    return TARGET_LANGUAGE_EXAMPLES[targetLangCode] || TARGET_LANGUAGE_EXAMPLES.en;
+  }, [targetLangCode]);
 
   const [inputLanguage, setInputLanguage] = useState<'en' | 'es'>('en');
   const [word, setWord] = useState('');
@@ -179,7 +290,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     });
 
     // 2. From words in storage
-    const storedWords = vocabService.getWords();
+    const storedWords = vocabService.getWords(targetLangCode);
     storedWords.forEach((w) => {
       const wCats = getWordCategories(w);
       const wSubs = getWordSubcategories(w);
@@ -196,7 +307,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     });
 
     return list;
-  }, [categories]);
+  }, [categories, targetLangCode]);
 
   // Available subcategories based on currently selected categories
   const availableSubcategories = useMemo(() => {
@@ -208,7 +319,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       }
     });
 
-    const storedWords = vocabService.getWords();
+    const storedWords = vocabService.getWords(targetLangCode);
     storedWords.forEach((w) => {
       const wCats = getWordCategories(w);
       if (wCats.some((wc) => selectedCategories.some((sc) => sc.toLowerCase() === wc.toLowerCase()))) {
@@ -218,7 +329,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     });
 
     return Array.from(set);
-  }, [allCategories, selectedCategories]);
+  }, [allCategories, selectedCategories, targetLangCode]);
 
   // Sync state on mount or when initialWord / props change
   useEffect(() => {
@@ -290,9 +401,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     setLoadingAutoEnrich(false);
     setIsCategoryDropdownOpen(false);
     setIsSubcategoryDropdownOpen(false);
-  }, [initialWord, defaultCategoryGroup, defaultCategorySub, isOpen, allCategories]);
+  }, [initialWord, defaultCategoryGroup, defaultCategorySub, isOpen, allCategories, targetLangCode]);
 
-  // Direct execution of auto-enrichment (immediate local fill + fast network enrichment)
   // Direct execution of auto-enrichment (immediate local fill + fast network enrichment)
   const executeAutoEnrichNow = useCallback(async (customText?: string, customLang?: 'en' | 'es') => {
     if (initialWord) return;
@@ -306,7 +416,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     const currentReqId = ++enrichReqIdRef.current;
 
     // 0ms instant local pre-fill
-    const instant = getInstantEnrichmentSync(sourceText, lang);
+    const instant = getInstantEnrichmentSync(sourceText, lang, targetLangCode, nativeLangCode);
     if (instant && enrichReqIdRef.current === currentReqId) {
       if (lang === 'es') {
         if (instant.word && !hasManuallyEditedEnglish) {
@@ -332,7 +442,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
     setLoadingAutoEnrich(true);
     try {
-      const res = await autoEnrichWord(sourceText, lang, isGeminiConfigured());
+      const res = await autoEnrichWord(sourceText, lang, isGeminiConfigured(), undefined, targetLangCode, nativeLangCode);
       if (res && enrichReqIdRef.current === currentReqId) {
         let currentEnWord = word;
         if (lang === 'es') {
@@ -353,7 +463,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           setExampleEs(res.exampleEs || '');
         }
 
-        // Always update phonetics from the English word if not manually edited by the user
+        // Always update phonetics from the target word if not manually edited by the user
         if (!hasManuallyEditedPhoneticGuide) {
           if (res.phoneticGuide) {
             setPhoneticGuide(res.phoneticGuide);
@@ -384,6 +494,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     inputLanguage,
     translation,
     word,
+    targetLangCode,
+    nativeLangCode,
     hasManuallyEditedEnglish,
     hasManuallyEditedTranslation,
     hasManuallyEditedExamples,
@@ -421,7 +533,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setHasManuallyEditedEnglish(true);
     } else {
       // If user typed Spanish accents in English mode, auto-switch to Spanish mode
-      if (isLikelySpanish(text) && !translation) {
+      if (targetLangCode === 'en' && nativeLangCode === 'es' && isLikelySpanish(text) && !translation) {
         setInputLanguage('es');
         setTranslation(text);
         setWord('');
@@ -432,7 +544,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
     const clean = text.trim();
     if (clean.length > 0) {
-      // Immediately calculate authentic English phonetics (both IPA and Spanish phonetic guide)
       const phon = getPhoneticsForEnglishWord(clean);
       if (!hasManuallyEditedPhoneticGuide && phon.phoneticGuide) {
         setPhoneticGuide(phon.phoneticGuide);
@@ -442,7 +553,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       }
 
       if (clean.length >= 2 && !initialWord && inputLanguage === 'en') {
-        const instant = getInstantEnrichmentSync(clean, 'en');
+        const instant = getInstantEnrichmentSync(clean, 'en', targetLangCode, nativeLangCode);
         if (instant) {
           if (instant.partOfSpeech && !isPosManuallySelected) setPartOfSpeech(instant.partOfSpeech);
           if (instant.translation && !hasManuallyEditedTranslation) setTranslation(instant.translation);
@@ -451,7 +562,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             setExampleEs(instant.exampleEs || '');
           }
         }
-      } else if (clean.length > 0 && !isPosManuallySelected && inputLanguage === 'en') {
+      } else if (clean.length > 0 && !isPosManuallySelected && inputLanguage === 'en' && targetLangCode === 'en') {
         const quickPos = detectQuickPartOfSpeech(clean);
         if (quickPos) {
           setPartOfSpeech(quickPos);
@@ -471,7 +582,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
     const clean = text.trim();
     if (clean.length >= 2 && !initialWord && inputLanguage === 'es') {
-      const instant = getInstantEnrichmentSync(clean, 'es');
+      const instant = getInstantEnrichmentSync(clean, 'es', targetLangCode, nativeLangCode);
       if (instant) {
         if (instant.word && !hasManuallyEditedEnglish) {
           setWord(instant.word);
@@ -559,8 +670,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     if (!currentInput) {
       setValidationError(
         inputLanguage === 'es'
-          ? 'Por favor ingresa primero la palabra en español.'
-          : 'Por favor ingresa primero la palabra en inglés.'
+          ? `Por favor ingresa primero la palabra en ${nativeLangName.toLowerCase()}.`
+          : `Por favor ingresa primero la palabra en ${targetLangName.toLowerCase()}.`
       );
       return;
     }
@@ -573,7 +684,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     setLoadingAutoEnrich(true);
     setValidationError(null);
     try {
-      const res = await autoEnrichWord(currentInput, inputLanguage, true);
+      const res = await autoEnrichWord(currentInput, inputLanguage, true, undefined, targetLangCode, nativeLangCode);
       if (res) {
         if (inputLanguage === 'es') {
           setWord(res.word || '');
@@ -606,7 +717,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     }
   };
 
-  // Recalculate phonetics for the current English word on demand
+  // Recalculate phonetics for the current target word on demand
   const handleRecalculatePhonetics = (forcedWord?: string) => {
     const targetWord = (forcedWord || word).trim();
     if (!targetWord) return;
@@ -623,8 +734,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     if (!targetWord) {
       setValidationError(
         inputLanguage === 'es'
-          ? 'Por favor escribe primero la palabra en español o inglés para generar frases con IA.'
-          : 'Por favor escribe primero la palabra en inglés o español para generar frases con IA.'
+          ? `Por favor escribe primero la palabra en ${nativeLangName.toLowerCase()} o ${targetLangName.toLowerCase()} para generar frases con IA.`
+          : `Por favor escribe primero la palabra en ${targetLangName.toLowerCase()} o ${nativeLangName.toLowerCase()} para generar frases con IA.`
       );
       return;
     }
@@ -638,7 +749,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       const pair = await generateExampleSentencesWithAI(
         currentEn || currentEs,
         currentEs || undefined,
-        partOfSpeech || undefined
+        partOfSpeech || undefined,
+        undefined,
+        targetLangCode,
+        nativeLangCode
       );
 
       if (pair && pair.exampleEn && pair.exampleEs) {
@@ -677,8 +791,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     setValidationError(null);
 
     try {
-      const fromLang = direction === 'en_to_es' ? 'en' : 'es';
-      const toLang = direction === 'en_to_es' ? 'es' : 'en';
+      const fromLang = direction === 'en_to_es' ? targetLangCode : nativeLangCode;
+      const toLang = direction === 'en_to_es' ? nativeLangCode : targetLangCode;
       const result = await translatePhrase(sourceText, fromLang, toLang);
       if (result && result.text) {
         if (direction === 'en_to_es') {
@@ -723,7 +837,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
     // 1. Registrar formalmente en vocabService la categoría con su subcategoría asociada
     const subsToRegister = cleanSub ? [cleanSub] : [];
-    vocabService.addCategory(clean, subsToRegister);
+    vocabService.addCategory(clean, subsToRegister, targetLangCode);
 
     // 2. Seleccionar la categoría creada
     if (!selectedCategories.some((c) => c.toLowerCase() === clean.toLowerCase())) {
@@ -767,7 +881,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         setSelectedSubcategories((prev) => [...prev, clean]);
       }
       // Asociar la nueva subcategoría a las categorías actualmente seleccionadas en vocabService
-      const currentCats = vocabService.getCategories();
+      const currentCats = vocabService.getCategories(targetLangCode);
       selectedCategories.forEach((catName) => {
         const found = currentCats.find((c) => c.name.toLowerCase() === catName.toLowerCase());
         if (found) {
@@ -883,11 +997,11 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     let cleanWord = word.trim();
     let finalTranslation = translation.trim();
 
-    // If in Spanish mode and English word hasn't been set yet, resolve via Spanish
+    // If in Native mode and Target word hasn't been set yet, resolve via Native
     if (inputLanguage === 'es' && !cleanWord && finalTranslation) {
       setSaving(true);
       try {
-        const enriched = await autoEnrichWord(finalTranslation, 'es', isGeminiConfigured());
+        const enriched = await autoEnrichWord(finalTranslation, 'es', isGeminiConfigured(), undefined, targetLangCode, nativeLangCode);
         if (enriched?.word) {
           cleanWord = enriched.word.trim();
           if (!exampleEn && enriched.exampleEn) setExampleEn(enriched.exampleEn);
@@ -904,7 +1018,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     } else if (inputLanguage === 'en' && cleanWord && !finalTranslation) {
       setSaving(true);
       try {
-        const enriched = await autoEnrichWord(cleanWord, 'en', isGeminiConfigured());
+        const enriched = await autoEnrichWord(cleanWord, 'en', isGeminiConfigured(), undefined, targetLangCode, nativeLangCode);
         if (enriched) {
           if (!finalTranslation) finalTranslation = enriched.translation;
           if (!exampleEn && enriched.exampleEn) setExampleEn(enriched.exampleEn);
@@ -923,8 +1037,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     if (!cleanWord && !finalTranslation) {
       setValidationError(
         inputLanguage === 'es'
-          ? 'Por favor ingresa la palabra en español.'
-          : 'Por favor ingresa la palabra en inglés.'
+          ? `Por favor ingresa la palabra en ${nativeLangName.toLowerCase()}.`
+          : `Por favor ingresa la palabra en ${targetLangName.toLowerCase()}.`
       );
       setSaving(false);
       return;
@@ -944,7 +1058,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     }
 
     // Comprobar si la palabra ya existe en el vocabulario (evitar duplicados)
-    const existingWords = vocabService.getWords();
+    const existingWords = vocabService.getWords(targetLangCode);
     const isDuplicate = existingWords.some(
       (w) =>
         w.word.trim().toLowerCase() === cleanWord.toLowerCase() &&
@@ -965,7 +1079,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     let finalIpa = ipa.trim();
     let finalPos = partOfSpeech;
 
-    // Ensure phonetics are always computed from the English word if empty
+    // Ensure phonetics are always computed from the target word if empty
     if (cleanWord) {
       const autoPhon = getPhoneticsForEnglishWord(cleanWord);
       if (!finalPhoneticGuide) {
@@ -989,7 +1103,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     // Automatically ensure all categories & subcategories are registered in vocabService
     finalGroups.forEach((groupName) => {
       try {
-        const cat = vocabService.addCategory(groupName);
+        const cat = vocabService.addCategory(groupName, [], targetLangCode);
         if (finalSubs.length > 0 && cat?.id) {
           finalSubs.forEach((subName) => {
             vocabService.addSubcategory(cat.id, subName);
@@ -1003,6 +1117,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     onSave({
       word: cleanWord,
       translation: finalTranslation,
+      language: targetLangCode,
       phoneticGuide: finalPhoneticGuide || (cleanWord ? getPhoneticsForEnglishWord(cleanWord).phoneticGuide : `"${cleanWord.toLowerCase()}"`),
       ipa: finalIpa || (cleanWord ? getPhoneticsForEnglishWord(cleanWord).ipa : ''),
       definition: finalTranslation,
@@ -1072,8 +1187,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 {isEditing
                   ? 'Puedes modificar el significado, las dos oraciones, y asignar varias categorías y subcategorías.'
                   : inputLanguage === 'es'
-                  ? 'Escribe la palabra en español. La app buscará su traducción al inglés, su pronunciación fonética y oraciones de ejemplo automáticamente.'
-                  : 'Escribe la palabra en inglés. La app completará su traducción al español, su pronunciación fonética y oraciones de ejemplo automáticamente.'}
+                  ? `Escribe la palabra en ${nativeLangName.toLowerCase()}. La app buscará su traducción al ${targetLangName.toLowerCase()}, su pronunciación fonética y oraciones de ejemplo automáticamente.`
+                  : `Escribe la palabra en ${targetLangName.toLowerCase()}. La app completará su traducción al ${nativeLangName.toLowerCase()}, su pronunciación fonética y oraciones de ejemplo automáticamente.`}
               </Text>
             </View>
 
@@ -1099,16 +1214,19 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     onPress={() => handleSwitchLanguage('en')}
                     activeOpacity={0.8}
                   >
-                    <Text
-                      style={[
-                        styles.langPillText,
-                        !isDark && styles.langPillTextLight,
-                        inputLanguage === 'en' && styles.langPillTextActive,
-                        !isDark && inputLanguage === 'en' && styles.langPillTextActiveLight,
-                      ]}
-                    >
-                      🇬🇧 Inglés
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <CountryFlag code={targetLangCode} size={16} />
+                      <Text
+                        style={[
+                          styles.langPillText,
+                          !isDark && styles.langPillTextLight,
+                          inputLanguage === 'en' && styles.langPillTextActive,
+                          !isDark && inputLanguage === 'en' && styles.langPillTextActiveLight,
+                        ]}
+                      >
+                        {targetLangName}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -1130,16 +1248,19 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     onPress={() => handleSwitchLanguage('es')}
                     activeOpacity={0.8}
                   >
-                    <Text
-                      style={[
-                        styles.langPillText,
-                        !isDark && styles.langPillTextLight,
-                        inputLanguage === 'es' && styles.langPillTextActive,
-                        !isDark && inputLanguage === 'es' && styles.langPillTextActiveLight,
-                      ]}
-                    >
-                      🇪🇸 Español
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <CountryFlag code={nativeLangCode} size={16} />
+                      <Text
+                        style={[
+                          styles.langPillText,
+                          !isDark && styles.langPillTextLight,
+                          inputLanguage === 'es' && styles.langPillTextActive,
+                          !isDark && inputLanguage === 'es' && styles.langPillTextActiveLight,
+                        ]}
+                      >
+                        {nativeLangName}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1147,10 +1268,12 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
             {/* DYNAMIC FIELD 1: Primary Input based on active inputLanguage */}
             {inputLanguage === 'es' ? (
-              // 1. Primaria en Español
+              // 1. Primaria en idioma nativo
               <View style={styles.inputGroup}>
                 <View style={styles.labelActionRow}>
-                  <Text style={[styles.label, !isDark && styles.labelLight]}>Palabra en Español *</Text>
+                  <Text style={[styles.label, !isDark && styles.labelLight]}>
+                    Palabra en {nativeLangName} *
+                  </Text>
                   <View style={styles.labelActions}>
                     <TouchableOpacity
                       style={[
@@ -1216,15 +1339,17 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 )}
               </View>
             ) : (
-              // 1. Primaria en Inglés
+              // 1. Primaria en idioma de aprendizaje (targetLangName)
               <View style={styles.inputGroup}>
                 <View style={styles.labelActionRow}>
-                  <Text style={[styles.label, !isDark && styles.labelLight]}>Palabra en Inglés *</Text>
+                  <Text style={[styles.label, !isDark && styles.labelLight]}>
+                    Palabra en {targetLangName} *
+                  </Text>
                   <View style={styles.labelActions}>
                     {word.trim().length > 0 && (
                       <TouchableOpacity
                         style={[styles.speakerBtn, !isDark && styles.speakerBtnLight]}
-                        onPress={() => vocabService.speak(word)}
+                        onPress={() => vocabService.speak(word, targetLangCode)}
                         activeOpacity={0.7}
                       >
                         <Volume2 size={13} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
@@ -1260,7 +1385,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                       focusedField === 'word' && styles.inputFocused,
                       Boolean(word) && styles.inputWithClearBtn,
                     ]}
-                    placeholder="Ej: breakthrough, eloquent, serendipity..."
+                    placeholder={langExamples.wordPlaceholder}
                     placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
                     value={word}
                     onChangeText={handleWordChange}
@@ -1298,16 +1423,16 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
             {/* DYNAMIC FIELD 2: Target/Secondary Input based on active inputLanguage */}
             {inputLanguage === 'es' ? (
-              // 2. Secundaria: Traducción al Inglés (con botón escuchar)
+              // 2. Secundaria: Traducción al idioma objetivo (con botón escuchar)
               <View style={styles.inputGroup}>
                 <View style={styles.labelActionRow}>
                   <Text style={[styles.label, !isDark && styles.labelLight]}>
-                    Palabra en Inglés (Traducción) *
+                    Palabra en {targetLangName} (Traducción) *
                   </Text>
                   {word.trim().length > 0 && (
                     <TouchableOpacity
                       style={[styles.speakerBtn, !isDark && styles.speakerBtnLight]}
-                      onPress={() => vocabService.speak(word)}
+                      onPress={() => vocabService.speak(word, targetLangCode)}
                       activeOpacity={0.7}
                     >
                       <Volume2 size={13} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
@@ -1323,7 +1448,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                       focusedField === 'word' && styles.inputFocused,
                       Boolean(word) && styles.inputWithClearBtn,
                     ]}
-                    placeholder="Ej: apple, commitment, develop, meeting..."
+                    placeholder={langExamples.secondaryWordPlaceholder}
                     placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
                     value={word}
                     onChangeText={handleWordChange}
@@ -1343,10 +1468,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 {renderAlternativeTranslationChips()}
               </View>
             ) : (
-              // 2. Secundaria: Significado al Español
+              // 2. Secundaria: Significado al idioma nativo
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, !isDark && styles.labelLight]}>
-                  Significado / Traducción (Español) *
+                  Significado / Traducción ({nativeLangName}) *
                 </Text>
                 <View style={styles.inputWrapper}>
                   <TextInput
@@ -1377,17 +1502,17 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               </View>
             )}
 
-            {/* 3. Frase de Ejemplo en Inglés */}
+            {/* 3. Frase de Ejemplo en idioma objetivo */}
             <View style={styles.inputGroup}>
               <View style={styles.labelActionRow}>
                 <Text style={[styles.label, !isDark && styles.labelLight]}>
-                  Frase de Ejemplo (Inglés)
+                  Frase de Ejemplo ({targetLangName})
                 </Text>
                 <View style={styles.labelActions}>
                   {exampleEn.trim().length > 0 && (
                     <TouchableOpacity
                       style={[styles.speakerBtn, !isDark && styles.speakerBtnLight]}
-                      onPress={() => vocabService.speak(exampleEn)}
+                      onPress={() => vocabService.speak(exampleEn, targetLangCode)}
                       activeOpacity={0.7}
                     >
                       <Volume2 size={13} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
@@ -1424,7 +1549,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     focusedField === 'exampleEn' && styles.inputFocused,
                     Boolean(exampleEn) && styles.textAreaWithClearBtn,
                   ]}
-                  placeholder="Ej: Scientists announced a major breakthrough in renewable energy."
+                  placeholder={langExamples.examplePlaceholder}
                   placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
                   value={exampleEn}
                   onChangeText={handleExampleEnChange}
@@ -1446,11 +1571,11 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               </View>
             </View>
 
-            {/* 4. Traducción de la Frase en Español */}
+            {/* 4. Traducción de la Frase en idioma nativo */}
             <View style={styles.inputGroup}>
               <View style={styles.labelActionRow}>
                 <Text style={[styles.label, !isDark && styles.labelLight]}>
-                  Traducción de la Frase (Español)
+                  Traducción de la Frase ({nativeLangName})
                 </Text>
                 <View style={styles.labelActions}>
                   <TouchableOpacity
@@ -1523,14 +1648,14 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     Pronunciación Fonética
                   </Text>
                   <Text style={[styles.subLabelHint, !isDark && styles.subLabelHintLight]}>
-                    Cómo se dice en inglés (Lectura en español e IPA)
+                    Cómo se dice en {targetLangName.toLowerCase()} (Lectura en {nativeLangName.toLowerCase()} e IPA)
                   </Text>
                 </View>
                 <View style={styles.labelActions}>
                   {word.trim().length > 0 && (
                     <TouchableOpacity
                       style={[styles.speakerBtn, !isDark && styles.speakerBtnLight]}
-                      onPress={() => vocabService.speak(word)}
+                      onPress={() => vocabService.speak(word, targetLangCode)}
                       activeOpacity={0.7}
                     >
                       <Volume2 size={13} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
@@ -1551,13 +1676,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               </View>
 
               <Text style={[styles.autoPosSubtext, !isDark && styles.autoPosSubtextLight, { marginTop: -2, marginBottom: 2 }]}>
-                ✨ Se completa automáticamente de cómo se dice la palabra en inglés (leído en español e IPA).
+                ✨ Se completa automáticamente de cómo se dice la palabra en {targetLangName.toLowerCase()} (leído en {nativeLangName.toLowerCase()} e IPA).
               </Text>
 
               <View style={[styles.rowCols, !isDesktop && styles.rowColsMobile]}>
                 <View style={[styles.colHalf, !isDesktop && styles.colFull]}>
                   <Text style={[styles.subLabel, !isDark && styles.subLabelLight]}>
-                    Guía Fonética (Lectura en español)
+                    Guía Fonética (Lectura en {nativeLangName.toLowerCase()})
                   </Text>
                   <View style={styles.inputWrapper}>
                     <TextInput
@@ -1567,7 +1692,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                         focusedField === 'phoneticGuide' && styles.inputFocused,
                         Boolean(phoneticGuide) && styles.inputWithClearBtn,
                       ]}
-                      placeholder='Ej: "breik-zru", "áp-l"'
+                      placeholder={langExamples.phoneticPlaceholder}
                       placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
                       value={phoneticGuide}
                       onChangeText={(text) => {
@@ -1601,7 +1726,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                         focusedField === 'ipa' && styles.inputFocused,
                         Boolean(ipa) && styles.inputWithClearBtn,
                       ]}
-                      placeholder="Ej: /ˈbreɪkˌθruː/, /ˈæp.əl/"
+                      placeholder={langExamples.ipaPlaceholder}
                       placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
                       value={ipa}
                       onChangeText={(text) => {
@@ -1659,7 +1784,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               <Text style={[styles.autoPosSubtext, !isDark && styles.autoPosSubtextLight]}>
                 {isPosManuallySelected
                   ? 'Modificado manualmente por ti.'
-                  : '✨ Asignado automáticamente según la gramática en inglés.'}
+                  : `✨ Asignado automáticamente según la gramática en ${targetLangName.toLowerCase()}.`}
               </Text>
 
               {/* Botones / Chips de las 9 opciones solicitadas */}

@@ -698,10 +698,28 @@ export async function testGeminiConnection(
   return { success: false, message: lastError || 'No se pudo conectar con la API de Gemini.' };
 }
 
+const LANGUAGE_ENGLISH_NAMES: Record<string, string> = {
+  en: 'English',
+  es: 'Spanish',
+  fr: 'French',
+  de: 'German',
+  it: 'Italian',
+  pt: 'Portuguese',
+  ru: 'Russian',
+  zh: 'Chinese (Mandarin)',
+  ja: 'Japanese',
+  ar: 'Arabic',
+};
+
+function getEnglishLangLabel(code: string): string {
+  const clean = (code || 'en').trim().toLowerCase();
+  return LANGUAGE_ENGLISH_NAMES[clean] || clean;
+}
+
 export async function translateWithGemini(
   text: string,
-  fromLang: 'en' | 'es' | 'auto' = 'en',
-  toLang: 'en' | 'es' = 'es',
+  fromLang: string = 'en',
+  toLang: string = 'es',
   customApiKey?: string
 ): Promise<string> {
   const clean = text.trim();
@@ -716,8 +734,8 @@ export async function translateWithGemini(
     return TRANSLATION_CACHE.get(cacheKey)!;
   }
 
-  const fromLabel = fromLang === 'es' ? 'Spanish' : fromLang === 'en' ? 'English' : 'source language';
-  const toLabel = toLang === 'es' ? 'Spanish' : 'English';
+  const fromLabel = fromLang === 'auto' ? 'source language' : getEnglishLangLabel(fromLang);
+  const toLabel = getEnglishLangLabel(toLang);
   const prompt = `You are a professional native translator. Translate the following text from ${fromLabel} to ${toLabel}.
 Return strictly ONLY the translated text without quotes, commentary, markdown formatting, or introductory phrases:
 
@@ -763,8 +781,8 @@ ${clean}`;
 
 export async function translatePhrase(
   text: string,
-  fromLang: 'en' | 'es' | 'auto' = 'en',
-  toLang: 'en' | 'es' = 'es',
+  fromLang: string = 'en',
+  toLang: string = 'es',
   _provider?: TranslationProvider
 ): Promise<{ text: string; providerUsed: TranslationProvider | 'builtin' }> {
   const clean = text.trim();
@@ -785,12 +803,16 @@ export async function translatePhrase(
 export async function queryGeminiForWord(
   word: string,
   customApiKey?: string,
-  sourceLang: 'en' | 'es' = 'en'
+  sourceLang: 'en' | 'es' = 'en',
+  targetLangCode: string = 'en',
+  nativeLangCode: string = 'es'
 ): Promise<AutoEnrichResult | null> {
   const clean = word.trim();
   if (!clean) return null;
 
-  const cacheKey = `${sourceLang}:${clean.toLowerCase()}`;
+  const targetCode = (targetLangCode || 'en').trim().toLowerCase();
+  const nativeCode = (nativeLangCode || 'es').trim().toLowerCase();
+  const cacheKey = `${targetCode}:${nativeCode}:${sourceLang}:${clean.toLowerCase()}`;
   if (ENRICHMENT_CACHE.has(cacheKey)) {
     return ENRICHMENT_CACHE.get(cacheKey)!;
   }
@@ -798,49 +820,52 @@ export async function queryGeminiForWord(
   const apiKey = (customApiKey !== undefined ? customApiKey : getGeminiApiKey()).trim();
   if (!apiKey) return null;
 
+  const targetLabel = getEnglishLangLabel(targetCode);
+  const nativeLabel = getEnglishLangLabel(nativeCode);
+
   const prompt = sourceLang === 'es'
-    ? `You are an expert bilingual lexicographer and English teacher.
-Input Spanish word/phrase: "${clean}".
-Generate a comprehensive, authentic dictionary entry in JSON format.
+    ? `You are an expert bilingual lexicographer and ${targetLabel} teacher.
+Input ${nativeLabel} word/phrase: "${clean}".
+Generate a comprehensive, authentic dictionary entry in JSON format for learning ${targetLabel}.
 Requirements for sentences:
-- exampleEn MUST be a natural, modern, authentic English sentence that clearly demonstrates the exact meaning and typical real-world usage of the English word.
-- exampleEs MUST be a 100% natural, fluent, accurate Spanish translation of that exact English sentence (NEVER leave English words untranslated in Spanish).
-- If there are other common translations or synonyms in English, provide them in the "alternatives" array.
+- exampleEn MUST be a natural, modern, authentic ${targetLabel} sentence that clearly demonstrates the exact meaning and typical real-world usage of the ${targetLabel} word.
+- exampleEs MUST be a 100% natural, fluent, accurate ${nativeLabel} translation of that exact ${targetLabel} sentence.
+- If there are other common translations or synonyms in ${targetLabel}, provide them in the "alternatives" array.
 
 Return ONLY a valid JSON object with NO extra text or markdown:
 {
-  "word": "Best single English word or short idiom (Capitalized)",
+  "word": "Best single ${targetLabel} word or short idiom (Capitalized)",
   "translation": "${clean.charAt(0).toUpperCase() + clean.slice(1)}",
-  "alternatives": ["Other English translation 1", "Other English translation 2"],
+  "alternatives": ["Other ${targetLabel} translation 1", "Other ${targetLabel} translation 2"],
   "partOfSpeech": "One of: Sustantivo, Verbo, Adjetivo, Adverbio, Preposición, Conjunción, Pronombre, Interjección, Artículo/determinante",
   "level": "CEFR: A1, A2, B1, B2, C1, or C2",
-  "ipa": "/IPA phonetics for the English word/",
-  "phoneticGuide": "\\"Spanish phonetic approximation for Spanish speakers\\"",
-  "phoneticNote": "Short pronunciation tip in Spanish",
-  "definition": "Concise Spanish definition",
-  "exampleEn": "Natural modern English sentence demonstrating the word",
-  "exampleEs": "Accurate, fluent Spanish translation of the sentence"
+  "ipa": "/IPA phonetics for the ${targetLabel} word/",
+  "phoneticGuide": "\\"${nativeLabel} phonetic approximation for ${nativeLabel} speakers\\"",
+  "phoneticNote": "Short pronunciation tip in ${nativeLabel}",
+  "definition": "Concise ${nativeLabel} definition",
+  "exampleEn": "Natural modern ${targetLabel} sentence demonstrating the word",
+  "exampleEs": "Accurate, fluent ${nativeLabel} translation of the sentence"
 }`
-    : `You are an expert bilingual lexicographer and English teacher.
-Input English word/phrase: "${clean}".
+    : `You are an expert bilingual lexicographer and ${targetLabel} teacher.
+Input ${targetLabel} word/phrase: "${clean}".
 Generate a comprehensive, authentic dictionary entry in JSON format.
 Requirements for sentences:
-- exampleEn MUST be a natural, modern, authentic English sentence that clearly demonstrates the exact meaning and typical real-world usage of "${clean}".
-- exampleEs MUST be a 100% natural, fluent, accurate Spanish translation of that exact English sentence (NEVER leave English words untranslated in Spanish).
-- If there are other common translations or synonyms in Spanish, provide them in the "alternatives" array.
+- exampleEn MUST be a natural, modern, authentic ${targetLabel} sentence that clearly demonstrates the exact meaning and typical real-world usage of "${clean}".
+- exampleEs MUST be a 100% natural, fluent, accurate ${nativeLabel} translation of that exact ${targetLabel} sentence.
+- If there are other common translations or synonyms in ${nativeLabel}, provide them in the "alternatives" array.
 
 Return ONLY a valid JSON object with NO extra text or markdown:
 {
-  "translation": "Best Spanish translation (Capitalized)",
-  "alternatives": ["Other Spanish translation 1", "Other Spanish translation 2"],
+  "translation": "Best ${nativeLabel} translation (Capitalized)",
+  "alternatives": ["Other ${nativeLabel} translation 1", "Other ${nativeLabel} translation 2"],
   "partOfSpeech": "One of: Sustantivo, Verbo, Adjetivo, Adverbio, Preposición, Conjunción, Pronombre, Interjección, Artículo/determinante",
   "level": "CEFR: A1, A2, B1, B2, C1, or C2",
-  "ipa": "/IPA phonetics/",
-  "phoneticGuide": "\\"Spanish phonetic approximation for Spanish speakers\\"",
-  "phoneticNote": "Short pronunciation tip in Spanish",
-  "definition": "Concise Spanish definition",
-  "exampleEn": "Natural modern English sentence demonstrating the word",
-  "exampleEs": "Accurate, fluent Spanish translation of the sentence"
+  "ipa": "/IPA phonetics for ${clean} in ${targetLabel}/",
+  "phoneticGuide": "\\"${nativeLabel} phonetic approximation for ${nativeLabel} speakers\\"",
+  "phoneticNote": "Short pronunciation tip in ${nativeLabel}",
+  "definition": "Concise ${nativeLabel} definition",
+  "exampleEn": "Natural modern ${targetLabel} sentence demonstrating the word",
+  "exampleEs": "Accurate, fluent ${nativeLabel} translation of the sentence"
 }`;
 
   const models = GEMINI_AVAILABLE_MODELS;
@@ -1025,37 +1050,43 @@ export function createAuthenticEnglishSentence(word: string, pos?: string): stri
   return nounSentences[hash % nounSentences.length];
 }
 
-// Dedicated AI contextual sentence generator for any English or Spanish word
+// Dedicated AI contextual sentence generator for any target or native language word
 export async function generateExampleSentencesWithAI(
   word: string,
   translation?: string,
   pos?: string,
-  customApiKey?: string
+  customApiKey?: string,
+  targetLangCode: string = 'en',
+  nativeLangCode: string = 'es'
 ): Promise<{ exampleEn: string; exampleEs: string } | null> {
   const cleanWord = (word || '').trim();
   if (!cleanWord) return null;
   if (!networkService.isOnline()) return null;
 
-  const cacheKey = `ai_sentence:${cleanWord.toLowerCase()}:${(translation || '').toLowerCase()}`;
+  const targetCode = (targetLangCode || 'en').trim().toLowerCase();
+  const nativeCode = (nativeLangCode || 'es').trim().toLowerCase();
+  const cacheKey = `ai_sentence:${targetCode}:${nativeCode}:${cleanWord.toLowerCase()}:${(translation || '').toLowerCase()}`;
   if (SENTENCE_PAIR_CACHE.has(cacheKey)) {
     return SENTENCE_PAIR_CACHE.get(cacheKey)!;
   }
 
   const apiKey = (customApiKey !== undefined ? customApiKey : getGeminiApiKey()).trim();
+  const targetLabel = getEnglishLangLabel(targetCode);
+  const nativeLabel = getEnglishLangLabel(nativeCode);
 
   if (apiKey) {
-    const prompt = `You are an expert bilingual English-Spanish lexicographer and teacher.
-Generate a modern, natural, authentic example sentence in English demonstrating the typical real-world usage of the word "${cleanWord}"${translation ? ` (Spanish translation: "${translation}")` : ''}${pos ? ` as a ${pos}` : ''}.
-Then provide an accurate, fluent, and completely natural Spanish translation of that exact sentence.
+    const prompt = `You are an expert bilingual ${targetLabel}-${nativeLabel} lexicographer and teacher.
+Generate a modern, natural, authentic example sentence in ${targetLabel} demonstrating the typical real-world usage of the word "${cleanWord}"${translation ? ` (${nativeLabel} translation: "${translation}")` : ''}${pos ? ` as a ${pos}` : ''}.
+Then provide an accurate, fluent, and completely natural ${nativeLabel} translation of that exact sentence.
 
 Requirements:
-1. The English sentence must naturally feature "${cleanWord}" in clear grammatical context.
+1. The ${targetLabel} sentence must naturally feature "${cleanWord}" in clear grammatical context.
 2. The sentence should be modern, clear, practical, and helpful for language learners.
-3. The Spanish translation MUST BE THE EXACT, FAITHFUL SPANISH TRANSLATION of the English sentence. Every word and meaning must correspond accurately between both languages.
+3. The ${nativeLabel} translation MUST BE THE EXACT, FAITHFUL ${nativeLabel.toUpperCase()} TRANSLATION of the ${targetLabel} sentence. Every word and meaning must correspond accurately between both languages.
 4. Return ONLY a valid JSON object with NO extra text or markdown:
 {
-  "exampleEn": "Natural English sentence containing ${cleanWord}",
-  "exampleEs": "Traducción exacta y natural al español"
+  "exampleEn": "Natural ${targetLabel} sentence containing ${cleanWord}",
+  "exampleEs": "Traducción exacta y natural al ${nativeLabel}"
 }`;
 
     for (const model of GEMINI_AVAILABLE_MODELS) {
@@ -1100,21 +1131,34 @@ Requirements:
   }
 
   // High-accuracy fallback: generate a grammatically correct sentence featuring cleanWord and translate it
-  const fallbackEn = createAuthenticEnglishSentence(cleanWord, pos);
-  const fallbackEs = await translateText(fallbackEn, 'en', 'es');
-  const pair = {
-    exampleEn: fallbackEn,
-    exampleEs: fallbackEs || generateNaturalSentencePairSync(cleanWord, pos || 'Sustantivo', translation).exampleEs,
-  };
-  SENTENCE_PAIR_CACHE.set(cacheKey, pair);
-  return pair;
+  if (targetCode === 'en') {
+    const fallbackEn = createAuthenticEnglishSentence(cleanWord, pos);
+    const fallbackEs = await translateText(fallbackEn, 'en', nativeCode);
+    const pair = {
+      exampleEn: fallbackEn,
+      exampleEs: fallbackEs || generateNaturalSentencePairSync(cleanWord, pos || 'Sustantivo', translation).exampleEs,
+    };
+    SENTENCE_PAIR_CACHE.set(cacheKey, pair);
+    return pair;
+  } else {
+    const baseEs = translation
+      ? `Hoy aprendí cómo usar la expresión "${translation.split(/[\/,;]/)[0].trim()}" en una conversación real.`
+      : `Hoy aprendí cómo usar "${cleanWord}" en una conversación cotidiana.`;
+    const translatedTarget = await translateText(baseEs, nativeCode, targetCode);
+    const pair = {
+      exampleEn: translatedTarget || cleanWord,
+      exampleEs: baseEs,
+    };
+    SENTENCE_PAIR_CACHE.set(cacheKey, pair);
+    return pair;
+  }
 }
 
 // Ultra-fast translation helper with multi-tier caching and parallel/fallback providers (<100ms)
 export async function translateText(
   text: string,
-  fromLang: 'en' | 'es' | 'auto' = 'en',
-  toLang: 'en' | 'es' = 'es'
+  fromLang: string = 'en',
+  toLang: string = 'es'
 ): Promise<string> {
   const clean = text.trim();
   if (!clean) return '';
@@ -1157,7 +1201,7 @@ export async function translateText(
 
   // 3. Fallback: MyMemory API (typically 120ms - 250ms)
   try {
-    const pair = fromLang === 'es' ? 'es|en' : 'en|es';
+    const pair = `${fromLang === 'auto' ? 'en' : fromLang}|${toLang}`;
     const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean)}&langpair=${pair}`;
     const res = await fetchWithTimeout(url, {}, 1000);
     if (res.ok) {
@@ -1195,8 +1239,8 @@ export async function translateText(
 // Retrieves accurate dictionary translation and part of speech from Google Translate Dictionary endpoint
 export async function fetchGoogleDictionary(
   word: string,
-  fromLang: 'en' | 'es' | 'auto' = 'en',
-  toLang: 'en' | 'es' = 'es'
+  fromLang: string = 'en',
+  toLang: string = 'es'
 ): Promise<{ translation: string; partOfSpeech?: string; alternatives?: string[]; detectedLang?: string }> {
   const clean = word.trim().toLowerCase();
   if (!networkService.isOnline()) return { translation: '' };
@@ -1784,10 +1828,24 @@ export function getPhoneticsForEnglishWord(rawWord: string): { ipa: string; phon
 // Synchronous instant predictor for 0ms immediate UI auto-fill while typing
 export function getInstantEnrichmentSync(
   rawWord: string,
-  sourceLang: 'en' | 'es' = 'en'
+  sourceLang: 'en' | 'es' = 'en',
+  targetLangCode: string = 'en',
+  nativeLangCode: string = 'es'
 ): Partial<AutoEnrichResult> | null {
   const clean = rawWord.trim().toLowerCase();
   if (!clean || clean.length < 2) return null;
+
+  const tLang = (targetLangCode || 'en').toLowerCase();
+  const nLang = (nativeLangCode || 'es').toLowerCase();
+
+  // For non-English target boards, only return cached results
+  if (tLang !== 'en') {
+    const cacheKey = `ai:${tLang}:${nLang}:${sourceLang}:${clean}`;
+    if (ENRICHMENT_CACHE.has(cacheKey)) {
+      return ENRICHMENT_CACHE.get(cacheKey)!;
+    }
+    return null;
+  }
 
   const effectiveLang: 'en' | 'es' = sourceLang === 'en' && isLikelySpanish(clean) ? 'es' : sourceLang;
   const cacheKey = `${effectiveLang}:${clean}`;
@@ -1857,21 +1915,29 @@ export function getInstantEnrichmentSync(
   };
 }
 
-// Main auto-enrich function supporting English and Spanish input languages (Lightning fast <100ms)
+// Main auto-enrich function supporting all target and native languages (Lightning fast <100ms)
 export async function autoEnrichWord(
   rawWord: string,
   sourceLang: 'en' | 'es' = 'en',
   useAi: boolean = true,
-  _provider?: TranslationProvider
+  _provider?: TranslationProvider,
+  targetLangCode: string = 'en',
+  nativeLangCode: string = 'es'
 ): Promise<AutoEnrichResult> {
   const clean = rawWord.trim().toLowerCase();
   if (!clean) {
     throw new Error('La palabra no puede estar vacía');
   }
 
-  // Auto-detect: if language is 'en' but text contains Spanish-specific characters, switch to 'es'
-  const effectiveLang: 'en' | 'es' = sourceLang === 'en' && isLikelySpanish(clean) ? 'es' : sourceLang;
-  const cacheKey = `ai:${effectiveLang}:${clean}`;
+  const tLang = (targetLangCode || 'en').toLowerCase();
+  const nLang = (nativeLangCode || 'es').toLowerCase();
+
+  // Auto-detect only when learning English from Spanish
+  const effectiveLang: 'en' | 'es' =
+    tLang === 'en' && nLang === 'es' && sourceLang === 'en' && isLikelySpanish(clean) ? 'es' : sourceLang;
+  const cacheKey = tLang === 'en' && nLang === 'es'
+    ? `ai:${effectiveLang}:${clean}`
+    : `ai:${tLang}:${nLang}:${effectiveLang}:${clean}`;
 
   // 0. Instant Cache check (0ms)
   if (ENRICHMENT_CACHE.has(cacheKey)) {
@@ -1881,7 +1947,7 @@ export async function autoEnrichWord(
   // 1. Explicit AI (Gemini) suggestion (when configured and requested)
   if (useAi && isGeminiConfigured()) {
     try {
-      const geminiResult = await queryGeminiForWord(clean, undefined, effectiveLang);
+      const geminiResult = await queryGeminiForWord(clean, undefined, effectiveLang, tLang, nLang);
       if (geminiResult) {
         ENRICHMENT_CACHE.set(cacheKey, geminiResult);
         return geminiResult;
@@ -1889,6 +1955,80 @@ export async function autoEnrichWord(
     } catch (e) {
       console.warn('[autoEnrichWord] Explicit Gemini query failed, continuing with fast fallback:', e);
     }
+  }
+
+  // ----------------------------------------------------
+  // NON-ENGLISH TARGET LANGUAGE FALLBACK (e.g. FR, DE, IT, PT, RU, ZH, JA, AR, ES)
+  // ----------------------------------------------------
+  if (tLang !== 'en' || nLang !== 'es') {
+    const isNativeInput = effectiveLang === 'es';
+    const fromCode = isNativeInput ? nLang : tLang;
+    const toCode = isNativeInput ? tLang : nLang;
+
+    const [translatedText, googleDict] = await Promise.all([
+      translateText(clean, fromCode, toCode),
+      fetchGoogleDictionary(clean, fromCode, toCode).catch(() => null),
+    ]);
+
+    const resolvedTranslated = (googleDict?.translation || translatedText || clean)
+      .replace(/[.!,?]$/, '')
+      .trim();
+
+    const finalTargetWordRaw = isNativeInput ? resolvedTranslated : rawWord.trim();
+    const finalNativeWordRaw = isNativeInput ? rawWord.trim() : resolvedTranslated;
+
+    const finalTargetWord = finalTargetWordRaw.charAt(0).toUpperCase() + finalTargetWordRaw.slice(1);
+    const finalNativeWord = finalNativeWordRaw.charAt(0).toUpperCase() + finalNativeWordRaw.slice(1);
+
+    const finalPos: PartOfSpeech = googleDict?.partOfSpeech
+      ? normalizePartOfSpeech(googleDict.partOfSpeech)
+      : 'Sustantivo';
+
+    let pair: { exampleEn: string; exampleEs: string } | null = null;
+    try {
+      pair = await generateExampleSentencesWithAI(finalTargetWord, finalNativeWord, finalPos, undefined, tLang, nLang);
+    } catch (e) {}
+
+    if (!pair || !pair.exampleEn || !pair.exampleEs) {
+      // Fallback: build a simple sentence in native language and translate to target language
+      const fallbackEnSentence = createAuthenticEnglishSentence(finalTargetWord.toLowerCase(), finalPos);
+      const [sentenceTarget, sentenceNative] = await Promise.all([
+        tLang === 'en' ? Promise.resolve(fallbackEnSentence) : translateText(fallbackEnSentence, 'en', tLang),
+        nLang === 'en' ? Promise.resolve(fallbackEnSentence) : translateText(fallbackEnSentence, 'en', nLang),
+      ]);
+      pair = {
+        exampleEn: sentenceTarget || finalTargetWord,
+        exampleEs: sentenceNative || finalNativeWord,
+      };
+    }
+
+    const altsSet = new Set<string>();
+    if (googleDict?.alternatives && Array.isArray(googleDict.alternatives)) {
+      googleDict.alternatives.forEach((a) => {
+        const cap = a.trim().charAt(0).toUpperCase() + a.trim().slice(1);
+        if (cap) altsSet.add(cap);
+      });
+    }
+    const alternatives = Array.from(altsSet);
+    const phon = getPhoneticsForEnglishWord(finalTargetWord.toLowerCase());
+
+    const result: AutoEnrichResult = {
+      word: finalTargetWord,
+      partOfSpeech: finalPos,
+      level: 'B1',
+      ipa: phon.ipa,
+      phoneticGuide: phon.phoneticGuide,
+      phoneticNote: 'Sílaba tónica destacada / Fonética estándar',
+      translation: finalNativeWord,
+      alternatives: alternatives.length > 0 ? alternatives : undefined,
+      definition: finalNativeWord,
+      exampleEn: pair.exampleEn,
+      exampleEs: pair.exampleEs,
+      categoryGroup: '',
+      categorySub: '',
+    };
+    ENRICHMENT_CACHE.set(cacheKey, result);
+    return result;
   }
 
   // ----------------------------------------------------

@@ -31,7 +31,7 @@ import {
   Check,
   X,
 } from 'lucide-react-native';
-import { WordItem, WordStatus } from '../../types';
+import { WordItem, WordStatus, SUPPORTED_LANGUAGES } from '../../types';
 import { vocabService, getWordCategories, getWordSubcategories } from '../../lib/vocabularyStore';
 import { SelectedFilter } from './SidebarCategories';
 import { THEME } from '../../theme';
@@ -53,6 +53,8 @@ interface VocabularyTableViewProps {
   onUpdateStatus: (id: string, status: WordStatus) => void;
   onDeleteWord: (id: string) => void;
   isDark?: boolean;
+  activeLanguage?: string;
+  nativeLanguage?: string;
 }
 
 const LEVEL_OPTIONS = [
@@ -84,9 +86,24 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
   onUpdateStatus,
   onDeleteWord,
   isDark = true,
+  activeLanguage = 'en',
+  nativeLanguage = 'es',
 }) => {
   const { isTableView, isPhone, isDesktop, width } = useResponsive();
   const isCompact = isPhone || (width > 0 && width < 600);
+
+  const targetLangCode = (activeLanguage || 'en').toLowerCase();
+  const nativeLangCode = (nativeLanguage || 'es').toLowerCase() === targetLangCode
+    ? (targetLangCode === 'es' ? 'en' : 'es')
+    : (nativeLanguage || 'es').toLowerCase();
+
+  const targetLangName = useMemo(() => {
+    return SUPPORTED_LANGUAGES.find((l) => l.code === targetLangCode)?.name || 'Inglés';
+  }, [targetLangCode]);
+
+  const nativeLangName = useMemo(() => {
+    return SUPPORTED_LANGUAGES.find((l) => l.code === nativeLangCode)?.name || 'Español';
+  }, [nativeLangCode]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [levelFilter, setLevelFilter] = useState<string>('all');
@@ -346,7 +363,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
           <Search size={15} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} style={{ marginRight: 8 }} />
           <TextInput
             style={[styles.searchInput, !isDark && styles.searchInputLight]}
-            placeholder="Buscar por palabra en inglés, español o fonética..."
+            placeholder={`Buscar por palabra en ${targetLangName.toLowerCase()}, ${nativeLangName.toLowerCase()} o fonética...`}
             placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
             value={searchTerm}
             onChangeText={(text) => {
@@ -479,9 +496,13 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
         {/* Table Column Headers (Only for wide table view) */}
         {isTableView && (
           <View style={[styles.tableHeaderRow, !isDark && styles.tableHeaderRowLight]}>
-            <Text style={[styles.colHeader, !isDark && styles.colHeaderLight, { flex: 1.5 }]}>PALABRA (INGLÉS)</Text>
+            <Text style={[styles.colHeader, !isDark && styles.colHeaderLight, { flex: 1.5 }]}>
+              PALABRA ({targetLangName.toUpperCase()})
+            </Text>
             <Text style={[styles.colHeader, !isDark && styles.colHeaderLight, { flex: 1.5 }]}>FONÉTICA & PRONUNCIACIÓN</Text>
-            <Text style={[styles.colHeader, !isDark && styles.colHeaderLight, { flex: 1.5 }]}>TRADUCCIÓN (ESPAÑOL)</Text>
+            <Text style={[styles.colHeader, !isDark && styles.colHeaderLight, { flex: 1.5 }]}>
+              TRADUCCIÓN ({nativeLangName.toUpperCase()})
+            </Text>
             <Text style={[styles.colHeader, !isDark && styles.colHeaderLight, { flex: 2.2 }]}>FRASE DE EJEMPLO (BILINGÜE)</Text>
             <Text style={[styles.colHeader, !isDark && styles.colHeaderLight, { flex: 1.3, textAlign: 'right' }]}>
               ESTADO & ACCIONES
@@ -540,7 +561,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
                   <View style={styles.wordCardTitleArea}>
                     <TouchableOpacity
                       style={styles.speakerBtn}
-                      onPress={() => vocabService.speak(word.word)}
+                      onPress={() => vocabService.speak(word.word, word.language || targetLangCode)}
                     >
                       <Volume2 size={16} color={THEME.colors.crimsonLight} />
                     </TouchableOpacity>
@@ -642,7 +663,7 @@ export const VocabularyTableView: React.FC<VocabularyTableViewProps> = ({
                 <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <TouchableOpacity
                     style={styles.speakerBtn}
-                    onPress={() => vocabService.speak(word.word)}
+                    onPress={() => vocabService.speak(word.word, word.language || targetLangCode)}
                   >
                     <Volume2 size={14} color={THEME.colors.crimsonLight} />
                   </TouchableOpacity>
