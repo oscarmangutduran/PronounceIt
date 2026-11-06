@@ -59,6 +59,7 @@ import { AppleInstallModal } from '../common/AppleInstallModal';
 import { CountryFlag } from '../common/CountryFlag';
 import { LanguagePickerModal } from '../common/LanguagePickerModal';
 import { PayPalLogo } from '../common/PayPalLogo';
+import { AndroidLogo, AppleLogo } from '../common/PlatformLogos';
 import { useResponsive } from '../../lib/useResponsive';
 
 const DiscordIcon = ({ size = 20, color = '#ffffff' }: { size?: number; color?: string }) => (
@@ -1194,7 +1195,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.7.0/PronounceIt-v1.7.0.apk')}
               activeOpacity={0.85}
             >
-              <Download size={15} color="#ffffff" style={{ marginRight: 6 }} />
+              <View style={{ marginRight: 6 }}>
+                <AndroidLogo size={16} color="#3DDC84" />
+              </View>
               <Text style={styles.downloadApkBtnText}>
                 {Platform.OS === 'web' ? 'Android (APK)' : 'Descargar APK'}
               </Text>
@@ -1205,7 +1208,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onPress={() => setShowAppleModal(true)}
                 activeOpacity={0.85}
               >
-                <Apple size={15} color={!isDark ? '#000000' : '#ffffff'} style={{ marginRight: 6 }} />
+                <View style={{ marginRight: 6 }}>
+                  <AppleLogo size={16} color={!isDark ? '#000000' : '#ffffff'} />
+                </View>
                 <Text style={[styles.downloadAppleBtnText, !isDark && styles.downloadAppleBtnTextLight]}>Apple (iOS)</Text>
               </TouchableOpacity>
             )}
@@ -1263,10 +1268,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* Version Information */}
       <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 8 }}>
         <Text style={{ fontSize: 13, color: THEME.colors.textSubtle, fontWeight: '700' }}>
-          PronounceIt v1.6.8
+          PronounceIt v1.7.0
         </Text>
         <Text style={{ fontSize: 11, color: THEME.colors.textSubtle, opacity: 0.75, marginTop: 4 }}>
-          Versión 1.6.8 Oficial · Todos los derechos reservados
+          Versión 1.7.0 Oficial · Todos los derechos reservados
         </Text>
       </View>
       </View>

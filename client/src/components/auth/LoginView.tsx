@@ -40,6 +40,7 @@ import { THEME } from '../../theme';
 import { SUPPORTED_LANGUAGES } from '../../types';
 import { PronounceItLogo } from '../common/PronounceItLogo';
 import { PayPalLogo } from '../common/PayPalLogo';
+import { AndroidLogo, AppleLogo } from '../common/PlatformLogos';
 import { AppleInstallModal } from '../common/AppleInstallModal';
 import { LanguagePickerModal } from '../common/LanguagePickerModal';
 import { CountryFlag } from '../common/CountryFlag';
@@ -808,7 +809,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 activeOpacity={0.85}
               >
                 <View style={styles.mobileDownloadIconBox}>
-                  <Smartphone size={15} color="#ffffff" />
+                  <AndroidLogo size={15} color="#3DDC84" />
                 </View>
                 <Text style={styles.mobileDownloadTitle}>
                   {Platform.OS === 'web' ? 'Android (APK)' : 'Descargar APK'}
@@ -838,7 +839,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   activeOpacity={0.85}
                 >
                   <View style={styles.mobileDownloadAppleIconBox}>
-                    <Apple size={15} color="#ffffff" />
+                    <AppleLogo size={15} color="#ffffff" />
                   </View>
                   <Text style={styles.mobileDownloadTitle}>Apple (iOS)</Text>
                 </TouchableOpacity>

@@ -34,6 +34,7 @@ import { networkService } from './lib/networkService';
 import { THEME } from './theme';
 import { PronounceItLogo } from './components/common/PronounceItLogo';
 import { PayPalLogo } from './components/common/PayPalLogo';
+import { AndroidLogo, AppleLogo } from './components/common/PlatformLogos';
 
 // Auth View
 import { LoginView } from './components/auth/LoginView';
@@ -764,7 +765,7 @@ function MainApp() {
                 onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.7.0/PronounceIt-v1.7.0.apk')}
                 activeOpacity={0.8}
               >
-                <Smartphone size={15} color={!isDark ? '#e11d48' : THEME.colors.crimsonLight} />
+                <AndroidLogo size={16} color="#3DDC84" />
                 <Text style={[styles.footerMobileText, !isDark && styles.footerMobileTextLight]}>
                   Android (APK)
                 </Text>
@@ -777,7 +778,7 @@ function MainApp() {
                   onPress={() => setShowAppleModal(true)}
                   activeOpacity={0.8}
                 >
-                  <Apple size={15} color={!isDark ? '#000000' : '#ffffff'} />
+                  <AppleLogo size={16} color={!isDark ? '#000000' : '#ffffff'} />
                   <Text style={[styles.footerMobileText, !isDark && styles.footerMobileTextLight]}>
                     Apple (iOS)
                   </Text>

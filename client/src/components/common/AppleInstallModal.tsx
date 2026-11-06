@@ -20,6 +20,7 @@ import {
   Smartphone,
 } from 'lucide-react-native';
 import { THEME } from '../../theme';
+import { AppleLogo } from './PlatformLogos';
 
 export interface AppleInstallModalProps {
   isOpen: boolean;
@@ -75,7 +76,7 @@ export const AppleInstallModal: React.FC<AppleInstallModalProps> = ({
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
               <View style={[styles.appleIconBox, !isDark && styles.appleIconBoxLight]}>
-                <Apple size={22} color={!isDark ? '#000000' : '#ffffff'} />
+                <AppleLogo size={22} color={!isDark ? '#000000' : '#ffffff'} />
               </View>
               <View style={{ marginLeft: 12, flex: 1 }}>
                 <Text style={[styles.title, !isDark && styles.textBlack]}>
