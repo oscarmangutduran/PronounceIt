@@ -22,6 +22,7 @@ async function getApp() {
   const { default: authRoutes } = await import('../server/src/routes/auth.js');
   const { default: wordsRoutes } = await import('../server/src/routes/words.js');
   const { default: testsRoutes } = await import('../server/src/routes/tests.js');
+  const { default: discordRoutes } = await import('../server/src/routes/discord.js');
 
   const app = express();
 
@@ -59,6 +60,8 @@ async function getApp() {
   app.use('/words', wordsRoutes as any);
   app.use('/api/tests', testsRoutes as any);
   app.use('/tests', testsRoutes as any);
+  app.use('/api/discord', discordRoutes as any);
+  app.use('/discord', discordRoutes as any);
 
   // Error handler
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

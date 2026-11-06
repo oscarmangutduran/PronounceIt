@@ -78,16 +78,33 @@ export interface TestRecord {
   irregularVerbQuestions?: any[];
 }
 
+export interface DiscordRoomRecord {
+  id: string;
+  channelId?: string;
+  roomName: string;
+  languageCode: string;
+  languageName: string;
+  createdBy: string;
+  inviteUrl: string;
+  createdAt: string;
+  expiresAt: string;
+  createdAtMs: number;
+  expiresAtMs: number;
+  isRealDiscordChannel: boolean;
+}
+
 export interface DatabaseSchema {
   users: UserRecord[];
   words: WordRecord[];
   tests: TestRecord[];
+  discordRooms?: DiscordRoomRecord[];
 }
 
 const DEFAULT_DB: DatabaseSchema = {
   users: [],
   words: [],
   tests: [],
+  discordRooms: [],
 };
 
 let dbCache: DatabaseSchema | null = null;
@@ -103,6 +120,7 @@ export async function initDb(): Promise<DatabaseSchema> {
       if (!Array.isArray(dbCache.users)) dbCache.users = [];
       if (!Array.isArray(dbCache.words)) dbCache.words = [];
       if (!Array.isArray(dbCache.tests)) dbCache.tests = [];
+      if (!Array.isArray(dbCache.discordRooms)) dbCache.discordRooms = [];
     } catch {
       // Try to seed from bundled db.json if in Vercel
       let seeded = false;

@@ -42,10 +42,12 @@ import {
   Plus,
   Radio,
   Headphones,
+  Clock,
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { UserProfile, SUPPORTED_LANGUAGES } from '../../types';
 import { vocabService } from '../../lib/vocabularyStore';
+import { backendApi, DiscordRoomItem } from '../../lib/apiClient';
 import {
   getGeminiApiKey,
   setGeminiApiKey,
@@ -136,6 +138,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   );
   const [copiedDiscordLang, setCopiedDiscordLang] = useState<string | null>(null);
   const [showAllDiscordRooms, setShowAllDiscordRooms] = useState<boolean>(false);
+  const [discordRooms, setDiscordRooms] = useState<DiscordRoomItem[]>([]);
+  const [isCreatingDiscordRoom, setIsCreatingDiscordRoom] = useState<boolean>(false);
+  const [copiedRoomId, setCopiedRoomId] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState<number>(() => Date.now());
 
   useEffect(() => {
     if (activeLanguage) {
@@ -143,28 +149,113 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   }, [activeLanguage]);
 
+  // Cargar salas activas de Discord al montar y limpiar expiradas (> 1 hora)
+  useEffect(() => {
+    let mounted = true;
+    backendApi.getDiscordRooms().then((rooms) => {
+      if (mounted) {
+        setDiscordRooms(rooms);
+      }
+    }).catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Contador en tiempo real cada segundo y eliminación automática al cumplirse 1 hora
+  useEffect(() => {
+    if (discordRooms.length === 0) return;
+
+    const interval = setInterval(() => {
+      const currentMs = Date.now();
+      setNowTick(currentMs);
+
+      setDiscordRooms((prev) => {
+        const expired = prev.filter((r) => r.expiresAtMs <= currentMs);
+        if (expired.length > 0) {
+          expired.forEach((r) => {
+            backendApi.deleteDiscordRoom(r.id).catch(() => {});
+          });
+          return prev.filter((r) => r.expiresAtMs > currentMs);
+        }
+        return prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [discordRooms.length]);
+
+  const formatRemainingTime = (expiresAtMs: number): string => {
+    const diffMs = Math.max(0, expiresAtMs - nowTick);
+    const totalSecs = Math.floor(diffMs / 1000);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
+  };
+
   const DISCORD_INVITE_URL = 'https://discord.gg/Zsv27yYBF';
 
-  const handleCopyDiscord = async (langCode?: string) => {
+  const handleCopyDiscord = async (langCode?: string, customUrl?: string, roomId?: string) => {
     const targetCode = langCode || selectedDiscordLang;
     const targetName = getLangName(targetCode);
+    const urlToCopy = customUrl || DISCORD_INVITE_URL;
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(DISCORD_INVITE_URL);
+        await navigator.clipboard.writeText(urlToCopy);
       } else {
         await Share.share({
           title: `Aula de ${targetName} - Discord PronounceIt`,
-          message: `Únete al aula de voz de ${targetName} en Discord para practicar pronunciación y conversación: ${DISCORD_INVITE_URL}`,
-          url: DISCORD_INVITE_URL,
+          message: `Únete al aula de voz de ${targetName} en Discord para practicar pronunciación y conversación: ${urlToCopy}`,
+          url: urlToCopy,
         });
       }
     } catch {}
-    setCopiedDiscordLang(targetCode);
-    setTimeout(() => setCopiedDiscordLang(null), 2500);
+    if (roomId) {
+      setCopiedRoomId(roomId);
+      setTimeout(() => setCopiedRoomId(null), 2500);
+    } else {
+      setCopiedDiscordLang(targetCode);
+      setTimeout(() => setCopiedDiscordLang(null), 2500);
+    }
   };
 
-  const handleOpenDiscord = (langCode?: string) => {
-    Linking.openURL(DISCORD_INVITE_URL).catch(() => {});
+  const handleOpenDiscord = async (langCode?: string) => {
+    const targetCode = (langCode || selectedDiscordLang || 'en').toLowerCase();
+    const targetName = getLangName(targetCode);
+    const username =
+      currentUser?.username?.trim() ||
+      currentUser?.full_name?.trim() ||
+      currentUser?.email?.split('@')[0] ||
+      'Alumno';
+
+    setIsCreatingDiscordRoom(true);
+    try {
+      const { room, rooms } = await backendApi.createDiscordRoom({
+        languageCode: targetCode,
+        languageName: targetName,
+        username,
+      });
+      setDiscordRooms(rooms);
+      setNowTick(Date.now());
+
+      // Programar eliminación exacta cuando transcurra 1 hora (3.600.000 ms)
+      const remainingMs = Math.max(1000, room.expiresAtMs - Date.now());
+      setTimeout(() => {
+        backendApi.deleteDiscordRoom(room.id).catch(() => {});
+        setDiscordRooms((prev) => prev.filter((r) => r.id !== room.id));
+      }, remainingMs);
+
+      await Linking.openURL(room.inviteUrl || DISCORD_INVITE_URL);
+    } catch {
+      Linking.openURL(DISCORD_INVITE_URL).catch(() => {});
+    } finally {
+      setIsCreatingDiscordRoom(false);
+    }
+  };
+
+  const handleDeleteDiscordRoom = async (roomId: string) => {
+    const updated = await backendApi.deleteDiscordRoom(roomId);
+    setDiscordRooms(updated);
   };
 
   const [copiedLinkedin, setCopiedLinkedin] = useState(false);
@@ -753,25 +844,124 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.discordJoinBtn}
+              style={[styles.discordJoinBtn, isCreatingDiscordRoom && { opacity: 0.75 }]}
               onPress={() => handleOpenDiscord(selectedDiscordLang)}
+              disabled={isCreatingDiscordRoom}
               activeOpacity={0.85}
             >
-              <DiscordIcon size={18} color="#ffffff" />
+              {isCreatingDiscordRoom ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <DiscordIcon size={18} color="#ffffff" />
+              )}
               <Text style={styles.discordJoinBtnText}>
-                Entrar al Aula de {getLangName(selectedDiscordLang)}
+                {isCreatingDiscordRoom
+                  ? `Creando sala de ${getLangName(selectedDiscordLang)}...`
+                  : `Crear Sala y Entrar (${getLangName(selectedDiscordLang)})`}
               </Text>
               <ExternalLink size={15} color="#ffffff" style={{ marginLeft: 2 }} />
             </TouchableOpacity>
           </View>
+
+          {/* Salas temporales activas de este idioma (auto-eliminación en 1 hora) */}
+          {(() => {
+            const activeLangRooms = discordRooms.filter(
+              (r) =>
+                r.languageCode.toLowerCase() === selectedDiscordLang.toLowerCase() &&
+                r.expiresAtMs > nowTick
+            );
+            if (activeLangRooms.length === 0) return null;
+
+            return (
+              <View style={[styles.activeRoomsContainer, !isDark && styles.activeRoomsContainerLight]}>
+                <View style={styles.activeRoomsHeaderRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Radio size={14} color="#10b981" />
+                    <Text style={[styles.activeRoomsTitle, !isDark && styles.activeRoomsTitleLight]}>
+                      Salas activas de {getLangName(selectedDiscordLang)} ({activeLangRooms.length})
+                    </Text>
+                  </View>
+                  <Text style={[styles.activeRoomsSubtitle, !isDark && styles.activeRoomsSubtitleLight]}>
+                    Eliminación automática en 1h
+                  </Text>
+                </View>
+
+                {activeLangRooms.map((room) => (
+                  <View
+                    key={room.id}
+                    style={[styles.activeRoomItem, !isDark && styles.activeRoomItemLight]}
+                  >
+                    <View style={styles.activeRoomInfo}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <CountryFlag code={room.languageCode} size={16} />
+                        <Text style={[styles.activeRoomName, !isDark && styles.activeRoomNameLight]}>
+                          {room.roomName}
+                        </Text>
+                        <View style={[styles.activeRoomTimerBadge, !isDark && styles.activeRoomTimerBadgeLight]}>
+                          <Clock size={11} color={!isDark ? '#b45309' : '#fbbf24'} />
+                          <Text style={[styles.activeRoomTimerText, !isDark && styles.activeRoomTimerTextLight]}>
+                            Se elimina en {formatRemainingTime(room.expiresAtMs)}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.activeRoomMeta, !isDark && styles.activeRoomMetaLight]}>
+                        Creada por {room.createdBy} • Duración máxima: 1 hora
+                      </Text>
+                    </View>
+
+                    <View style={styles.activeRoomActions}>
+                      <TouchableOpacity
+                        style={[styles.activeRoomActionBtn, !isDark && styles.activeRoomActionBtnLight]}
+                        onPress={() => handleCopyDiscord(room.languageCode, room.inviteUrl, room.id)}
+                        activeOpacity={0.75}
+                      >
+                        {copiedRoomId === room.id ? (
+                          <Check size={13} color="#10b981" />
+                        ) : (
+                          <Copy size={13} color={!isDark ? '#334155' : '#cbd5e1'} />
+                        )}
+                        <Text
+                          style={[
+                            styles.activeRoomActionText,
+                            !isDark && styles.activeRoomActionTextLight,
+                            copiedRoomId === room.id && { color: '#10b981' },
+                          ]}
+                        >
+                          {copiedRoomId === room.id ? 'Copiado' : 'Invitar'}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.activeRoomJoinMiniBtn}
+                        onPress={() => Linking.openURL(room.inviteUrl || DISCORD_INVITE_URL).catch(() => {})}
+                        activeOpacity={0.8}
+                      >
+                        <Headphones size={13} color="#ffffff" />
+                        <Text style={styles.activeRoomJoinMiniText}>Unirse</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.activeRoomDeleteBtn, !isDark && styles.activeRoomDeleteBtnLight]}
+                        onPress={() => handleDeleteDiscordRoom(room.id)}
+                        activeOpacity={0.75}
+                        accessibilityLabel="Eliminar sala ahora"
+                      >
+                        <Trash2 size={13} color="#f87171" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
         </View>
 
-        {/* Mensaje de Salas automáticas */}
+        {/* Mensaje de Salas automáticas con eliminación a la hora */}
         <View style={[styles.discordInfoBox, !isDark && styles.discordInfoBoxLight]}>
           <Info size={18} color={!isDark ? '#4f46e5' : '#818cf8'} style={{ marginTop: 1, marginRight: 10, flexShrink: 0 }} />
           <Text style={[styles.discordInfoText, !isDark && styles.discordInfoTextLight]}>
-            <Text style={[styles.discordInfoBold, !isDark && styles.discordInfoBoldLight]}>Salas automáticas por idioma: </Text>
-            Al entrar al canal de voz maestro de tu idioma en Discord (ej. <Text style={{ fontStyle: 'italic', fontWeight: '700' }}>#voz-{selectedDiscordLang.toLowerCase()}</Text>), el bot creará automáticamente vuestra propia sub-sala de audio para practicar sin interferencias de otros idiomas. Comparte el enlace para unirte con otros alumnos.
+            <Text style={[styles.discordInfoBold, !isDark && styles.discordInfoBoldLight]}>Salas temporales de 1 hora: </Text>
+            Al pulsar el botón de Discord (<Text style={{ fontStyle: 'italic', fontWeight: '700' }}>Crear Sala y Entrar</Text>) o al unirte al canal maestro (<Text style={{ fontStyle: 'italic', fontWeight: '700' }}>#voz-{selectedDiscordLang.toLowerCase()}</Text>), se crea automáticamente una sala de voz para tu idioma que <Text style={{ fontWeight: '700' }}>se eliminará automáticamente cuando transcurra 1 hora</Text>.
           </Text>
         </View>
       </View>
@@ -2495,6 +2685,155 @@ const styles = StyleSheet.create({
   },
   singleLangNoteLight: {
     color: '#0369a1',
+  },
+  // Active 1-hour Discord rooms styles
+  activeRoomsContainer: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 10,
+  },
+  activeRoomsContainerLight: {
+    borderTopColor: 'rgba(79, 70, 229, 0.15)',
+  },
+  activeRoomsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  activeRoomsTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  activeRoomsTitleLight: {
+    color: '#1e1b4b',
+  },
+  activeRoomsSubtitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#a5b4fc',
+  },
+  activeRoomsSubtitleLight: {
+    color: '#4338ca',
+  },
+  activeRoomItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 10,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.3)',
+  },
+  activeRoomItemLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(79, 70, 229, 0.25)',
+  },
+  activeRoomInfo: {
+    flex: 1,
+    minWidth: 200,
+    gap: 4,
+  },
+  activeRoomName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  activeRoomNameLight: {
+    color: '#0f172a',
+  },
+  activeRoomTimerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    backgroundColor: 'rgba(251, 191, 36, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.35)',
+  },
+  activeRoomTimerBadgeLight: {
+    backgroundColor: '#fef3c7',
+    borderColor: '#f59e0b',
+  },
+  activeRoomTimerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fbbf24',
+  },
+  activeRoomTimerTextLight: {
+    color: '#b45309',
+  },
+  activeRoomMeta: {
+    fontSize: 11,
+    color: '#94a3b8',
+  },
+  activeRoomMetaLight: {
+    color: '#64748b',
+  },
+  activeRoomActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  activeRoomActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  activeRoomActionBtnLight: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+  },
+  activeRoomActionText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#e2e8f0',
+  },
+  activeRoomActionTextLight: {
+    color: '#334155',
+  },
+  activeRoomJoinMiniBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#5865F2',
+  },
+  activeRoomJoinMiniText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  activeRoomDeleteBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(248, 113, 113, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.3)',
+  },
+  activeRoomDeleteBtnLight: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
   },
 });
 

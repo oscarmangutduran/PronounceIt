@@ -41,6 +41,49 @@ export interface ApiResponse<T = any> {
   [key: string]: any;
 }
 
+export interface DiscordRoomItem {
+  id: string;
+  channelId?: string;
+  roomName: string;
+  languageCode: string;
+  languageName: string;
+  createdBy: string;
+  inviteUrl: string;
+  createdAt: string;
+  expiresAt: string;
+  createdAtMs: number;
+  expiresAtMs: number;
+  isRealDiscordChannel?: boolean;
+}
+
+export const DISCORD_ROOM_DURATION_MS = 60 * 60 * 1000; // 1 hora (3.600.000 ms)
+const STORAGE_KEY_DISCORD_ROOMS = 'pronounceit_discord_rooms_v1';
+
+function getLocalStoredDiscordRooms(): DiscordRoomItem[] {
+  try {
+    const raw = appStorage.getItem(STORAGE_KEY_DISCORD_ROOMS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const now = Date.now();
+    const valid = parsed.filter((r: DiscordRoomItem) => r && typeof r.expiresAtMs === 'number' && r.expiresAtMs > now);
+    if (valid.length !== parsed.length) {
+      appStorage.setItem(STORAGE_KEY_DISCORD_ROOMS, JSON.stringify(valid));
+    }
+    return valid;
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalStoredDiscordRooms(rooms: DiscordRoomItem[]): void {
+  try {
+    const now = Date.now();
+    const valid = rooms.filter((r) => r && r.expiresAtMs > now);
+    appStorage.setItem(STORAGE_KEY_DISCORD_ROOMS, JSON.stringify(valid));
+  } catch {}
+}
+
 class BackendApiClient {
   private isServerHealthy = false;
   private lastHealthCheck = 0;
@@ -373,6 +416,107 @@ class BackendApiClient {
     } catch {
       return false;
     }
+  }
+
+  // ─── Discord Rooms (Salas temporales de 1 hora) ──────────────────
+  public async getDiscordRooms(langCode?: string): Promise<DiscordRoomItem[]> {
+    try {
+      const url = langCode
+        ? `${BASE_URL}/discord/rooms?lang=${encodeURIComponent(langCode)}`
+        : `${BASE_URL}/discord/rooms`;
+      const res = await this.fetchWithTimeout(url, {
+        method: 'GET',
+        headers: this.buildHeaders(),
+      }, 6000);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.rooms)) {
+          const now = Date.now();
+          const active = data.rooms.filter((r: DiscordRoomItem) => r.expiresAtMs > now);
+          if (!langCode) {
+            saveLocalStoredDiscordRooms(active);
+          }
+          return active;
+        }
+      }
+    } catch {}
+
+    const local = getLocalStoredDiscordRooms();
+    return langCode
+      ? local.filter((r) => r.languageCode.toLowerCase() === langCode.toLowerCase())
+      : local;
+  }
+
+  public async createDiscordRoom(payload: {
+    languageCode: string;
+    languageName: string;
+    username?: string;
+  }): Promise<{ room: DiscordRoomItem; rooms: DiscordRoomItem[] }> {
+    try {
+      const res = await this.fetchWithTimeout(
+        `${BASE_URL}/discord/rooms`,
+        {
+          method: 'POST',
+          headers: this.buildHeaders(),
+          body: JSON.stringify(payload),
+        },
+        8000
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.room) {
+          const allRooms: DiscordRoomItem[] = Array.isArray(data.rooms) ? data.rooms : [data.room];
+          saveLocalStoredDiscordRooms(allRooms);
+          return { room: data.room, rooms: allRooms };
+        }
+      }
+    } catch {}
+
+    // Fallback local si el servidor no responde
+    const nowMs = Date.now();
+    const expiresAtMs = nowMs + DISCORD_ROOM_DURATION_MS;
+    const cleanUser = (payload.username || 'Alumno').trim().slice(0, 28) || 'Alumno';
+    const fallbackRoom: DiscordRoomItem = {
+      id: `room_${nowMs}_${Math.random().toString(36).slice(2, 7)}`,
+      roomName: `Sala de ${payload.languageName} • ${cleanUser}`,
+      languageCode: payload.languageCode.toLowerCase(),
+      languageName: payload.languageName,
+      createdBy: cleanUser,
+      inviteUrl: 'https://discord.gg/Zsv27yYBF',
+      createdAt: new Date(nowMs).toISOString(),
+      expiresAt: new Date(expiresAtMs).toISOString(),
+      createdAtMs: nowMs,
+      expiresAtMs,
+      isRealDiscordChannel: false,
+    };
+    const existing = getLocalStoredDiscordRooms();
+    const updated = [fallbackRoom, ...existing];
+    saveLocalStoredDiscordRooms(updated);
+    return { room: fallbackRoom, rooms: updated };
+  }
+
+  public async deleteDiscordRoom(roomId: string): Promise<DiscordRoomItem[]> {
+    try {
+      const res = await this.fetchWithTimeout(
+        `${BASE_URL}/discord/rooms/${encodeURIComponent(roomId)}`,
+        {
+          method: 'DELETE',
+          headers: this.buildHeaders(),
+        },
+        6000
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.rooms)) {
+          saveLocalStoredDiscordRooms(data.rooms);
+          return data.rooms;
+        }
+      }
+    } catch {}
+
+    const updated = getLocalStoredDiscordRooms().filter((r) => r.id !== roomId);
+    saveLocalStoredDiscordRooms(updated);
+    return updated;
   }
 }
 
