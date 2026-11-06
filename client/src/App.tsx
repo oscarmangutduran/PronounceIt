@@ -33,6 +33,7 @@ import { appStorage } from './lib/storage';
 import { networkService } from './lib/networkService';
 import { THEME } from './theme';
 import { PronounceItLogo } from './components/common/PronounceItLogo';
+import { PayPalLogo } from './components/common/PayPalLogo';
 
 // Auth View
 import { LoginView } from './components/auth/LoginView';
@@ -713,10 +714,35 @@ function MainApp() {
         {/* Global Footer (shown on Desktop and Tablet when bottom bar is hidden) */}
         {!showBottomBar && (
           <View style={[styles.footerContainer, !isDark && styles.footerContainerLight]}>
-            <Text style={[styles.footerCopyright, !isDark && styles.footerTextBlack]}>
-              © PronounceIt v1.7.0 | Desarrollado con ❤️ Oscar Mangut Dev
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            {/* Left: Copyright */}
+            <View style={styles.footerLeft}>
+              <Text style={[styles.footerCopyright, !isDark && styles.footerTextBlack]}>
+                © PronounceIt v1.7.0 | Desarrollado con ❤️ Oscar Mangut Dev
+              </Text>
+            </View>
+
+            {/* Center: PayPal Donation Button */}
+            <View style={styles.footerCenter}>
+              <TouchableOpacity
+                style={[styles.footerPaypalBtn, !isDark && styles.footerPaypalBtnLight]}
+                onPress={() =>
+                  Linking.openURL(
+                    'https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=oscarmangutduran91%40gmail.com&item_name=Donaci%C3%B3n+PronounceIt&currency_code=EUR'
+                  )
+                }
+                activeOpacity={0.8}
+              >
+                <View style={styles.footerPaypalIconBadge}>
+                  <PayPalLogo size={13} />
+                </View>
+                <Text style={[styles.footerPaypalText, !isDark && styles.footerPaypalTextLight]}>
+                  Donar con PayPal
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Right: Mobile App Downloads */}
+            <View style={styles.footerRight}>
               <TouchableOpacity
                 style={[styles.footerMobileBtn, !isDark && styles.footerMobileBtnLight]}
                 onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.7.0/PronounceIt-v1.7.0.apk')}
@@ -1041,6 +1067,27 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
   },
+  footerLeft: {
+    flex: 1,
+    minWidth: 220,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  footerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerRight: {
+    flex: 1,
+    minWidth: 220,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
   footerCopyright: {
     fontSize: 12,
     color: THEME.colors.textSubtle,
@@ -1075,6 +1122,37 @@ const styles = StyleSheet.create({
   },
   footerMobileTextLight: {
     color: '#e11d48',
+  },
+  footerPaypalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 112, 186, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    gap: 8,
+  },
+  footerPaypalBtnLight: {
+    backgroundColor: '#f0f9ff',
+    borderColor: '#bae6fd',
+  },
+  footerPaypalIconBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerPaypalText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  footerPaypalTextLight: {
+    color: '#003087',
   },
 
   // Mobile Bottom Tab Bar

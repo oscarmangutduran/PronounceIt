@@ -39,6 +39,7 @@ import { networkService } from '../../lib/networkService';
 import { THEME } from '../../theme';
 import { SUPPORTED_LANGUAGES } from '../../types';
 import { PronounceItLogo } from '../common/PronounceItLogo';
+import { PayPalLogo } from '../common/PayPalLogo';
 import { AppleInstallModal } from '../common/AppleInstallModal';
 import { LanguagePickerModal } from '../common/LanguagePickerModal';
 import { CountryFlag } from '../common/CountryFlag';
@@ -815,6 +816,21 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 <Download size={14} color={THEME.colors.crimsonLight} />
               </TouchableOpacity>
 
+              <TouchableOpacity
+                style={styles.mobileDownloadPaypalBtn}
+                onPress={() =>
+                  Linking.openURL(
+                    'https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=oscarmangutduran91%40gmail.com&item_name=Donaci%C3%B3n+PronounceIt&currency_code=EUR'
+                  )
+                }
+                activeOpacity={0.85}
+              >
+                <View style={styles.mobileDownloadPaypalIconBox}>
+                  <PayPalLogo size={13} />
+                </View>
+                <Text style={styles.mobileDownloadTitle}>Donar con PayPal</Text>
+              </TouchableOpacity>
+
               {Platform.OS === 'web' && (
                 <TouchableOpacity
                   style={styles.mobileDownloadAppleBtn}
@@ -1233,6 +1249,26 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 13,
     backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileDownloadPaypalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 112, 186, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: THEME.radius.md,
+    gap: 8,
+  },
+  mobileDownloadPaypalIconBox: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
   },

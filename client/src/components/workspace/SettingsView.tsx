@@ -56,6 +56,7 @@ import { ConfirmModal } from '../common/ConfirmModal';
 import { AppleInstallModal } from '../common/AppleInstallModal';
 import { CountryFlag } from '../common/CountryFlag';
 import { LanguagePickerModal } from '../common/LanguagePickerModal';
+import { PayPalLogo } from '../common/PayPalLogo';
 import { useResponsive } from '../../lib/useResponsive';
 
 const DiscordIcon = ({ size = 20, color = '#ffffff' }: { size?: number; color?: string }) => (
@@ -209,6 +210,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleOpenEmail = () => {
     Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {});
+  };
+
+  const PAYPAL_DONATE_URL =
+    'https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=oscarmangutduran91%40gmail.com&item_name=Donaci%C3%B3n+PronounceIt&currency_code=EUR';
+
+  const handleOpenPaypal = () => {
+    Linking.openURL(PAYPAL_DONATE_URL).catch(() => {});
   };
 
   const handleUpdateRate = (rate: number) => {
@@ -918,6 +926,56 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <Text style={[styles.discordInfoText, !isDark && styles.discordInfoTextLight]}>
             <Text style={[styles.discordInfoBold, !isDark && styles.discordInfoBoldLight]}>Atención personalizada: </Text>
             Revisamos y respondemos personalmente todas las solicitudes. Si tu consulta se refiere a tu cuenta o historial de tests, incluye tu usuario para darte una solución más rápida.
+          </Text>
+        </View>
+      </View>
+
+      {/* Donativos vía PayPal */}
+      <View style={[styles.paypalCard, !isDark && styles.paypalCardLight]}>
+        {/* Encabezado: Icono PayPal + Título + Badge + Subtítulo */}
+        <View style={styles.discordHeaderRow}>
+          <View style={[styles.paypalIconBadge, !isDark && styles.paypalIconBadgeLight]}>
+            <PayPalLogo size={24} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={styles.discordTitleRow}>
+              <Text style={[styles.discordTitle, !isDark && styles.titleLight]}>
+                Donativos vía PayPal
+              </Text>
+              <View style={[styles.paypalPillBadge, !isDark && styles.paypalPillBadgeLight]}>
+                <View style={styles.discordPillDot} />
+                <Text style={[styles.paypalPillText, !isDark && styles.paypalPillTextLight]}>
+                  Apoya el Proyecto
+                </Text>
+              </View>
+            </View>
+            <Text style={[styles.discordDescription, !isDark && styles.discordDescriptionLight]}>
+              Si PronounceIt te ayuda a mejorar tus idiomas y quieres apoyar su desarrollo continuo, puedes realizar una aportación voluntaria de forma segura a través de PayPal.
+            </Text>
+          </View>
+        </View>
+
+        {/* Botón de acción directa a PayPal (sin mostrar el correo electrónico) */}
+        <View style={styles.discordActionsRow}>
+          <TouchableOpacity
+            style={styles.paypalDonateBtn}
+            onPress={handleOpenPaypal}
+            activeOpacity={0.85}
+          >
+            <View style={styles.paypalBtnLogoWrap}>
+              <PayPalLogo size={13} />
+            </View>
+            <Text style={styles.discordJoinBtnText}>Donar con PayPal</Text>
+            <ExternalLink size={15} color="#ffffff" style={{ marginLeft: 2 }} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Mensaje informativo */}
+        <View style={[styles.paypalInfoBox, !isDark && styles.paypalInfoBoxLight]}>
+          <Info size={18} color={!isDark ? '#0070ba' : '#38bdf8'} style={{ marginTop: 1, marginRight: 10, flexShrink: 0 }} />
+          <Text style={[styles.discordInfoText, !isDark && styles.discordInfoTextLight]}>
+            <Text style={[styles.discordInfoBold, !isDark && styles.discordInfoBoldLight]}>100% destinado al proyecto: </Text>
+            Cada donativo ayuda directamente a sufragar los costes de servidores, mantener la infraestructura en la nube y seguir desarrollando nuevas herramientas gratuitas para todos los estudiantes.
           </Text>
         </View>
       </View>
@@ -2184,6 +2242,112 @@ const styles = StyleSheet.create({
   emailInfoBoxLight: {
     backgroundColor: 'rgba(230, 46, 76, 0.05)',
     borderColor: 'rgba(230, 46, 76, 0.2)',
+  },
+  // PayPal Donation Card
+  paypalCard: {
+    backgroundColor: '#0c1524',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 156, 222, 0.35)',
+    borderRadius: THEME.radius.lg,
+    padding: 20,
+    marginBottom: 16,
+    width: '100%',
+  },
+  paypalCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 112, 186, 0.25)',
+    shadowColor: '#0070ba',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  paypalIconBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 156, 222, 0.35)',
+    shadowColor: '#0070ba',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  paypalIconBadgeLight: {
+    backgroundColor: '#f0f9ff',
+    borderColor: 'rgba(0, 112, 186, 0.25)',
+  },
+  paypalPillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 9,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 156, 222, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 156, 222, 0.35)',
+  },
+  paypalPillBadgeLight: {
+    backgroundColor: 'rgba(0, 112, 186, 0.1)',
+    borderColor: 'rgba(0, 112, 186, 0.25)',
+  },
+  paypalPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#38bdf8',
+  },
+  paypalPillTextLight: {
+    color: '#0070ba',
+  },
+  paypalShareLink: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#38bdf8',
+    marginLeft: 22,
+  },
+  paypalShareLinkLight: {
+    color: '#0070ba',
+  },
+  paypalDonateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    backgroundColor: '#0070ba',
+    gap: 8,
+    shadowColor: '#0070ba',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  paypalBtnLogoWrap: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paypalInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(0, 156, 222, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 156, 222, 0.25)',
+    borderRadius: 10,
+    padding: 12,
+  },
+  paypalInfoBoxLight: {
+    backgroundColor: 'rgba(0, 112, 186, 0.05)',
+    borderColor: 'rgba(0, 112, 186, 0.2)',
   },
 
   // Language management card styles
