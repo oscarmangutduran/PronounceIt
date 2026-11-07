@@ -58,6 +58,7 @@ import { AppleInstallModal } from './components/common/AppleInstallModal';
 import { useResponsive } from './lib/useResponsive';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { router, RouterProvider } from './router';
 
 function MainApp() {
   const insets = useSafeAreaInsets();
@@ -80,7 +81,18 @@ function MainApp() {
     return Boolean(user);
   });
 
-  const [activeTab, setActiveTab] = useState<MainNavTab>('vocabulary');
+  const [activeTab, setActiveTab] = useState<MainNavTab>(() => router.getCurrentTab());
+
+  // Keep activeTab in sync with browser URL history (e.g. Back/Forward buttons or direct link)
+  useEffect(() => {
+    return router.subscribe((tab) => {
+      setActiveTab(tab);
+    });
+  }, []);
+
+  const handleTabChange = (tab: MainNavTab) => {
+    router.navigate(tab);
+  };
 
   // Active learning language board & multi-language management
   const [activeLanguage, setActiveLanguage] = useState<string>(() => {
@@ -469,7 +481,7 @@ function MainApp() {
     await firebaseService.signOut();
     setIsAuthenticated(false);
     setCurrentUser(null);
-    setActiveTab('vocabulary');
+    router.navigate('vocabulary');
   };
 
   const handleDeleteAccount = async () => {
@@ -482,7 +494,7 @@ function MainApp() {
     } finally {
       setIsAuthenticated(false);
       setCurrentUser(null);
-      setActiveTab('vocabulary');
+      router.navigate('vocabulary');
       setShowDeleteSuccessModal(true);
     }
   };
@@ -513,7 +525,7 @@ function MainApp() {
   };
 
   const handleGoHome = () => {
-    setActiveTab('vocabulary');
+    router.navigate('vocabulary');
     setSelectedFilter({ type: 'all' });
     setGlobalSearch('');
   };
@@ -598,7 +610,8 @@ function MainApp() {
           onSuccess={() => {
             setIsAuthenticated(true);
             setCurrentUser(firebaseService.getCurrentUser());
-            setActiveTab('vocabulary');
+            const currentRouteTab = router.getCurrentTab();
+            router.navigate(currentRouteTab || 'vocabulary');
             vocabService.syncWithCloud().catch(() => {});
             testHistoryService.syncWithCloud().catch(() => {});
           }}
@@ -624,7 +637,7 @@ function MainApp() {
       {/* Top Navigation */}
       <TopNavigation
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         onGoHome={handleGoHome}
         currentUser={currentUser}
         onLogout={handleLogout}
@@ -676,7 +689,7 @@ function MainApp() {
                   setIsAddModalOpen(true);
                 }}
                 onOpenExportModal={() => setIsExportModalOpen(true)}
-                onStartPractice={() => setActiveTab('flashcards')}
+                onStartPractice={() => handleTabChange('flashcards')}
                 onEditWord={handleEditWord}
                 onToggleFavorite={handleToggleFavorite}
                 onUpdateStatus={handleUpdateStatus}
@@ -691,7 +704,7 @@ function MainApp() {
           {activeTab === 'flashcards' && (
             <FlashcardPracticeView
               words={currentWords}
-              onBackToVocabulary={() => setActiveTab('vocabulary')}
+              onBackToVocabulary={() => handleTabChange('vocabulary')}
               onUpdateStatus={handleUpdateStatus}
               isDark={isDark}
             />
@@ -702,7 +715,7 @@ function MainApp() {
               <TestView
                 words={currentWords}
                 categories={currentCategories}
-                onBackToVocabulary={() => setActiveTab('vocabulary')}
+                onBackToVocabulary={() => handleTabChange('vocabulary')}
                 isDark={isDark}
               />
             </View>
@@ -803,7 +816,7 @@ function MainApp() {
           {/* Tab 1: Vocabulario */}
           <TouchableOpacity
             style={styles.tabItem}
-            onPress={() => setActiveTab('vocabulary')}
+            onPress={() => handleTabChange('vocabulary')}
             activeOpacity={0.8}
           >
             <View
@@ -831,7 +844,7 @@ function MainApp() {
           {/* Tab 2: Flashcards */}
           <TouchableOpacity
             style={styles.tabItem}
-            onPress={() => setActiveTab('flashcards')}
+            onPress={() => handleTabChange('flashcards')}
             activeOpacity={0.8}
           >
             <View
@@ -859,7 +872,7 @@ function MainApp() {
           {/* Tab 3: Test */}
           <TouchableOpacity
             style={styles.tabItem}
-            onPress={() => setActiveTab('test')}
+            onPress={() => handleTabChange('test')}
             activeOpacity={0.8}
           >
             <View
@@ -887,7 +900,7 @@ function MainApp() {
           {/* Tab 4: Progreso */}
           <TouchableOpacity
             style={styles.tabItem}
-            onPress={() => setActiveTab('stats')}
+            onPress={() => handleTabChange('stats')}
             activeOpacity={0.8}
           >
             <View
@@ -915,7 +928,7 @@ function MainApp() {
           {/* Tab 5: Ajustes */}
           <TouchableOpacity
             style={styles.tabItem}
-            onPress={() => setActiveTab('settings')}
+            onPress={() => handleTabChange('settings')}
             activeOpacity={0.8}
           >
             <View
@@ -1018,7 +1031,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <MainApp />
+        <RouterProvider>
+          <MainApp />
+        </RouterProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );
