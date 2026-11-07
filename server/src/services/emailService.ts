@@ -426,6 +426,202 @@ Equipo PronounceIt (${SENDER_EMAIL})
 }
 
 /**
+ * Maquetación visual premium del correo de Nueva Versión para usuarios
+ */
+export function buildNewVersionEmailHtml(username: string, versionInfo: NewVersionInfo): string {
+  const version = versionInfo.version || '1.7.0';
+  const apkUrl = versionInfo.apkUrl || `https://github.com/oscarmangutduran/PronounceIt/releases/download/v${version}/PronounceIt-v${version}.apk`;
+  const iosUrl = versionInfo.iosUrl || 'https://pronounceit-sand.vercel.app/apple';
+  const webUrl = versionInfo.webUrl || 'https://pronounceit-sand.vercel.app/';
+  const logoUrl = 'https://pronounceit-sand.vercel.app/favicon.png';
+  const today = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  return `
+<!DOCTYPE html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>🚀 ¡Nueva Versión v${version} de PronounceIt!</title>
+  <style>
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+    body { margin: 0; padding: 0; width: 100% !important; background-color: #080510; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #e2e8f0; }
+    .email-container { max-width: 620px; margin: 0 auto; background-color: #130d22; border-radius: 20px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5); }
+    .hero-gradient { background: linear-gradient(135deg, #e62e4c 0%, #b81432 50%, #1f0d2c 100%); padding: 38px 28px 30px 28px; text-align: center; }
+    .badge-pill { display: inline-block; background-color: rgba(255, 255, 255, 0.18); border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 30px; padding: 6px 16px; font-size: 12px; font-weight: 700; color: #ffffff; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 16px; }
+    .hero-title { font-size: 26px; font-weight: 800; color: #ffffff; margin: 0 0 8px 0; line-height: 1.25; }
+    .hero-subtitle { font-size: 14px; color: rgba(255, 255, 255, 0.9); margin: 0; font-weight: 400; line-height: 1.5; }
+    .body-content { padding: 32px 30px; }
+    .greeting { font-size: 20px; font-weight: 700; color: #ffffff; margin: 0 0 14px 0; }
+    .lead-text { font-size: 14.5px; line-height: 1.65; color: #cbd5e1; margin: 0 0 24px 0; }
+    .feature-card { background-color: #1b1330; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 18px 20px; margin-bottom: 14px; }
+    .feature-title { font-size: 15px; font-weight: 700; color: #ffffff; margin: 0 0 6px 0; display: flex; align-items: center; }
+    .feature-desc { font-size: 13.5px; line-height: 1.55; color: #94a3b8; margin: 0; }
+    .btn-download-apk { display: block; text-align: center; background: linear-gradient(135deg, #e62e4c 0%, #c91836 100%); color: #ffffff !important; padding: 16px 28px; border-radius: 12px; font-size: 16px; font-weight: 800; text-decoration: none; box-shadow: 0 8px 22px rgba(230, 46, 76, 0.45); letter-spacing: 0.2px; margin: 24px 0 12px 0; }
+    .btn-secondary { display: inline-block; text-align: center; background-color: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.16); color: #f1f5f9 !important; padding: 12px 20px; border-radius: 10px; font-size: 13.5px; font-weight: 600; text-decoration: none; margin: 4px; }
+    .info-box { background-color: rgba(59, 130, 246, 0.08); border-left: 4px solid #3b82f6; border-radius: 10px; padding: 16px 18px; margin: 26px 0; }
+    .info-box-title { font-size: 13.5px; font-weight: 700; color: #93c5fd; margin: 0 0 4px 0; }
+    .info-box-desc { font-size: 13px; line-height: 1.5; color: #bfdbfe; margin: 0; }
+    .footer { background-color: #0e091a; border-top: 1px solid rgba(255, 255, 255, 0.06); padding: 26px 30px; text-align: center; font-size: 12px; color: #64748b; line-height: 1.6; }
+    .footer-link { color: #ff4d6d; text-decoration: none; font-weight: 600; }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #080510;">
+  <center style="width: 100%; background-color: #080510; padding: 40px 12px;">
+    <!-- Container Principal -->
+    <div class="email-container" style="max-width: 620px; margin: 0 auto; background-color: #130d22; border-radius: 20px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.12); text-align: left;">
+      
+      <!-- HERO HEADER CON LOGOTIPO -->
+      <div class="hero-gradient" style="background: linear-gradient(135deg, #e62e4c 0%, #b81432 50%, #1f0d2c 100%); padding: 36px 28px 30px 28px; text-align: center;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td align="center">
+              <img src="${logoUrl}" alt="PronounceIt" width="60" height="60" style="display: block; width: 60px; height: 60px; border-radius: 16px; margin: 0 auto 16px auto; box-shadow: 0 8px 20px rgba(0,0,0,0.4);" />
+              <div class="badge-pill" style="display: inline-block; background-color: rgba(255, 255, 255, 0.18); border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 30px; padding: 5px 16px; font-size: 12px; font-weight: 700; color: #ffffff; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 14px;">
+                🚀 Nueva Versión v${version} Disponible
+              </div>
+              <h1 class="hero-title" style="font-size: 26px; font-weight: 800; color: #ffffff; margin: 0 0 8px 0;">¡Actualiza PronounceIt ahora!</h1>
+              <p class="hero-subtitle" style="font-size: 14px; color: rgba(255, 255, 255, 0.9); margin: 0;">Lanzamiento oficial · ${today}</p>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- CUERPO DEL MENSAJE -->
+      <div class="body-content" style="padding: 32px 30px;">
+        <h2 class="greeting" style="font-size: 20px; font-weight: 700; color: #ffffff; margin: 0 0 12px 0;">¡Hola, ${username}! 👋</h2>
+        <p class="lead-text" style="font-size: 14.5px; line-height: 1.65; color: #cbd5e1; margin: 0 0 24px 0;">
+          Hemos publicado una <strong>gran actualización de PronounceIt (v${version})</strong> con nuevas funciones para perfeccionar tu vocabulario, fluidez fonética y práctica en inglés. Te invitamos a descargarla y disfrutar de todas las mejoras.
+        </p>
+
+        <!-- NOVEDADES EN TARJETAS -->
+        <h3 style="font-size: 15px; font-weight: 700; color: #ffffff; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 14px 0;">
+          ✨ Novedades de esta actualización:
+        </h3>
+
+        <!-- Novedad 1 -->
+        <div class="feature-card" style="background-color: #1b1330; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 18px 20px; margin-bottom: 12px;">
+          <table border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td width="36" valign="top" style="font-size: 22px; line-height: 1;">🎯</td>
+              <td style="padding-left: 12px;">
+                <strong style="font-size: 15px; color: #ffffff; display: block; margin-bottom: 4px;">Tests por Categoría y Subcategoría</strong>
+                <p style="font-size: 13.5px; line-height: 1.5; color: #94a3b8; margin: 0;">
+                  Ahora puedes realizar evaluaciones temáticas específicas: viajes, negocios, phrasal verbs, verbos irregulares o tus listas personalizadas con retroalimentación instantánea.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Novedad 2 -->
+        <div class="feature-card" style="background-color: #1b1330; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 18px 20px; margin-bottom: 12px;">
+          <table border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td width="36" valign="top" style="font-size: 22px; line-height: 1;">🇬🇧</td>
+              <td style="padding-left: 12px;">
+                <strong style="font-size: 15px; color: #ffffff; display: block; margin-bottom: 4px;">Identidad Renovada con la Bandera UK</strong>
+                <p style="font-size: 13.5px; line-height: 1.5; color: #94a3b8; margin: 0;">
+                  Nuevo icono y logotipo integrado con la bandera del Reino Unido y ondas sonoras acústicas, reflejado en el favicon, la navegación y las pantallas de la app.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Novedad 3 -->
+        <div class="feature-card" style="background-color: #1b1330; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 18px 20px; margin-bottom: 12px;">
+          <table border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td width="36" valign="top" style="font-size: 22px; line-height: 1;">🗺️</td>
+              <td style="padding-left: 12px;">
+                <strong style="font-size: 15px; color: #ffffff; display: block; margin-bottom: 4px;">Enrutamiento con URLs en Castellano</strong>
+                <p style="font-size: 13.5px; line-height: 1.5; color: #94a3b8; margin: 0;">
+                  Navegación fluida con enlaces canónicos directos (<code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; color: #fca5a5;">/flashcards</code>, <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; color: #fca5a5;">/test</code>, <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; color: #fca5a5;">/estadisticas</code>, <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; color: #fca5a5;">/configuracion</code>) con soporte completo para retroceder y avanzar.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Novedad 4 -->
+        <div class="feature-card" style="background-color: #1b1330; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 18px 20px; margin-bottom: 22px;">
+          <table border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td width="36" valign="top" style="font-size: 22px; line-height: 1;">⚡</td>
+              <td style="padding-left: 12px;">
+                <strong style="font-size: 15px; color: #ffffff; display: block; margin-bottom: 4px;">Sincronización Offline y Rendimiento</strong>
+                <p style="font-size: 13.5px; line-height: 1.5; color: #94a3b8; margin: 0;">
+                  Mayor velocidad de carga en dispositivos móviles y sincronización inmediata con la nube para que nunca pierdas tu racha de estudio.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- BOTONES DE ACCIÓN PRINCIPALES -->
+        <div style="text-align: center; margin: 26px 0 16px 0;">
+          <a href="${apkUrl}" class="btn-download-apk" style="display: block; text-align: center; background: linear-gradient(135deg, #e62e4c 0%, #c91836 100%); color: #ffffff !important; padding: 16px 28px; border-radius: 12px; font-size: 16px; font-weight: 800; text-decoration: none; box-shadow: 0 8px 22px rgba(230, 46, 76, 0.45); margin: 0 0 14px 0;">
+            📲 Descargar APK v${version} (Android)
+          </a>
+
+          <table border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td width="50%" align="center" style="padding-right: 6px;">
+                <a href="${iosUrl}" class="btn-secondary" style="display: block; text-align: center; background-color: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.16); color: #f1f5f9 !important; padding: 12px 14px; border-radius: 10px; font-size: 13.5px; font-weight: 600; text-decoration: none;">
+                  🍏 Instalar en iPhone (iOS)
+                </a>
+              </td>
+              <td width="50%" align="center" style="padding-left: 6px;">
+                <a href="${webUrl}" class="btn-secondary" style="display: block; text-align: center; background-color: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.16); color: #f1f5f9 !important; padding: 12px 14px; border-radius: 10px; font-size: 13.5px; font-weight: 600; text-decoration: none;">
+                  🌐 Abrir en la Web
+                </a>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- CAJA DE INFORMACIÓN / INSTRUCCIONES -->
+        <div class="info-box" style="background-color: rgba(59, 130, 246, 0.08); border-left: 4px solid #3b82f6; border-radius: 10px; padding: 16px 18px; margin: 26px 0;">
+          <p class="info-box-title" style="font-size: 13.5px; font-weight: 700; color: #93c5fd; margin: 0 0 4px 0;">
+            🔄 ¿Cómo actualizar tu app móvil en Android?
+          </p>
+          <p class="info-box-desc" style="font-size: 13px; line-height: 1.55; color: #cbd5e1; margin: 0;">
+            Descarga el archivo APK pulsando el botón superior y pulsa <strong>"Actualizar"</strong> en tu móvil. Tus palabras, estadísticas y progreso se conservan intactos automáticamente.
+          </p>
+        </div>
+
+        <p style="font-size: 13px; line-height: 1.6; color: #94a3b8; margin: 24px 0 0 0; text-align: center;">
+          ¿Tienes dudas o sugerencias? Responde directamente a este correo o escríbenos a <a href="mailto:hola@oscarmangutdev.es" style="color: #ff4d6d; text-decoration: none; font-weight: 600;">hola@oscarmangutdev.es</a>.
+        </p>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="footer" style="background-color: #0e091a; border-top: 1px solid rgba(255, 255, 255, 0.06); padding: 24px 30px; text-align: center; font-size: 12px; color: #64748b; line-height: 1.6;">
+        <p style="margin: 0 0 8px 0; color: #94a3b8;">
+          Estás recibiendo este correo porque tu cuenta está registrada en <strong>PronounceIt</strong>.
+        </p>
+        <p style="margin: 0 0 10px 0;">
+          <a href="https://pronounceit-sand.vercel.app/" class="footer-link" style="color: #ff4d6d; text-decoration: none; font-weight: 600;">Web Oficial</a> · 
+          <a href="https://pronounceit-sand.vercel.app/configuracion" class="footer-link" style="color: #ff4d6d; text-decoration: none; font-weight: 600;">Ajustes de Cuenta</a> · 
+          <a href="mailto:hola@oscarmangutdev.es" class="footer-link" style="color: #ff4d6d; text-decoration: none; font-weight: 600;">Soporte Técnico</a>
+        </p>
+        <p style="margin: 0; font-size: 11px; color: #475569;">
+          © ${new Date().getFullYear()} PronounceIt · Léxico & Pronunciación. Todos los derechos reservados.
+        </p>
+      </div>
+
+    </div>
+  </center>
+</body>
+</html>
+  `;
+}
+
+/**
  * 4. Envío de correo de nueva versión / actualización de la app a un usuario
  */
 export async function sendNewVersionNotificationEmail(
@@ -438,65 +634,8 @@ export async function sendNewVersionNotificationEmail(
   const apkUrl = versionInfo.apkUrl || `https://github.com/oscarmangutduran/PronounceIt/releases/download/v${version}/PronounceIt-v${version}.apk`;
   const iosUrl = versionInfo.iosUrl || 'https://pronounceit-sand.vercel.app/apple';
   const webUrl = versionInfo.webUrl || 'https://pronounceit-sand.vercel.app/';
-  const notes = versionInfo.releaseNotes && versionInfo.releaseNotes.length > 0
-    ? versionInfo.releaseNotes
-    : [
-        'Evaluación interactiva de tests por categoría y subcategoría de vocabulario',
-        'Nuevo logotipo e icono oficial integrado en toda la plataforma',
-        'Enrutamiento directo y navegación con URLs limpias en castellano (/flashcards, /test, /estadisticas, /configuracion)',
-        'Optimización de carga y sincronización offline-first con la nube',
-      ];
 
-  const featuresHtml = notes
-    .map((item) => `<li class="feature-item">✨ <strong>${item}</strong></li>`)
-    .join('\n');
-
-  const htmlContent = `
-    <h1>¡Hola, ${username}! 👋</h1>
-    <p>
-      Tenemos grandes noticias para ti: hemos publicado una <strong>nueva versión oficial de PronounceIt (v${version})</strong> con importantes mejoras en el aprendizaje de vocabulario y nuevas funciones.
-    </p>
-
-    <div class="info-card">
-      <div class="info-row">
-        <span class="info-label">Versión disponible:</span>
-        <span class="info-value"><span class="badge">v${version}</span></span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Fecha de lanzamiento:</span>
-        <span class="info-value">${new Date().toLocaleDateString('es-ES', { dateStyle: 'long' })}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Compatibilidad:</span>
-        <span class="info-value">Android (APK), iOS (Apple) y Web</span>
-      </div>
-    </div>
-
-    <h2 style="font-size: 16px; color: #ffffff; margin: 20px 0 8px 0;">🌟 Novedades de esta actualización:</h2>
-    <ul class="feature-list">
-      ${featuresHtml}
-    </ul>
-
-    <div class="btn-container">
-      <a href="${apkUrl}" class="btn-primary" target="_blank" rel="noopener">
-        📲 Descargar APK v${version} (Android)
-      </a>
-      <a href="${iosUrl}" class="btn-secondary" target="_blank" rel="noopener">
-        🍎 Instalar en Apple (iOS)
-      </a>
-      <a href="${webUrl}" class="btn-secondary" target="_blank" rel="noopener">
-        🌐 Abrir en Web
-      </a>
-    </div>
-
-    <div class="security-notice" style="margin-top: 24px;">
-      🔄 <strong>¿Cómo actualizar tu app?</strong> Si utilizas la versión instalada en tu móvil Android, simplemente pulsa en el botón de <strong>Descargar APK</strong> y abre el archivo para actualizar. Tu progreso, listas de palabras y estadísticas se mantienen intactos y sincronizados.
-    </div>
-
-    <p style="margin-top: 24px; font-size: 13px; color: #94a3b8;">
-      Si tienes alguna duda o sugerencia sobre esta versión, puedes responder directamente a este correo electrónico. ¡Gracias por aprender y mejorar tu inglés con nosotros!
-    </p>
-  `;
+  const htmlContent = buildNewVersionEmailHtml(username, versionInfo);
 
   const textContent = `
 ¡Hola, ${username}!
@@ -504,20 +643,23 @@ export async function sendNewVersionNotificationEmail(
 Tenemos grandes noticias: hemos publicado una nueva versión oficial de PronounceIt (v${version}).
 
 🌟 Novedades principales:
-${notes.map((n) => `- ${n}`).join('\n')}
+- Tests por categoría y subcategoría temática de vocabulario.
+- Nueva identidad visual con logotipo de la bandera de Reino Unido.
+- Enrutamiento directo y URLs limpias en castellano (/flashcards, /test, /estadisticas, /configuracion).
+- Sincronización offline y mejoras de rendimiento.
 
-Enlaces de descarga y acceso:
+Enlaces de descarga:
 - Descargar APK (Android): ${apkUrl}
 - Instalar en Apple (iOS): ${iosUrl}
 - Acceder vía Web: ${webUrl}
 
-Nota: Tus palabras, progreso y evaluaciones se conservan al actualizar.
+Nota: Tus palabras y estadísticas se conservan intactas al actualizar.
 
 Saludos cordiales,
 Equipo PronounceIt (${SENDER_EMAIL})
 `;
 
-  return deliverEmail({ to, subject, html: buildHtmlLayout(subject, htmlContent), text: textContent });
+  return deliverEmail({ to, subject, html: htmlContent, text: textContent });
 }
 
 /**
