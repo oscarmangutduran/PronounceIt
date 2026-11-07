@@ -1,4 +1,21 @@
 import nodemailer, { type Transporter } from 'nodemailer';
+import { getDb, type UserRecord } from '../db.js';
+
+export interface NewVersionInfo {
+  version: string;
+  releaseNotes?: string[];
+  apkUrl?: string;
+  iosUrl?: string;
+  webUrl?: string;
+}
+
+export interface BroadcastResult {
+  version: string;
+  totalUsers: number;
+  sentCount: number;
+  failedCount: number;
+  details: { email: string; username: string; status: 'sent' | 'failed'; error?: string }[];
+}
 
 const SENDER_EMAIL = process.env.SMTP_USER || 'hola@oscarmangutdev.es';
 const SENDER_NAME = process.env.EMAIL_FROM_NAME || 'PronounceIt';
@@ -166,6 +183,48 @@ function buildHtmlLayout(title: string, bodyContent: string): string {
       font-size: 12px;
       color: #fca5a5;
       margin-top: 18px;
+    }
+    .btn-container {
+      text-align: center;
+      margin: 26px 0 16px 0;
+    }
+    .btn-primary {
+      display: inline-block;
+      background: linear-gradient(135deg, #e62e4c 0%, #b81432 100%);
+      color: #ffffff !important;
+      padding: 13px 26px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 14px;
+      text-decoration: none;
+      box-shadow: 0 4px 14px rgba(230, 46, 76, 0.4);
+      margin: 6px 4px;
+    }
+    .btn-secondary {
+      display: inline-block;
+      background-color: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #ffffff !important;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 13px;
+      text-decoration: none;
+      margin: 6px 4px;
+    }
+    .feature-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 14px 0 6px 0;
+    }
+    .feature-item {
+      padding: 7px 0;
+      font-size: 13.5px;
+      color: #cbd5e1;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .feature-item:last-child {
+      border-bottom: none;
     }
   </style>
 </head>
@@ -364,6 +423,142 @@ Equipo PronounceIt (${SENDER_EMAIL})
 `;
 
   return deliverEmail({ to, subject, html: buildHtmlLayout(subject, htmlContent), text: textContent });
+}
+
+/**
+ * 4. Envío de correo de nueva versión / actualización de la app a un usuario
+ */
+export async function sendNewVersionNotificationEmail(
+  to: string,
+  username = 'Usuario',
+  versionInfo: NewVersionInfo
+): Promise<boolean> {
+  const version = versionInfo.version || '1.7.0';
+  const subject = `🚀 ¡Nueva versión disponible de PronounceIt v${version}! Descárgala ahora`;
+  const apkUrl = versionInfo.apkUrl || `https://github.com/oscarmangutduran/PronounceIt/releases/download/v${version}/PronounceIt-v${version}.apk`;
+  const iosUrl = versionInfo.iosUrl || 'https://pronounceit-sand.vercel.app/apple';
+  const webUrl = versionInfo.webUrl || 'https://pronounceit-sand.vercel.app/';
+  const notes = versionInfo.releaseNotes && versionInfo.releaseNotes.length > 0
+    ? versionInfo.releaseNotes
+    : [
+        'Evaluación interactiva de tests por categoría y subcategoría de vocabulario',
+        'Nuevo logotipo e icono oficial integrado en toda la plataforma',
+        'Enrutamiento directo y navegación con URLs limpias en castellano (/flashcards, /test, /estadisticas, /configuracion)',
+        'Optimización de carga y sincronización offline-first con la nube',
+      ];
+
+  const featuresHtml = notes
+    .map((item) => `<li class="feature-item">✨ <strong>${item}</strong></li>`)
+    .join('\n');
+
+  const htmlContent = `
+    <h1>¡Hola, ${username}! 👋</h1>
+    <p>
+      Tenemos grandes noticias para ti: hemos publicado una <strong>nueva versión oficial de PronounceIt (v${version})</strong> con importantes mejoras en el aprendizaje de vocabulario y nuevas funciones.
+    </p>
+
+    <div class="info-card">
+      <div class="info-row">
+        <span class="info-label">Versión disponible:</span>
+        <span class="info-value"><span class="badge">v${version}</span></span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Fecha de lanzamiento:</span>
+        <span class="info-value">${new Date().toLocaleDateString('es-ES', { dateStyle: 'long' })}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Compatibilidad:</span>
+        <span class="info-value">Android (APK), iOS (Apple) y Web</span>
+      </div>
+    </div>
+
+    <h2 style="font-size: 16px; color: #ffffff; margin: 20px 0 8px 0;">🌟 Novedades de esta actualización:</h2>
+    <ul class="feature-list">
+      ${featuresHtml}
+    </ul>
+
+    <div class="btn-container">
+      <a href="${apkUrl}" class="btn-primary" target="_blank" rel="noopener">
+        📲 Descargar APK v${version} (Android)
+      </a>
+      <a href="${iosUrl}" class="btn-secondary" target="_blank" rel="noopener">
+        🍎 Instalar en Apple (iOS)
+      </a>
+      <a href="${webUrl}" class="btn-secondary" target="_blank" rel="noopener">
+        🌐 Abrir en Web
+      </a>
+    </div>
+
+    <div class="security-notice" style="margin-top: 24px;">
+      🔄 <strong>¿Cómo actualizar tu app?</strong> Si utilizas la versión instalada en tu móvil Android, simplemente pulsa en el botón de <strong>Descargar APK</strong> y abre el archivo para actualizar. Tu progreso, listas de palabras y estadísticas se mantienen intactos y sincronizados.
+    </div>
+
+    <p style="margin-top: 24px; font-size: 13px; color: #94a3b8;">
+      Si tienes alguna duda o sugerencia sobre esta versión, puedes responder directamente a este correo electrónico. ¡Gracias por aprender y mejorar tu inglés con nosotros!
+    </p>
+  `;
+
+  const textContent = `
+¡Hola, ${username}!
+
+Tenemos grandes noticias: hemos publicado una nueva versión oficial de PronounceIt (v${version}).
+
+🌟 Novedades principales:
+${notes.map((n) => `- ${n}`).join('\n')}
+
+Enlaces de descarga y acceso:
+- Descargar APK (Android): ${apkUrl}
+- Instalar en Apple (iOS): ${iosUrl}
+- Acceder vía Web: ${webUrl}
+
+Nota: Tus palabras, progreso y evaluaciones se conservan al actualizar.
+
+Saludos cordiales,
+Equipo PronounceIt (${SENDER_EMAIL})
+`;
+
+  return deliverEmail({ to, subject, html: buildHtmlLayout(subject, htmlContent), text: textContent });
+}
+
+/**
+ * 5. Envía en masa la notificación de nueva versión a todos los usuarios registrados
+ */
+export async function broadcastNewVersionEmail(versionInfo: NewVersionInfo): Promise<BroadcastResult> {
+  const db = await getDb();
+  const users = (db.users || []).filter((u) => u && u.email && u.email.includes('@'));
+  const version = versionInfo.version || '1.7.0';
+
+  console.log(`\n📢 [BROADCAST] Iniciando envío de notificación de versión v${version} a ${users.length} usuarios...`);
+
+  const details: BroadcastResult['details'] = [];
+  let sentCount = 0;
+  let failedCount = 0;
+
+  for (const user of users) {
+    try {
+      const ok = await sendNewVersionNotificationEmail(user.email, user.username || 'Estudiante', versionInfo);
+      if (ok) {
+        sentCount++;
+        details.push({ email: user.email, username: user.username || '', status: 'sent' });
+      } else {
+        failedCount++;
+        details.push({ email: user.email, username: user.username || '', status: 'failed', error: 'Delivery returned false' });
+      }
+    } catch (err: any) {
+      failedCount++;
+      details.push({ email: user.email, username: user.username || '', status: 'failed', error: err?.message || String(err) });
+    }
+  }
+
+  console.log(`📢 [BROADCAST] Finalizado: ${sentCount} enviados, ${failedCount} fallidos de un total de ${users.length} usuarios.\n`);
+
+  return {
+    version,
+    totalUsers: users.length,
+    sentCount,
+    failedCount,
+    details,
+  };
 }
 
 /**

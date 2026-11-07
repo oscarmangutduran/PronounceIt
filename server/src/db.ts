@@ -93,11 +93,23 @@ export interface DiscordRoomRecord {
   isRealDiscordChannel: boolean;
 }
 
+export interface AppMetadataRecord {
+  lastNotifiedVersion?: string;
+  lastNotificationDate?: string;
+  notificationHistory?: {
+    version: string;
+    sentAt: string;
+    recipientCount: number;
+    successCount: number;
+  }[];
+}
+
 export interface DatabaseSchema {
   users: UserRecord[];
   words: WordRecord[];
   tests: TestRecord[];
   discordRooms?: DiscordRoomRecord[];
+  appMeta?: AppMetadataRecord;
 }
 
 const DEFAULT_DB: DatabaseSchema = {

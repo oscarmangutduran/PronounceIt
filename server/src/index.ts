@@ -5,8 +5,10 @@ import authRoutes from './routes/auth.js';
 import wordsRoutes from './routes/words.js';
 import testsRoutes from './routes/tests.js';
 import discordRoutes from './routes/discord.js';
+import updatesRoutes from './routes/updates.js';
 import { initDb } from './db.js';
 import { createDiscordBot } from './discordBot.js';
+import { checkAndNotifyVersionUpdate } from './services/updateNotifierService.js';
 
 dotenv.config();
 
@@ -52,6 +54,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/words', wordsRoutes);
 app.use('/api/tests', testsRoutes);
 app.use('/api/discord', discordRoutes);
+app.use('/api/updates', updatesRoutes);
 
 // 404 Handler
 app.use((_req: Request, res: Response) => {
@@ -72,12 +75,26 @@ initDb()
       console.log(`🚀 PronounceIt Backend listening on http://localhost:${PORT}`);
       console.log(`   - Auth API:   http://localhost:${PORT}/api/auth`);
       console.log(`   - Words API:  http://localhost:${PORT}/api/words`);
-      console.log(`   - Tests API:  http://localhost:${PORT}/api/tests`);
-      console.log(`   - Health:     http://localhost:${PORT}/api/health`);
+      console.log(`   - Tests API:   http://localhost:${PORT}/api/tests`);
+      console.log(`   - Updates API: http://localhost:${PORT}/api/updates`);
+      console.log(`   - Health:      http://localhost:${PORT}/api/health`);
       console.log(`======================================================\n`);
 
       // Initialize Discord Bot service
       createDiscordBot();
+
+      // Check if a new version needs to be broadcast to registered users
+      checkAndNotifyVersionUpdate({ force: false })
+        .then((res) => {
+          if (res.triggered) {
+            console.log(`🚀 [UPDATES] ${res.message}`);
+          } else {
+            console.log(`ℹ️ [UPDATES] ${res.message}`);
+          }
+        })
+        .catch((err) => {
+          console.error('Error al comprobar actualizaciones automáticas:', err);
+        });
     });
   })
   .catch((err) => {

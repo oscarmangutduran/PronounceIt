@@ -39,5 +39,23 @@
   ],
   "words": [],
   "tests": [],
-  "discordRooms": []
+  "discordRooms": [],
+  "appMeta": {
+    "lastNotifiedVersion": "1.7.0",
+    "lastNotificationDate": "2026-11-07T12:03:22.234Z",
+    "notificationHistory": [
+      {
+        "version": "1.7.0",
+        "sentAt": "2026-11-07T12:01:24.040Z",
+        "recipientCount": 4,
+        "successCount": 4
+      },
+      {
+        "version": "1.7.0",
+        "sentAt": "2026-11-07T12:03:22.234Z",
+        "recipientCount": 4,
+        "successCount": 4
+      }
+    ]
+  }
 }
