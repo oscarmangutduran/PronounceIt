@@ -694,6 +694,7 @@ function MainApp() {
             <View style={styles.testSectionContainer}>
               <TestView
                 words={currentWords}
+                categories={currentCategories}
                 onBackToVocabulary={() => setActiveTab('vocabulary')}
                 isDark={isDark}
               />

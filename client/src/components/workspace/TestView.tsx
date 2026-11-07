@@ -20,9 +20,11 @@ import {
   Layers,
   HelpCircle,
   Check,
+  FolderOpen,
+  Folder,
 } from 'lucide-react-native';
-import { WordItem, PART_OF_SPEECH_OPTIONS, PartOfSpeech } from '../../types';
-import { vocabService } from '../../lib/vocabularyStore';
+import { WordItem, CategoryItem, PART_OF_SPEECH_OPTIONS, PartOfSpeech } from '../../types';
+import { vocabService, getWordCategories, getWordSubcategories } from '../../lib/vocabularyStore';
 import { testHistoryService } from '../../lib/testHistoryStore';
 import { normalizePartOfSpeech, detectQuickPartOfSpeech } from '../../lib/dictionaryService';
 import { IrregularVerbsTestView } from './IrregularVerbsTestView';
@@ -31,6 +33,7 @@ import { ConfirmModal } from '../common/ConfirmModal';
 
 interface TestViewProps {
   words: WordItem[];
+  categories?: CategoryItem[];
   onBackToVocabulary: () => void;
   isDark?: boolean;
 }
@@ -49,10 +52,12 @@ const FALLBACK_DISTRACTORS = [
   'amigo', 'caminar', 'escribir', 'entender', 'dormir', 'fuerte'
 ];
 
-export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, isDark = true }) => {
-  const [testType, setTestType] = useState<'vocabulary' | 'part_of_speech' | 'irregular_verbs'>('vocabulary');
+export const TestView: React.FC<TestViewProps> = ({ words, categories, onBackToVocabulary, isDark = true }) => {
+  const [testType, setTestType] = useState<'vocabulary' | 'category' | 'part_of_speech' | 'irregular_verbs'>('vocabulary');
   const [selectedLevel, setSelectedLevel] = useState<string>('TODOS');
   const [selectedPartOfSpeech, setSelectedPartOfSpeech] = useState<string>('TODOS');
+  const [selectedCategory, setSelectedCategory] = useState<string>('TODAS');
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>('TODAS');
   const [posQuizMode, setPosQuizMode] = useState<'identify_type' | 'translation'>('identify_type');
 
   const [isTestActive, setIsTestActive] = useState(false);
@@ -88,21 +93,112 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, i
     return counts;
   }, [words]);
 
-  // Palabras disponibles según filtros activos
+  // Lista consolidada de categorías con conteo de palabras
+  const categoryList = useMemo(() => {
+    const catMap = new Map<string, { name: string; count: number }>();
+
+    // 1. Catálogo de categorías
+    const sourceCats = categories && categories.length > 0 ? categories : vocabService.getCategories();
+    sourceCats.forEach((c) => {
+      const trimmed = c.name.trim();
+      if (trimmed) {
+        catMap.set(trimmed.toLowerCase(), { name: trimmed, count: 0 });
+      }
+    });
+
+    // 2. Contar palabras y capturar categorías adicionales de las palabras
+    words.forEach((w) => {
+      const wCats = getWordCategories(w);
+      wCats.forEach((c) => {
+        const trimmed = c.trim();
+        if (!trimmed) return;
+        const lower = trimmed.toLowerCase();
+        const existing = catMap.get(lower);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          catMap.set(lower, { name: trimmed, count: 1 });
+        }
+      });
+    });
+
+    return Array.from(catMap.values()).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [categories, words]);
+
+  // Lista de subcategorías para la categoría actualmente seleccionada
+  const subcategoryList = useMemo(() => {
+    if (selectedCategory === 'TODAS') return [];
+
+    const subMap = new Map<string, { name: string; count: number }>();
+
+    const sourceCats = categories && categories.length > 0 ? categories : vocabService.getCategories();
+    const matchedCat = sourceCats.find(
+      (c) => c.name.trim().toLowerCase() === selectedCategory.trim().toLowerCase()
+    );
+
+    if (matchedCat && Array.isArray(matchedCat.subcategories)) {
+      matchedCat.subcategories.forEach((s) => {
+        const trimmed = s.name.trim();
+        if (trimmed) {
+          subMap.set(trimmed.toLowerCase(), { name: trimmed, count: 0 });
+        }
+      });
+    }
+
+    words.forEach((w) => {
+      const wCats = getWordCategories(w);
+      if (wCats.some((c) => c.trim().toLowerCase() === selectedCategory.trim().toLowerCase())) {
+        const wSubs = getWordSubcategories(w);
+        wSubs.forEach((s) => {
+          const trimmed = s.trim();
+          if (!trimmed) return;
+          const lower = trimmed.toLowerCase();
+          const existing = subMap.get(lower);
+          if (existing) {
+            existing.count += 1;
+          } else {
+            subMap.set(lower, { name: trimmed, count: 1 });
+          }
+        });
+      }
+    });
+
+    return Array.from(subMap.values()).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [selectedCategory, categories, words]);
+
+  // Palabras disponibles según filtros activos (Nivel, Tipo, Categoría, Subcategoría)
   const availableWords = useMemo(() => {
     return words.filter((w) => {
       const matchLevel = selectedLevel === 'TODOS' || w.level === selectedLevel;
       const wordPos = resolvePos(w);
       const matchPos = selectedPartOfSpeech === 'TODOS' || wordPos === selectedPartOfSpeech;
-      return matchLevel && matchPos;
+
+      const wordCats = getWordCategories(w);
+      const matchCategory =
+        selectedCategory === 'TODAS' ||
+        wordCats.some((c) => c.trim().toLowerCase() === selectedCategory.trim().toLowerCase());
+
+      const wordSubs = getWordSubcategories(w);
+      const matchSubcategory =
+        selectedSubcategory === 'TODAS' ||
+        wordSubs.some((s) => s.trim().toLowerCase() === selectedSubcategory.trim().toLowerCase());
+
+      return matchLevel && matchPos && matchCategory && matchSubcategory;
     });
-  }, [words, selectedLevel, selectedPartOfSpeech]);
+  }, [words, selectedLevel, selectedPartOfSpeech, selectedCategory, selectedSubcategory]);
 
   // Iniciar Test
   const startQuiz = () => {
     if (availableWords.length === 0) {
+      const filtersUsed = [
+        selectedCategory !== 'TODAS' ? `Categoría: ${selectedCategory}` : null,
+        selectedSubcategory !== 'TODAS' ? `Subcategoría: ${selectedSubcategory}` : null,
+        selectedPartOfSpeech !== 'TODOS' ? `Tipo: ${selectedPartOfSpeech}` : null,
+        selectedLevel !== 'TODOS' ? `Nivel: ${selectedLevel}` : null,
+      ].filter(Boolean).join(' • ');
+
       setModalMessage(
-        `No se encontraron palabras para el filtro seleccionado (${selectedPartOfSpeech !== 'TODOS' ? `Tipo: ${selectedPartOfSpeech}` : ''} ${selectedLevel !== 'TODOS' ? `Nivel: ${selectedLevel}` : ''}). Selecciona otra opción o añade nuevas palabras.`
+        `No se encontraron palabras para los filtros seleccionados (${filtersUsed || 'Ninguno'}). Modifica la categoría, subcategoría o nivel, o añade nuevas palabras.`
       );
       setInsufficientWordsModal(true);
       return;
@@ -150,13 +246,25 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, i
         const distractors = otherTranslations.sort(() => Math.random() - 0.5).slice(0, 3);
         const options = [word.translation, ...distractors].sort(() => Math.random() - 0.5);
 
+        let prompt = '¿Cuál es la traducción correcta?';
+        if (selectedCategory !== 'TODAS') {
+          prompt = selectedSubcategory !== 'TODAS'
+            ? `¿Cuál es la traducción en ${selectedCategory} (${selectedSubcategory})?`
+            : `¿Cuál es la traducción en ${selectedCategory}?`;
+        } else if (selectedPartOfSpeech !== 'TODOS') {
+          prompt = `¿Cuál es la traducción correcta de este ${selectedPartOfSpeech.toLowerCase()}?`;
+        }
+
+        const badgeParts: string[] = [];
+        if (selectedCategory !== 'TODAS') {
+          badgeParts.push(`${selectedCategory}${selectedSubcategory !== 'TODAS' ? ` / ${selectedSubcategory}` : ''}`);
+        }
+        badgeParts.push(`Tipo: ${correctPos}`);
+
         return {
           targetWord: word,
-          prompt:
-            selectedPartOfSpeech !== 'TODOS'
-              ? `¿Cuál es la traducción correcta de este ${selectedPartOfSpeech.toLowerCase()}?`
-              : '¿Cuál es la traducción correcta?',
-          helperBadge: `Tipo: ${correctPos}`,
+          prompt,
+          helperBadge: badgeParts.join(' • '),
           options,
           correctAnswer: word.translation,
         };
@@ -205,9 +313,18 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, i
     else if (percentage >= 50) grade = 'Aprobado';
 
     let testTitle = `Vocabulario (${selectedLevel})`;
-    let historyType: 'vocabulary' | 'part_of_speech' = 'vocabulary';
+    let historyType: 'vocabulary' | 'part_of_speech' | 'category' = 'vocabulary';
 
-    if (testType === 'part_of_speech') {
+    if (testType === 'category' || selectedCategory !== 'TODAS') {
+      historyType = 'category';
+      testTitle = `Categoría: ${selectedCategory}`;
+      if (selectedSubcategory !== 'TODAS') {
+        testTitle += ` / ${selectedSubcategory}`;
+      }
+      if (selectedLevel !== 'TODOS') {
+        testTitle += ` (${selectedLevel})`;
+      }
+    } else if (testType === 'part_of_speech') {
       historyType = 'part_of_speech';
       if (posQuizMode === 'identify_type') {
         testTitle = selectedPartOfSpeech !== 'TODOS'
@@ -256,6 +373,20 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, i
             <TouchableOpacity
               style={styles.modeTab}
               onPress={() => {
+                setTestType('category');
+                setIsTestActive(false);
+                setIsTestFinished(false);
+              }}
+            >
+              <FolderOpen size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
+              <Text style={[styles.modeTabText, !isDark && styles.modeTabTextLight]}>
+                Por Categoría
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modeTab}
+              onPress={() => {
                 setTestType('part_of_speech');
                 setIsTestActive(false);
                 setIsTestFinished(false);
@@ -297,7 +428,9 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, i
               <Trophy size={42} color={THEME.colors.amber} />
             </View>
             <Text style={[styles.resultTitle, !isDark && styles.resultTitleLight]}>
-              {testType === 'part_of_speech'
+              {testType === 'category' || selectedCategory !== 'TODAS'
+                ? '¡Test de Categoría Finalizado!'
+                : testType === 'part_of_speech'
                 ? '¡Test por Tipo Finalizado!'
                 : '¡Test de Vocabulario Finalizado!'}
             </Text>
@@ -457,7 +590,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, i
   return (
     <View style={styles.container}>
       <View style={styles.contentWrapper}>
-        {/* Selector de modo principal: 3 pestañas */}
+        {/* Selector de modo principal: 4 pestañas */}
         <View style={[styles.modeTabBar, !isDark && styles.modeTabBarLight]}>
           <TouchableOpacity
             style={[styles.modeTab, testType === 'vocabulary' && styles.modeTabActive]}
@@ -482,6 +615,27 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, i
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.modeTab, testType === 'category' && styles.modeTabActive]}
+            onPress={() => {
+              setTestType('category');
+            }}
+          >
+            <FolderOpen
+              size={16}
+              color={testType === 'category' ? '#ffffff' : !isDark ? '#64748b' : THEME.colors.textMuted}
+            />
+            <Text
+              style={[
+                styles.modeTabText,
+                testType === 'category' && styles.modeTabTextActive,
+                !isDark && testType !== 'category' && styles.modeTabTextLight,
+              ]}
+            >
+              Por Categoría
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.modeTab, testType === 'part_of_speech' && styles.modeTabActive]}
             onPress={() => setTestType('part_of_speech')}
           >
@@ -496,7 +650,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, i
                 !isDark && testType !== 'part_of_speech' && styles.modeTabTextLight,
               ]}
             >
-              Test por Tipo
+              Por Tipo
             </Text>
           </TouchableOpacity>
 
@@ -520,8 +674,190 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, i
           </TouchableOpacity>
         </View>
 
-        {/* CONTENIDO SEGÚN PESTAÑA: TEST POR TIPO */}
-        {testType === 'part_of_speech' ? (
+        {/* CONTENIDO SEGÚN PESTAÑA: TEST POR CATEGORÍA */}
+        {testType === 'category' ? (
+          <View style={[styles.card, !isDark && styles.cardLight]}>
+            <View style={styles.introHeader}>
+              <View style={[styles.introIconCircle, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
+                <FolderOpen size={28} color="#38bdf8" />
+              </View>
+              <Text style={[styles.introTitle, !isDark && styles.introTitleLight]}>
+                Evaluación por Categoría y Subcategoría
+              </Text>
+              <Text style={[styles.introSubtitle, !isDark && styles.introSubtitleLight]}>
+                Pon a prueba tu vocabulario temático seleccionando la categoría y subcategoría que deseas evaluar.
+              </Text>
+            </View>
+
+            {/* 1. Selector de Categoría Temática */}
+            <Text style={[styles.filterTitle, !isDark && styles.filterTitleLight]}>
+              1. Selecciona la Categoría Temática:
+            </Text>
+            <View style={styles.posChipsWrapper}>
+              <TouchableOpacity
+                style={[
+                  styles.posFilterChip,
+                  !isDark && styles.posFilterChipLight,
+                  selectedCategory === 'TODAS' && styles.posFilterChipActive,
+                ]}
+                onPress={() => {
+                  setSelectedCategory('TODAS');
+                  setSelectedSubcategory('TODAS');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.posFilterChipText,
+                    !isDark && styles.posFilterChipTextLight,
+                    selectedCategory === 'TODAS' && styles.posFilterChipTextActive,
+                  ]}
+                >
+                  TODAS ({words.length})
+                </Text>
+              </TouchableOpacity>
+
+              {categoryList.map((cat) => {
+                const isSelected = selectedCategory === cat.name;
+                return (
+                  <TouchableOpacity
+                    key={cat.name}
+                    style={[
+                      styles.posFilterChip,
+                      !isDark && styles.posFilterChipLight,
+                      isSelected && styles.posFilterChipActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedCategory(cat.name);
+                      setSelectedSubcategory('TODAS');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.posFilterChipText,
+                        !isDark && styles.posFilterChipTextLight,
+                        isSelected && styles.posFilterChipTextActive,
+                      ]}
+                    >
+                      📁 {cat.name} {cat.count > 0 ? `(${cat.count})` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* 2. Selector de Subcategoría (visible cuando hay subcategorías disponibles) */}
+            {selectedCategory !== 'TODAS' && subcategoryList.length > 0 && (
+              <View style={{ marginTop: 10 }}>
+                <Text style={[styles.filterTitle, !isDark && styles.filterTitleLight]}>
+                  2. Selecciona la Subcategoría (Opcional):
+                </Text>
+                <View style={styles.posChipsWrapper}>
+                  <TouchableOpacity
+                    style={[
+                      styles.posFilterChip,
+                      !isDark && styles.posFilterChipLight,
+                      selectedSubcategory === 'TODAS' && styles.posFilterChipActive,
+                    ]}
+                    onPress={() => setSelectedSubcategory('TODAS')}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.posFilterChipText,
+                        !isDark && styles.posFilterChipTextLight,
+                        selectedSubcategory === 'TODAS' && styles.posFilterChipTextActive,
+                      ]}
+                    >
+                      Todas las subcategorías
+                    </Text>
+                  </TouchableOpacity>
+
+                  {subcategoryList.map((sub) => {
+                    const isSelected = selectedSubcategory === sub.name;
+                    return (
+                      <TouchableOpacity
+                        key={sub.name}
+                        style={[
+                          styles.posFilterChip,
+                          !isDark && styles.posFilterChipLight,
+                          isSelected && styles.posFilterChipActive,
+                        ]}
+                        onPress={() => setSelectedSubcategory(sub.name)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.posFilterChipText,
+                            !isDark && styles.posFilterChipTextLight,
+                            isSelected && styles.posFilterChipTextActive,
+                          ]}
+                        >
+                          📂 {sub.name} {sub.count > 0 ? `(${sub.count})` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* 3. Selector de Nivel */}
+            <Text style={[styles.filterTitle, !isDark && styles.filterTitleLight, { marginTop: 12 }]}>
+              3. Filtrar por Nivel (Opcional):
+            </Text>
+            <View style={styles.levelSelector}>
+              {['TODOS', 'A1', 'A2', 'B1', 'B2', 'C1'].map((lvl) => (
+                <TouchableOpacity
+                  key={lvl}
+                  style={[
+                    styles.levelChip,
+                    !isDark && styles.levelChipLight,
+                    selectedLevel === lvl && styles.levelChipActive,
+                  ]}
+                  onPress={() => setSelectedLevel(lvl)}
+                >
+                  <Text
+                    style={[
+                      styles.levelChipText,
+                      !isDark && styles.levelChipTextLight,
+                      selectedLevel === lvl && styles.levelChipTextActive,
+                    ]}
+                  >
+                    {lvl}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Resumen */}
+            <View style={[styles.statsSummaryBox, !isDark && styles.statsSummaryBoxLight, { marginTop: 6 }]}>
+              <Text style={[styles.statsSummaryText, !isDark && styles.statsSummaryTextLight]}>
+                Palabras disponibles para este test:{' '}
+                <Text style={{ color: !isDark ? '#0f172a' : '#ffffff', fontWeight: '800' }}>
+                  {availableWords.length}
+                </Text>
+                {selectedCategory !== 'TODAS' && ` • Categoría: ${selectedCategory}`}
+                {selectedSubcategory !== 'TODAS' && ` • Subcategoría: ${selectedSubcategory}`}
+                {selectedLevel !== 'TODOS' && ` • Nivel: ${selectedLevel}`}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={startQuiz}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryBtnText}>
+                {selectedCategory !== 'TODAS'
+                  ? `Iniciar Test de ${selectedCategory}${selectedSubcategory !== 'TODAS' ? ` (${selectedSubcategory})` : ''}`
+                  : 'Iniciar Test de Categorías'}
+              </Text>
+              <ArrowRight size={18} color="#ffffff" style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
+          </View>
+        ) : testType === 'part_of_speech' ? (
           <View style={[styles.card, !isDark && styles.cardLight]}>
             <View style={styles.introHeader}>
               <View style={[styles.introIconCircle, { backgroundColor: 'rgba(230, 46, 76, 0.15)' }]}>
@@ -714,7 +1050,7 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, i
             </TouchableOpacity>
           </View>
         ) : (
-          /* CONTENIDO PESTAÑA: TEST VOCABULARIO GENERAL CON FILTRO DE TIPO */
+          /* CONTENIDO PESTAÑA: TEST VOCABULARIO GENERAL */
           <View style={[styles.card, !isDark && styles.cardLight]}>
             <View style={styles.introHeader}>
               <View style={styles.introIconCircle}>
@@ -728,8 +1064,122 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, i
               </Text>
             </View>
 
-            {/* Selector de Nivel */}
+            {/* Filtro por Categoría */}
             <Text style={[styles.filterTitle, !isDark && styles.filterTitleLight]}>
+              Filtrar por Categoría (Opcional):
+            </Text>
+            <View style={styles.posChipsWrapper}>
+              <TouchableOpacity
+                style={[
+                  styles.posFilterChip,
+                  !isDark && styles.posFilterChipLight,
+                  selectedCategory === 'TODAS' && styles.posFilterChipActive,
+                ]}
+                onPress={() => {
+                  setSelectedCategory('TODAS');
+                  setSelectedSubcategory('TODAS');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.posFilterChipText,
+                    !isDark && styles.posFilterChipTextLight,
+                    selectedCategory === 'TODAS' && styles.posFilterChipTextActive,
+                  ]}
+                >
+                  TODAS
+                </Text>
+              </TouchableOpacity>
+
+              {categoryList.map((cat) => {
+                const isSelected = selectedCategory === cat.name;
+                return (
+                  <TouchableOpacity
+                    key={cat.name}
+                    style={[
+                      styles.posFilterChip,
+                      !isDark && styles.posFilterChipLight,
+                      isSelected && styles.posFilterChipActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedCategory(cat.name);
+                      setSelectedSubcategory('TODAS');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.posFilterChipText,
+                        !isDark && styles.posFilterChipTextLight,
+                        isSelected && styles.posFilterChipTextActive,
+                      ]}
+                    >
+                      📁 {cat.name} {cat.count > 0 ? `(${cat.count})` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Subcategorías dentro de Vocabulario */}
+            {selectedCategory !== 'TODAS' && subcategoryList.length > 0 && (
+              <View style={{ marginTop: 8 }}>
+                <Text style={[styles.filterTitle, !isDark && styles.filterTitleLight]}>
+                  Subcategoría:
+                </Text>
+                <View style={styles.posChipsWrapper}>
+                  <TouchableOpacity
+                    style={[
+                      styles.posFilterChip,
+                      !isDark && styles.posFilterChipLight,
+                      selectedSubcategory === 'TODAS' && styles.posFilterChipActive,
+                    ]}
+                    onPress={() => setSelectedSubcategory('TODAS')}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.posFilterChipText,
+                        !isDark && styles.posFilterChipTextLight,
+                        selectedSubcategory === 'TODAS' && styles.posFilterChipTextActive,
+                      ]}
+                    >
+                      Todas las subcategorías
+                    </Text>
+                  </TouchableOpacity>
+
+                  {subcategoryList.map((sub) => {
+                    const isSelected = selectedSubcategory === sub.name;
+                    return (
+                      <TouchableOpacity
+                        key={sub.name}
+                        style={[
+                          styles.posFilterChip,
+                          !isDark && styles.posFilterChipLight,
+                          isSelected && styles.posFilterChipActive,
+                        ]}
+                        onPress={() => setSelectedSubcategory(sub.name)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.posFilterChipText,
+                            !isDark && styles.posFilterChipTextLight,
+                            isSelected && styles.posFilterChipTextActive,
+                          ]}
+                        >
+                          📂 {sub.name} {sub.count > 0 ? `(${sub.count})` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Selector de Nivel */}
+            <Text style={[styles.filterTitle, !isDark && styles.filterTitleLight, { marginTop: 10 }]}>
               Selecciona el Nivel:
             </Text>
             <View style={styles.levelSelector}>
@@ -815,6 +1265,10 @@ export const TestView: React.FC<TestViewProps> = ({ words, onBackToVocabulary, i
                 <Text style={{ color: !isDark ? '#0f172a' : '#ffffff', fontWeight: '700' }}>
                   {availableWords.length}
                 </Text>
+                {selectedCategory !== 'TODAS' && ` • Categoría: ${selectedCategory}`}
+                {selectedSubcategory !== 'TODAS' && ` • Subcategoría: ${selectedSubcategory}`}
+                {selectedPartOfSpeech !== 'TODOS' && ` • Tipo: ${selectedPartOfSpeech}`}
+                {selectedLevel !== 'TODOS' && ` • Nivel: ${selectedLevel}`}
               </Text>
             </View>
 
