@@ -40,6 +40,7 @@ import { LanguagePickerModal } from '../common/LanguagePickerModal';
 interface TopNavigationProps {
   activeTab: MainNavTab;
   onTabChange: (tab: MainNavTab) => void;
+  onGoHome?: () => void;
   currentUser: UserProfile | null;
   onLogout: () => void;
   onDeleteAccount?: () => void;
@@ -57,6 +58,7 @@ interface TopNavigationProps {
 export const TopNavigation: React.FC<TopNavigationProps> = ({
   activeTab,
   onTabChange,
+  onGoHome,
   currentUser,
   onLogout,
   onDeleteAccount,
@@ -104,8 +106,20 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
 
   return (
     <View style={[styles.container, !isDark && styles.containerLight, { paddingTop: topPadding }]}>
-      {/* LEFT: Brand Logo & Title */}
-      <View style={styles.brandRow}>
+      {/* LEFT: Brand Logo & Title (Click to Go Home) */}
+      <TouchableOpacity
+        style={[styles.brandRow, Platform.OS === 'web' && ({ cursor: 'pointer' } as any)]}
+        onPress={() => {
+          if (onGoHome) {
+            onGoHome();
+          } else {
+            onTabChange('vocabulary');
+          }
+        }}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Ir al inicio"
+      >
         <PronounceItLogo size={36} />
         <View>
           <Text style={[styles.brandTitle, !isDark && styles.brandTitleLight]}>PronounceIt</Text>
@@ -115,7 +129,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
             </Text>
           )}
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* CENTER: Navigation Tabs (Tablet & Desktop) */}
       {showTopNavTabs && (

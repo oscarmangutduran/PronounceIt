@@ -512,6 +512,12 @@ function MainApp() {
     setSelectedFilter({ type: 'all' });
   };
 
+  const handleGoHome = () => {
+    setActiveTab('vocabulary');
+    setSelectedFilter({ type: 'all' });
+    setGlobalSearch('');
+  };
+
   const handleSaveWord = (wordData: Omit<WordItem, 'id'>) => {
     const dataWithLang: Omit<WordItem, 'id'> = {
       ...wordData,
@@ -619,6 +625,7 @@ function MainApp() {
       <TopNavigation
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        onGoHome={handleGoHome}
         currentUser={currentUser}
         onLogout={handleLogout}
         onDeleteAccount={handleDeleteAccount}
