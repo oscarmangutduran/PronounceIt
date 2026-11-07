@@ -5,6 +5,10 @@ import {
   getCurrentAppVersion,
 } from '../services/updateNotifierService.js';
 import { sendNewVersionNotificationEmail } from '../services/emailService.js';
+import {
+  sendUsersExcelReportEmail,
+  generateUsersExcelBuffer,
+} from '../services/excelReportService.js';
 
 const router = Router();
 
@@ -81,6 +85,37 @@ router.post('/test-email', async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error('Error al enviar correo de prueba:', err);
     res.status(500).json({ success: false, error: err?.message || 'Error interno' });
+  }
+});
+
+/**
+ * POST /api/updates/send-users-excel
+ * Genera el archivo Excel (.xlsx) con todos los usuarios registrados y lo envía a hola@oscarmangutdev.es
+ */
+router.post('/send-users-excel', async (req: Request, res: Response) => {
+  try {
+    const { email = 'hola@oscarmangutdev.es' } = req.body || {};
+    const result = await sendUsersExcelReportEmail(email);
+    res.json(result);
+  } catch (err: any) {
+    console.error('Error al enviar informe Excel de usuarios:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Error interno al generar/enviar Excel' });
+  }
+});
+
+/**
+ * GET /api/updates/download-users-excel
+ * Descarga directamente el archivo Excel (.xlsx) en el navegador
+ */
+router.get('/download-users-excel', async (_req: Request, res: Response) => {
+  try {
+    const { buffer, filename } = await generateUsersExcelBuffer();
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+  } catch (err: any) {
+    console.error('Error al descargar Excel de usuarios:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Error al generar Excel' });
   }
 });
 

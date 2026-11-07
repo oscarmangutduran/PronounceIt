@@ -15,6 +15,7 @@
     "build:server": "npm run build --prefix server",
     "build": "npm run build:client && npm run build:server",
     "notify:update": "npm run notify:update --prefix server",
+    "send:excel": "npm run send:excel --prefix server",
     "start": "npm run start --prefix server",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up -d",

@@ -561,10 +561,18 @@ export async function broadcastNewVersionEmail(versionInfo: NewVersionInfo): Pro
   };
 }
 
+export interface EmailOptions {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  attachments?: Array<{ filename: string; content: Buffer | string; contentType?: string }>;
+}
+
 /**
  * Función interna de entrega con fallback seguro y logging detallado
  */
-async function deliverEmail(options: { to: string; subject: string; html: string; text: string }): Promise<boolean> {
+export async function deliverEmail(options: EmailOptions): Promise<boolean> {
   const mailTransporter = getTransporter();
 
   if (mailTransporter) {
@@ -575,6 +583,7 @@ async function deliverEmail(options: { to: string; subject: string; html: string
         subject: options.subject,
         html: options.html,
         text: options.text,
+        attachments: options.attachments,
       });
 
       console.log(`\n======================================================`);
@@ -582,6 +591,9 @@ async function deliverEmail(options: { to: string; subject: string; html: string
       console.log(`Remitente: ${SENDER_FULL}`);
       console.log(`Destinatario: ${options.to}`);
       console.log(`Asunto: ${options.subject}`);
+      if (options.attachments && options.attachments.length > 0) {
+        console.log(`Adjuntos: ${options.attachments.map((a) => a.filename).join(', ')}`);
+      }
       console.log(`MessageId: ${info.messageId}`);
       console.log(`======================================================\n`);
       return true;
@@ -596,6 +608,9 @@ async function deliverEmail(options: { to: string; subject: string; html: string
   console.log(`Remitente: ${SENDER_FULL}`);
   console.log(`Destinatario: ${options.to}`);
   console.log(`Asunto: ${options.subject}`);
+  if (options.attachments && options.attachments.length > 0) {
+    console.log(`Adjuntos: ${options.attachments.map((a) => a.filename).join(', ')}`);
+  }
   console.log(`Fecha: ${new Date().toISOString()}`);
   if (!process.env.SMTP_PASS) {
     console.log(`ℹ️ Nota: Para entrega SMTP en vivo, configura SMTP_PASS en server/.env`);
