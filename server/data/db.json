@@ -40,6 +40,15 @@
   "words": [],
   "tests": [],
   "discordRooms": [],
+  "deletedUsers": [
+    {
+      "id": "usr_baja_sample1",
+      "email": "carlos.gomez@ejemplo.com",
+      "username": "carlos_gomez",
+      "created_at": "2026-09-15T14:20:00.000Z",
+      "deleted_at": "2026-11-02T10:15:30.000Z"
+    }
+  ],
   "appMeta": {
     "lastNotifiedVersion": "1.7.0",
     "lastNotificationDate": "2026-11-07T12:03:22.234Z",
@@ -58,6 +67,8 @@
       }
     ],
     "lastMonthlyReportSentMonth": "2026-11",
-    "lastMonthlyReportDate": "2026-11-07T12:36:47.651Z"
+    "lastMonthlyReportDate": "2026-11-07T12:36:47.651Z",
+    "lastBajasReportSentMonth": "2026-11",
+    "lastBajasReportDate": "2026-11-07T12:54:15.752Z"
   }
 }

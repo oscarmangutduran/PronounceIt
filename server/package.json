@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "notify:update": "tsx scripts/notifyUpdate.ts",
     "send:excel": "tsx scripts/sendUsersExcel.ts",
-    "send:pdf": "tsx scripts/sendUsersPdf.ts"
+    "send:pdf": "tsx scripts/sendUsersPdf.ts",
+    "send:bajas": "tsx scripts/sendBajasPdf.ts"
   },
   "dependencies": {
     "@types/pdfkit": "^0.17.7",

@@ -396,7 +396,17 @@ router.delete('/delete-account', async (req: Request, res: Response) => {
       userEmailToSend = targetUser.email || cleanEmail;
       userNameToSend = targetUser.username || cleanUsername || 'Usuario';
 
-      // Eliminar el usuario de la base de datos
+      // Registrar la baja en el histórico de bajas para el informe del día 31
+      if (!Array.isArray(db.deletedUsers)) db.deletedUsers = [];
+      db.deletedUsers.push({
+        id: targetUserId,
+        email: userEmailToSend,
+        username: userNameToSend,
+        created_at: targetUser.created_at,
+        deleted_at: new Date().toISOString(),
+      });
+
+      // Eliminar el usuario de la base de datos de usuarios activos
       db.users.splice(userIndex, 1);
 
       // Eliminar palabras y tests asociados

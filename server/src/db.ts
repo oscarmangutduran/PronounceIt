@@ -38,6 +38,15 @@ export interface UserRecord {
   updated_at: string;
 }
 
+export interface DeletedUserRecord {
+  id: string;
+  email: string;
+  username: string;
+  created_at?: string;
+  deleted_at: string;
+  reason?: string;
+}
+
 export interface WordRecord {
   id: string;
   userId?: string;
@@ -104,6 +113,8 @@ export interface AppMetadataRecord {
   }[];
   lastMonthlyReportSentMonth?: string;
   lastMonthlyReportDate?: string;
+  lastBajasReportSentMonth?: string;
+  lastBajasReportDate?: string;
 }
 
 export interface DatabaseSchema {
@@ -111,6 +122,7 @@ export interface DatabaseSchema {
   words: WordRecord[];
   tests: TestRecord[];
   discordRooms?: DiscordRoomRecord[];
+  deletedUsers?: DeletedUserRecord[];
   appMeta?: AppMetadataRecord;
 }
 
@@ -119,6 +131,7 @@ const DEFAULT_DB: DatabaseSchema = {
   words: [],
   tests: [],
   discordRooms: [],
+  deletedUsers: [],
 };
 
 let dbCache: DatabaseSchema | null = null;
@@ -135,6 +148,7 @@ export async function initDb(): Promise<DatabaseSchema> {
       if (!Array.isArray(dbCache.words)) dbCache.words = [];
       if (!Array.isArray(dbCache.tests)) dbCache.tests = [];
       if (!Array.isArray(dbCache.discordRooms)) dbCache.discordRooms = [];
+      if (!Array.isArray(dbCache.deletedUsers)) dbCache.deletedUsers = [];
     } catch {
       // Try to seed from bundled db.json if in Vercel
       let seeded = false;

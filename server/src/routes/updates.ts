@@ -12,8 +12,13 @@ import {
 import {
   sendUsersPdfReportEmail,
   generateUsersPdfBuffer,
+  sendDeletedUsersPdfReportEmail,
+  generateDeletedUsersPdfBuffer,
 } from '../services/pdfReportService.js';
-import { checkAndSendMonthlyReportIfDue } from '../services/monthlyScheduler.js';
+import {
+  checkAndSendMonthlyReportIfDue,
+  checkAndSendBajasReportIfDue,
+} from '../services/monthlyScheduler.js';
 
 const router = Router();
 
@@ -158,14 +163,59 @@ router.get('/download-users-pdf', async (_req: Request, res: Response) => {
 
 /**
  * POST /api/updates/trigger-monthly-report
- * Permite forzar el disparo del informe mensual del día 1
+ * Permite forzar el disparo del informe mensual del día 1 (altas)
  */
 router.post('/trigger-monthly-report', async (_req: Request, res: Response) => {
   try {
     const result = await checkAndSendMonthlyReportIfDue({ force: true });
     res.json({ success: true, ...result });
   } catch (err: any) {
-    console.error('Error al disparar informe mensual:', err);
+    console.error('Error al disparar informe mensual de altas:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Error interno' });
+  }
+});
+
+/**
+ * POST /api/updates/send-bajas-pdf
+ * Genera el archivo PDF con las bajas registradas (día 31) y lo envía a hola@oscarmangutdev.es
+ */
+router.post('/send-bajas-pdf', async (req: Request, res: Response) => {
+  try {
+    const { email = 'hola@oscarmangutdev.es' } = req.body || {};
+    const result = await sendDeletedUsersPdfReportEmail(email);
+    res.json(result);
+  } catch (err: any) {
+    console.error('Error al enviar informe PDF de bajas:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Error interno al generar/enviar PDF de bajas' });
+  }
+});
+
+/**
+ * GET /api/updates/download-bajas-pdf
+ * Descarga directamente el archivo PDF de bajas en el navegador
+ */
+router.get('/download-bajas-pdf', async (_req: Request, res: Response) => {
+  try {
+    const { buffer, filename } = await generateDeletedUsersPdfBuffer();
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.send(buffer);
+  } catch (err: any) {
+    console.error('Error al descargar PDF de bajas:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Error al generar PDF de bajas' });
+  }
+});
+
+/**
+ * POST /api/updates/trigger-bajas-report
+ * Permite forzar el disparo del informe de fin de mes (día 31) con las bajas registradas
+ */
+router.post('/trigger-bajas-report', async (_req: Request, res: Response) => {
+  try {
+    const result = await checkAndSendBajasReportIfDue({ force: true });
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    console.error('Error al disparar informe mensual de bajas:', err);
     res.status(500).json({ success: false, error: err?.message || 'Error interno' });
   }
 });
