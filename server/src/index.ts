@@ -9,6 +9,7 @@ import updatesRoutes from './routes/updates.js';
 import { initDb } from './db.js';
 import { createDiscordBot } from './discordBot.js';
 import { checkAndNotifyVersionUpdate } from './services/updateNotifierService.js';
+import { initMonthlyScheduler } from './services/monthlyScheduler.js';
 
 dotenv.config();
 
@@ -82,6 +83,9 @@ initDb()
 
       // Initialize Discord Bot service
       createDiscordBot();
+
+      // Initialize Monthly PDF Report Scheduler (Runs day 1 of each month)
+      initMonthlyScheduler();
 
       // Check if a new version needs to be broadcast to registered users
       checkAndNotifyVersionUpdate({ force: false })

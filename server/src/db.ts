@@ -102,6 +102,8 @@ export interface AppMetadataRecord {
     recipientCount: number;
     successCount: number;
   }[];
+  lastMonthlyReportSentMonth?: string;
+  lastMonthlyReportDate?: string;
 }
 
 export interface DatabaseSchema {

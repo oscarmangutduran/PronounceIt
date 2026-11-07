@@ -34,3 +34,4 @@ main().catch((err) => {
   console.error('Error fatal al enviar el informe Excel:', err);
   process.exit(1);
 });
+

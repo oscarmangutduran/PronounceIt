@@ -9,6 +9,11 @@ import {
   sendUsersExcelReportEmail,
   generateUsersExcelBuffer,
 } from '../services/excelReportService.js';
+import {
+  sendUsersPdfReportEmail,
+  generateUsersPdfBuffer,
+} from '../services/pdfReportService.js';
+import { checkAndSendMonthlyReportIfDue } from '../services/monthlyScheduler.js';
 
 const router = Router();
 
@@ -116,6 +121,52 @@ router.get('/download-users-excel', async (_req: Request, res: Response) => {
   } catch (err: any) {
     console.error('Error al descargar Excel de usuarios:', err);
     res.status(500).json({ success: false, error: err?.message || 'Error al generar Excel' });
+  }
+});
+
+/**
+ * POST /api/updates/send-users-pdf
+ * Genera el archivo PDF con los campos (Nombre, Email, Fecha de alta)
+ * y lo envía por correo electrónico a hola@oscarmangutdev.es
+ */
+router.post('/send-users-pdf', async (req: Request, res: Response) => {
+  try {
+    const { email = 'hola@oscarmangutdev.es' } = req.body || {};
+    const result = await sendUsersPdfReportEmail(email);
+    res.json(result);
+  } catch (err: any) {
+    console.error('Error al enviar informe PDF de usuarios:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Error interno al generar/enviar PDF' });
+  }
+});
+
+/**
+ * GET /api/updates/download-users-pdf
+ * Descarga directamente el archivo PDF con los usuarios en el navegador
+ */
+router.get('/download-users-pdf', async (_req: Request, res: Response) => {
+  try {
+    const { buffer, filename } = await generateUsersPdfBuffer();
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.send(buffer);
+  } catch (err: any) {
+    console.error('Error al descargar PDF de usuarios:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Error al generar PDF' });
+  }
+});
+
+/**
+ * POST /api/updates/trigger-monthly-report
+ * Permite forzar el disparo del informe mensual del día 1
+ */
+router.post('/trigger-monthly-report', async (_req: Request, res: Response) => {
+  try {
+    const result = await checkAndSendMonthlyReportIfDue({ force: true });
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    console.error('Error al disparar informe mensual:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Error interno' });
   }
 });
 

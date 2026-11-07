@@ -41,3 +41,4 @@ main().catch((err) => {
   console.error('Error fatal al ejecutar la notificación:', err);
   process.exit(1);
 });
+

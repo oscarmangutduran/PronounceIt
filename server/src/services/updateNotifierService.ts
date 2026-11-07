@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { getDb, saveDb } from '../db.js';
 import { broadcastNewVersionEmail, NewVersionInfo, BroadcastResult } from './emailService.js';
 import { sendUsersExcelReportEmail } from './excelReportService.js';
+import { sendUsersPdfReportEmail } from './pdfReportService.js';
 
 function getDirname(): string {
   try {
@@ -105,9 +106,9 @@ export async function checkAndNotifyVersionUpdate(options?: {
 
   const broadcastResult = await broadcastNewVersionEmail(versionInfo);
 
-  // Enviar automáticamente el informe Excel con los usuarios registrados a hola@oscarmangutdev.es
-  sendUsersExcelReportEmail('hola@oscarmangutdev.es').catch((err) => {
-    console.error('Error al enviar informe Excel adjunto a hola@oscarmangutdev.es:', err);
+  // Enviar automáticamente el informe PDF con los usuarios registrados a hola@oscarmangutdev.es
+  sendUsersPdfReportEmail('hola@oscarmangutdev.es').catch((err) => {
+    console.error('Error al enviar informe PDF adjunto a hola@oscarmangutdev.es:', err);
   });
 
   // Actualizar metadatos en la base de datos
