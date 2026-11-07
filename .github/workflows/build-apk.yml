@@ -1,0 +1,73 @@
+name: Build and Release Android APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make Gradle script executable
+        run: chmod +x client/android/gradlew
+
+      - name: Build Android Release APK
+        run: |
+          cd client/android
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Locate and Package APK
+        run: |
+          mkdir -p release-apks
+          APK_FILE=$(find client/android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            APK_FILE=$(find client/android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          fi
+          echo "Found APK: $APK_FILE"
+          cp "$APK_FILE" release-apks/PronounceIt-v1.7.1.apk
+          cp "$APK_FILE" release-apks/PronounceIt.apk
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          name: PronounceIt v1.7.1 - Android Release
+          body: |
+            ## PronounceIt v1.7.1
+
+            - Nueva identidad visual con logotipo oficial de la bandera de Reino Unido en alta definición.
+            - Sistema de enrutamiento web con URLs directas en castellano (`/`, `/flashcards`, `/test`, `/estadisticas`, `/configuracion`).
+            - Sincronización completa para móviles Android e iOS.
+            - Correcciones y optimizaciones de rendimiento y navegación.
+          files: |
+            release-apks/PronounceIt-v1.7.1.apk
+            release-apks/PronounceIt.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

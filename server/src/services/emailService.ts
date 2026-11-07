@@ -429,7 +429,7 @@ Equipo PronounceIt (${SENDER_EMAIL})
  * Maquetación visual premium del correo de Nueva Versión para usuarios
  */
 export function buildNewVersionEmailHtml(username: string, versionInfo: NewVersionInfo): string {
-  const version = versionInfo.version || '1.7.0';
+  const version = versionInfo.version || '1.7.1';
   const apkUrl = versionInfo.apkUrl || `https://github.com/oscarmangutduran/PronounceIt/releases/download/v${version}/PronounceIt-v${version}.apk`;
   const iosUrl = versionInfo.iosUrl || 'https://pronounceit-sand.vercel.app/apple';
   const webUrl = versionInfo.webUrl || 'https://pronounceit-sand.vercel.app/';
@@ -629,7 +629,7 @@ export async function sendNewVersionNotificationEmail(
   username = 'Usuario',
   versionInfo: NewVersionInfo
 ): Promise<boolean> {
-  const version = versionInfo.version || '1.7.0';
+  const version = versionInfo.version || '1.7.1';
   const subject = `🚀 ¡Nueva versión disponible de PronounceIt v${version}! Descárgala ahora`;
   const apkUrl = versionInfo.apkUrl || `https://github.com/oscarmangutduran/PronounceIt/releases/download/v${version}/PronounceIt-v${version}.apk`;
   const iosUrl = versionInfo.iosUrl || 'https://pronounceit-sand.vercel.app/apple';
@@ -668,7 +668,7 @@ Equipo PronounceIt (${SENDER_EMAIL})
 export async function broadcastNewVersionEmail(versionInfo: NewVersionInfo): Promise<BroadcastResult> {
   const db = await getDb();
   const users = (db.users || []).filter((u) => u && u.email && u.email.includes('@'));
-  const version = versionInfo.version || '1.7.0';
+  const version = versionInfo.version || '1.7.1';
 
   console.log(`\n📢 [BROADCAST] Iniciando envío de notificación de versión v${version} a ${users.length} usuarios...`);
 

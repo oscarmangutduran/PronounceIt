@@ -50,8 +50,8 @@
     }
   ],
   "appMeta": {
-    "lastNotifiedVersion": "1.7.0",
-    "lastNotificationDate": "2026-11-07T12:03:22.234Z",
+    "lastNotifiedVersion": "1.7.1",
+    "lastNotificationDate": "2026-11-07T15:08:49.484Z",
     "notificationHistory": [
       {
         "version": "1.7.0",
@@ -64,11 +64,13 @@
         "sentAt": "2026-11-07T12:03:22.234Z",
         "recipientCount": 4,
         "successCount": 4
+      },
+      {
+        "version": "1.7.1",
+        "sentAt": "2026-11-07T15:08:49.484Z",
+        "recipientCount": 4,
+        "successCount": 4
       }
-    ],
-    "lastMonthlyReportSentMonth": "2026-11",
-    "lastMonthlyReportDate": "2026-11-07T12:36:47.651Z",
-    "lastBajasReportSentMonth": "2026-11",
-    "lastBajasReportDate": "2026-11-07T12:54:15.752Z"
+    ]
   }
 }
