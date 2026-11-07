@@ -36,3 +36,4 @@ main().catch((err) => {
   console.error('Error fatal al enviar el informe de bajas:', err);
   process.exit(1);
 });
+

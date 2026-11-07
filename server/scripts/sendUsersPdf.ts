@@ -35,3 +35,4 @@ main().catch((err) => {
   console.error('Error fatal al enviar el informe PDF:', err);
   process.exit(1);
 });
+
