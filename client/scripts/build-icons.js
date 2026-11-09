@@ -143,23 +143,23 @@ const HTML_CONTENT = `<!DOCTYPE html>
       \`;
 
       // 4. Adaptive Foreground (108x108 viewport, safe circle is 72x72 in center)
+      // Contains the 'P' and sound waves centered in the 108x108 canvas (64x64 placed at 22,22)
       const adaptiveForegroundSvg = \`
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="1024" height="1024">
           \${svgDefs}
-          <g transform="translate(20, 20) scale(1.0625)">
-            <g clip-path="url(#squircle)">
-              \${flagMarkup}
-            </g>
-            <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="15.25" fill="none" stroke="url(#borderGrad)" stroke-width="1.5"/>
+          <g transform="translate(22, 22)">
             \${pLogoMarkup}
           </g>
         </svg>
       \`;
 
-      // 5. Adaptive Background (108x108 viewport filled with deep navy)
+      // 5. Adaptive Background (108x108 viewport filled with the UK Flag so any Android mask shape shows the full UK flag logo)
       const adaptiveBackgroundSvg = \`
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="1024" height="1024">
-          <rect width="108" height="108" fill="#011640"/>
+          \${svgDefs}
+          <g transform="scale(1.6875)">
+            \${flagMarkup}
+          </g>
         </svg>
       \`;
 
@@ -201,40 +201,57 @@ const HTML_CONTENT = `<!DOCTYPE html>
 
       const results = {};
 
-      // 1. Assets icons (Expo app config & web) - EXACT same as favicon!
-      results['assets/icon.png'] = await renderSvg(faviconSvg, 1024, 1024, 'image/png');
+      // 1. Assets icons (Expo app config & web) - EXACT same logo across all platforms!
+      results['assets/icon.png'] = await renderSvg(fullSquareIconSvg, 1024, 1024, 'image/png');
       results['assets/android-icon-foreground.png'] = await renderSvg(adaptiveForegroundSvg, 1024, 1024, 'image/png');
       results['assets/android-icon-background.png'] = await renderSvg(adaptiveBackgroundSvg, 1024, 1024, 'image/png');
       results['assets/android-icon-monochrome.png'] = await renderSvg(adaptiveMonochromeSvg, 1024, 1024, 'image/png');
       results['assets/favicon.png'] = await renderSvg(faviconSvg, 512, 512, 'image/png');
-      results['public/favicon.png'] = await renderSvg(faviconSvg, 512, 512, 'image/png');
-      results['public/apple-touch-icon.png'] = await renderSvg(faviconSvg, 180, 180, 'image/png');
-      results['public/icon-192.png'] = await renderSvg(faviconSvg, 192, 192, 'image/png');
-      results['public/icon-512.png'] = await renderSvg(faviconSvg, 512, 512, 'image/png');
       results['assets/splash-icon.png'] = await renderSvg(faviconSvg, 512, 512, 'image/png');
 
-      // 1.1 Also sync to client/dist for immediate web/PWA production builds
+      // 1.1 Sync to client/src/assets as well
+      results['src/assets/icon.png'] = await renderSvg(fullSquareIconSvg, 1024, 1024, 'image/png');
+      results['src/assets/android-icon-foreground.png'] = await renderSvg(adaptiveForegroundSvg, 1024, 1024, 'image/png');
+      results['src/assets/android-icon-background.png'] = await renderSvg(adaptiveBackgroundSvg, 1024, 1024, 'image/png');
+      results['src/assets/android-icon-monochrome.png'] = await renderSvg(adaptiveMonochromeSvg, 1024, 1024, 'image/png');
+      results['src/assets/favicon.png'] = await renderSvg(faviconSvg, 512, 512, 'image/png');
+      results['src/assets/splash-icon.png'] = await renderSvg(faviconSvg, 512, 512, 'image/png');
+
+      // 1.2 Web & PWA public icons (apple-touch-icon uses fullSquareIconSvg because iOS applies its own squircle mask)
+      results['public/favicon.png'] = await renderSvg(faviconSvg, 512, 512, 'image/png');
+      results['public/apple-touch-icon.png'] = await renderSvg(fullSquareIconSvg, 180, 180, 'image/png');
+      results['public/icon-192.png'] = await renderSvg(faviconSvg, 192, 192, 'image/png');
+      results['public/icon-512.png'] = await renderSvg(faviconSvg, 512, 512, 'image/png');
+      results['public/icon-192-maskable.png'] = await renderSvg(fullSquareIconSvg, 192, 192, 'image/png');
+      results['public/icon-512-maskable.png'] = await renderSvg(fullSquareIconSvg, 512, 512, 'image/png');
+
+      // 1.3 Also sync to client/dist for immediate web/PWA production builds
       results['dist/favicon.png'] = await renderSvg(faviconSvg, 512, 512, 'image/png');
-      results['dist/apple-touch-icon.png'] = await renderSvg(faviconSvg, 180, 180, 'image/png');
+      results['dist/apple-touch-icon.png'] = await renderSvg(fullSquareIconSvg, 180, 180, 'image/png');
       results['dist/icon-192.png'] = await renderSvg(faviconSvg, 192, 192, 'image/png');
       results['dist/icon-512.png'] = await renderSvg(faviconSvg, 512, 512, 'image/png');
+      results['dist/icon-192-maskable.png'] = await renderSvg(fullSquareIconSvg, 192, 192, 'image/png');
+      results['dist/icon-512-maskable.png'] = await renderSvg(fullSquareIconSvg, 512, 512, 'image/png');
 
-      // 2. Android mipmap density variants - EXACT same as favicon!
+      // 2. Android mipmap density variants & splashscreen_logo
       const densities = [
-        { name: 'mdpi', iconSize: 48, adaptiveSize: 108 },
-        { name: 'hdpi', iconSize: 72, adaptiveSize: 162 },
-        { name: 'xhdpi', iconSize: 96, adaptiveSize: 216 },
-        { name: 'xxhdpi', iconSize: 144, adaptiveSize: 324 },
-        { name: 'xxxhdpi', iconSize: 192, adaptiveSize: 432 }
+        { name: 'mdpi', iconSize: 48, adaptiveSize: 108, splashSize: 72 },
+        { name: 'hdpi', iconSize: 72, adaptiveSize: 162, splashSize: 108 },
+        { name: 'xhdpi', iconSize: 96, adaptiveSize: 216, splashSize: 144 },
+        { name: 'xxhdpi', iconSize: 144, adaptiveSize: 324, splashSize: 216 },
+        { name: 'xxxhdpi', iconSize: 192, adaptiveSize: 432, splashSize: 288 }
       ];
 
       for (const d of densities) {
         const prefix = \`android/app/src/main/res/mipmap-\${d.name}/\`;
         results[\`\${prefix}ic_launcher.webp\`] = await renderSvg(faviconSvg, d.iconSize, d.iconSize, 'image/webp');
-        results[\`\${prefix}ic_launcher_round.webp\`] = await renderSvg(faviconSvg, d.iconSize, d.iconSize, 'image/webp');
+        results[\`\${prefix}ic_launcher_round.webp\`] = await renderSvg(roundIconSvg, d.iconSize, d.iconSize, 'image/webp');
         results[\`\${prefix}ic_launcher_foreground.webp\`] = await renderSvg(adaptiveForegroundSvg, d.adaptiveSize, d.adaptiveSize, 'image/webp');
         results[\`\${prefix}ic_launcher_background.webp\`] = await renderSvg(adaptiveBackgroundSvg, d.adaptiveSize, d.adaptiveSize, 'image/webp');
         results[\`\${prefix}ic_launcher_monochrome.webp\`] = await renderSvg(adaptiveMonochromeSvg, d.adaptiveSize, d.adaptiveSize, 'image/webp');
+
+        const drawablePrefix = \`android/app/src/main/res/drawable-\${d.name}/\`;
+        results[\`\${drawablePrefix}splashscreen_logo.png\`] = await renderSvg(faviconSvg, d.splashSize, d.splashSize, 'image/png');
       }
 
       status.innerText = 'Sending to server...';
