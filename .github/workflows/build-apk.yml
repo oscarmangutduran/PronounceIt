@@ -59,6 +59,7 @@ jobs:
         with:
           tag_name: v1.7.1
           name: PronounceIt v1.7.1 - Android Release
+          overwrite_files: true
           body: |
             ## PronounceIt v1.7.1
 

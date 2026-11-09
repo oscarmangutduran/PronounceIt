@@ -780,22 +780,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         {/* Tarjeta destacada del Aula Seleccionada */}
         <View style={[styles.discordRoomSpotlight, !isDark && styles.discordRoomSpotlightLight]}>
           <View style={styles.discordRoomHeaderRow}>
-            <View style={styles.discordRoomLeft}>
-              <View style={[styles.discordRoomFlagWrap, !isDark && styles.discordRoomFlagWrapLight]}>
-                <CountryFlag code={selectedDiscordLang} size={28} />
-              </View>
-              <View>
+            <View style={[styles.discordRoomFlagWrap, !isDark && styles.discordRoomFlagWrapLight]}>
+              <CountryFlag code={selectedDiscordLang} size={28} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={styles.discordRoomTitleRow}>
                 <Text style={[styles.discordRoomTitle, !isDark && styles.discordRoomTitleLight]}>
                   Aula de {getLangName(selectedDiscordLang)}
                 </Text>
-                <Text style={[styles.discordRoomChannel, !isDark && styles.discordRoomChannelLight]}>
-                  Canal: #voz-{selectedDiscordLang.toLowerCase()} • Categoría {getLangName(selectedDiscordLang)}
-                </Text>
+                <View style={[styles.discordRoomBadge, !isDark && styles.discordRoomBadgeLight]}>
+                  <View style={styles.discordRoomBadgeDot} />
+                  <Text style={styles.discordRoomBadgeText}>24/7 En directo</Text>
+                </View>
               </View>
-            </View>
-            <View style={[styles.discordRoomBadge, !isDark && styles.discordRoomBadgeLight]}>
-              <View style={styles.discordRoomBadgeDot} />
-              <Text style={styles.discordRoomBadgeText}>24/7 En directo</Text>
+              <Text style={[styles.discordRoomChannel, !isDark && styles.discordRoomChannelLight]}>
+                Canal: #voz-{selectedDiscordLang.toLowerCase()} • Categoría {getLangName(selectedDiscordLang)}
+              </Text>
             </View>
           </View>
 
@@ -1986,13 +1986,15 @@ const styles = StyleSheet.create({
   },
   discordShareLabelRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 4,
   },
   discordShareLabel: {
+    flex: 1,
     fontSize: 13,
     fontWeight: '700',
     color: '#ffffff',
+    lineHeight: 18,
   },
   discordShareLabelLight: {
     color: '#0f172a',
@@ -2010,14 +2012,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
     marginBottom: 16,
   },
   discordCopyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    flexGrow: 1,
+    paddingVertical: 11,
     paddingHorizontal: 16,
     borderRadius: 10,
     borderWidth: 1,
@@ -2040,7 +2043,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    flexGrow: 1,
+    paddingVertical: 11,
     paddingHorizontal: 18,
     borderRadius: 10,
     backgroundColor: '#5865F2',
@@ -2182,17 +2186,17 @@ const styles = StyleSheet.create({
   },
   discordRoomHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 12,
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 12,
   },
-  discordRoomLeft: {
+  discordRoomTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    flex: 1,
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 4,
   },
   discordRoomFlagWrap: {
     width: 46,
@@ -2203,6 +2207,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
+    flexShrink: 0,
   },
   discordRoomFlagWrapLight: {
     backgroundColor: '#ffffff',
@@ -2325,7 +2330,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    flexGrow: 1,
+    paddingVertical: 11,
     paddingHorizontal: 18,
     borderRadius: 10,
     backgroundColor: '#0A66C2',
@@ -2414,7 +2420,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    flexGrow: 1,
+    paddingVertical: 11,
     paddingHorizontal: 18,
     borderRadius: 10,
     backgroundColor: '#e62e4c',
