@@ -137,14 +137,14 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
         accessibilityLabel="Ir al inicio"
       >
         <PronounceItLogo size={36} />
-        <View>
-          <Text style={[styles.brandTitle, !isDark && styles.brandTitleLight]}>PronounceIt</Text>
-          {!isPhone && (
+        {!isPhone && Platform.OS === 'web' && (
+          <View>
+            <Text style={[styles.brandTitle, !isDark && styles.brandTitleLight]}>PronounceIt</Text>
             <Text style={[styles.brandSubtitle, !isDark && styles.brandSubtitleLight]}>
               Léxico & Pronunciación
             </Text>
-          )}
-        </View>
+          </View>
+        )}
       </TouchableOpacity>
 
       {/* CENTER: Navigation Tabs (Tablet & Desktop) */}
