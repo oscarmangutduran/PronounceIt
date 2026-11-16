@@ -48,7 +48,7 @@ export async function getCurrentAppVersion(): Promise<string> {
     } catch {}
   }
 
-  return '1.7.1';
+  return '1.7.2';
 }
 
 export interface CheckAndUpdateResult {

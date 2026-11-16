@@ -269,7 +269,7 @@ export const SplashIntroVideo: React.FC<SplashIntroVideoProps> = ({ onFinish }) 
             </Text>
             <View style={styles.versionPill}>
               <View style={styles.liveDot} />
-              <Text style={styles.versionText}>v1.7.1</Text>
+              <Text style={styles.versionText}>v1.7.2</Text>
             </View>
           </Animated.View>
         </View>

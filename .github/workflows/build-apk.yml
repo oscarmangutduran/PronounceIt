@@ -54,24 +54,24 @@ jobs:
             APK_FILE=$(find client/android/app/build/outputs/apk -name "*.apk" | head -n 1)
           fi
           echo "Found APK: $APK_FILE"
-          cp "$APK_FILE" release-apks/PronounceIt-v1.7.1.apk
+          cp "$APK_FILE" release-apks/PronounceIt-v1.7.2.apk
           cp "$APK_FILE" release-apks/PronounceIt.apk
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.7.1
-          name: PronounceIt v1.7.1 - Android Release
+          tag_name: v1.7.2
+          name: PronounceIt v1.7.2 - Android Release
           overwrite_files: true
           body: |
-            ## PronounceIt v1.7.1
+            ## PronounceIt v1.7.2
 
-            - Nueva identidad visual con logotipo oficial de la bandera de Reino Unido en alta definición.
-            - Sistema de enrutamiento web con URLs directas en castellano (`/`, `/flashcards`, `/test`, `/estadisticas`, `/configuracion`).
-            - Sincronización completa para móviles Android e iOS.
-            - Correcciones y optimizaciones de rendimiento y navegación.
+            - Mini-vídeo animado de introducción en el arranque y corrección del Splash Screen nativo en Android.
+            - Contador de rachas diarias según los días consecutivos agregando palabras y calendario semanal.
+            - Eliminación y edición directa de categorías y subcategorías desde la barra móvil/APK y modales.
+            - Ajuste de margen de seguridad inferior en el formulario de palabras para evitar colisión con la barra de Android.
           files: |
-            release-apks/PronounceIt-v1.7.1.apk
+            release-apks/PronounceIt-v1.7.2.apk
             release-apks/PronounceIt.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -805,7 +805,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
             <View style={styles.mobileDownloadRow}>
               <TouchableOpacity
                 style={styles.mobileDownloadBtn}
-                onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.7.1/PronounceIt-v1.7.1.apk')}
+                onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.7.2/PronounceIt-v1.7.2.apk')}
                 activeOpacity={0.85}
               >
                 <View style={styles.mobileDownloadIconBox}>
@@ -846,7 +846,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
               )}
             </View>
             <Text style={{ fontSize: 11, color: THEME.colors.textSubtle, marginTop: 12, fontWeight: '500' }}>
-              PronounceIt v1.7.1
+              PronounceIt v1.7.2
             </Text>
           </View>
         </ScrollView>
