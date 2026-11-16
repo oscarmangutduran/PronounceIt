@@ -46,6 +46,7 @@ import {
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { CountryFlag } from '../common/CountryFlag';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TARGET_LANGUAGE_EXAMPLES: Record<
   string,
@@ -205,6 +206,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   nativeLanguage = 'es',
 }) => {
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktop = width >= 768;
 
   const isEditing = Boolean(initialWord);
@@ -1164,18 +1166,32 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         >
           {/* Header */}
           <View style={[styles.modalHeader, !isDark && styles.modalHeaderLight]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
               <View style={styles.headerIcon}>
                 <BookOpen size={16} color={THEME.colors.crimsonLight} />
               </View>
-              <Text style={[styles.headerTitle, !isDark && styles.headerTitleLight]}>
+              <Text style={[styles.headerTitle, !isDark && styles.headerTitleLight]} numberOfLines={1}>
                 {isEditing ? 'Editar Palabra' : 'Nueva Palabra'}
               </Text>
             </View>
 
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <X size={18} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity
+                style={[styles.headerSaveBtn, saving && styles.saveButtonDisabled]}
+                onPress={handleSave}
+                disabled={saving}
+                activeOpacity={0.85}
+              >
+                <Check size={14} color="#ffffff" />
+                <Text style={styles.headerSaveBtnText}>
+                  {saving ? 'Guardando...' : 'Guardar'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                <X size={18} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView
@@ -2275,7 +2291,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           </ScrollView>
 
           {/* Modal Footer Actions */}
-          <View style={[styles.modalFooter, !isDark && styles.modalFooterLight]}>
+          <View
+            style={[
+              styles.modalFooter,
+              !isDark && styles.modalFooterLight,
+              !isDesktop && {
+                paddingBottom: Math.max(
+                  insets.bottom + 24,
+                  Platform.OS === 'android' ? 64 : 28
+                ),
+              },
+            ]}
+          >
             <TouchableOpacity
               style={[styles.cancelButton, !isDark && styles.cancelButtonLight]}
               onPress={onClose}
@@ -2396,7 +2423,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#161026',
     borderTopLeftRadius: THEME.radius.xl,
     borderTopRightRadius: THEME.radius.xl,
-    maxHeight: '90%',
+    maxHeight: '86%',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
@@ -2404,6 +2431,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.6,
     shadowRadius: 24,
     elevation: 8,
+  },
+  headerSaveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: THEME.colors.crimson,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: THEME.radius.md,
+  },
+  headerSaveBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   modalCardDesktop: {
     width: '100%',
