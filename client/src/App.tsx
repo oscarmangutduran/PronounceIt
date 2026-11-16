@@ -55,6 +55,7 @@ import { EditProfileModal } from './components/workspace/EditProfileModal';
 import { CategoryFormModal } from './components/workspace/CategoryFormModal';
 import { ConfirmModal } from './components/common/ConfirmModal';
 import { AppleInstallModal } from './components/common/AppleInstallModal';
+import { SplashIntroVideo } from './components/common/SplashIntroVideo';
 import { useResponsive } from './lib/useResponsive';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -73,6 +74,7 @@ function MainApp() {
   } = useResponsive();
 
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isIntroPlaying, setIsIntroPlaying] = useState(true);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     return firebaseService.getCurrentUser();
   });
@@ -574,26 +576,11 @@ function MainApp() {
   const reviewCount = currentWords.filter((w) => w.status === 'en_repaso').length;
   const masteredCount = currentWords.filter((w) => w.status === 'dominada').length;
 
-  // Initializing Splash Screen (avoids flashing login if session is restored from disk)
-  if (isInitializing) {
+  // Animated Intro Mini-Video on App Launch
+  if (isIntroPlaying || isInitializing) {
     return (
-      <View
-        style={[
-          styles.appContainer,
-          {
-            justifyContent: 'center',
-            alignItems: 'center',
-            backgroundColor: THEME.colors.bgDark,
-          },
-        ]}
-      >
-        <StatusBar style="light" />
-        <PronounceItLogo size={60} />
-        <ActivityIndicator
-          color={THEME.colors.crimson}
-          size="small"
-          style={{ marginTop: 24 }}
-        />
+      <View style={styles.appContainer}>
+        <SplashIntroVideo onFinish={() => setIsIntroPlaying(false)} />
       </View>
     );
   }
