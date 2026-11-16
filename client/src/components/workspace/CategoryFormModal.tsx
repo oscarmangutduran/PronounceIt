@@ -10,7 +10,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
 } from 'react-native';
-import { X, Folder, Layers, Sparkles, Plus, Pin, AlertCircle } from 'lucide-react-native';
+import { X, Folder, Layers, Sparkles, Plus, Pin, AlertCircle, Trash2 } from 'lucide-react-native';
 import { THEME } from '../../theme';
 
 export type CategoryFormMode =
@@ -32,6 +32,7 @@ interface CategoryFormModalProps {
   existingSubcategories?: string[];
   onClose: () => void;
   onSubmit: (name: string, subcategories?: string[]) => void;
+  onDelete?: () => void;
 }
 
 const DEFAULT_SUBCATS: string[] = [];
@@ -48,6 +49,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
   existingSubcategories = DEFAULT_STRINGS,
   onClose,
   onSubmit,
+  onDelete,
 }) => {
   const [name, setName] = useState('');
   const [subcategories, setSubcategories] = useState<string[]>([]);
@@ -466,21 +468,36 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
           </ScrollView>
 
           <View style={[styles.footer, !isDark && styles.footerLight]}>
-            <TouchableOpacity
-              style={[styles.cancelBtn, !isDark && styles.cancelBtnLight]}
-              onPress={onClose}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.cancelBtnText, !isDark && styles.cancelBtnTextLight]}>
-                Cancelar
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} activeOpacity={0.85}>
-              <Sparkles size={14} color="#ffffff" style={{ marginRight: 6 }} />
-              <Text style={styles.submitBtnText}>
-                {isEditing ? 'Guardar Cambios' : 'Crear Categoría'}
-              </Text>
-            </TouchableOpacity>
+            {isEditing && onDelete && (
+              <TouchableOpacity
+                style={[styles.deleteBtn, !isDark && styles.deleteBtnLight]}
+                onPress={() => {
+                  onClose();
+                  onDelete();
+                }}
+                activeOpacity={0.8}
+              >
+                <Trash2 size={14} color="#ef4444" />
+                <Text style={styles.deleteBtnText}>Eliminar</Text>
+              </TouchableOpacity>
+            )}
+            <View style={styles.footerRight}>
+              <TouchableOpacity
+                style={[styles.cancelBtn, !isDark && styles.cancelBtnLight]}
+                onPress={onClose}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.cancelBtnText, !isDark && styles.cancelBtnTextLight]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} activeOpacity={0.85}>
+                <Sparkles size={14} color="#ffffff" style={{ marginRight: 6 }} />
+                <Text style={styles.submitBtnText}>
+                  {isEditing ? 'Guardar Cambios' : (isSubcategory ? 'Crear Subcategoría' : 'Crear Categoría')}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -918,7 +935,8 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-end",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
     gap: 10,
     paddingHorizontal: 20,
     paddingVertical: 14,
@@ -929,6 +947,32 @@ const styles = StyleSheet.create({
   footerLight: {
     backgroundColor: "#f8fafc",
     borderTopColor: "#f1f5f9",
+  },
+  footerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginLeft: "auto",
+  },
+  deleteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: "rgba(239, 68, 68, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.35)",
+  },
+  deleteBtnLight: {
+    backgroundColor: "#fef2f2",
+    borderColor: "rgba(239, 68, 68, 0.3)",
+  },
+  deleteBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#ef4444",
   },
   cancelBtn: {
     paddingVertical: 10,

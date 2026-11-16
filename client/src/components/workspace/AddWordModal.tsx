@@ -27,6 +27,7 @@ import {
   Languages,
   RotateCcw,
   ArrowLeftRight,
+  Trash2,
 } from 'lucide-react-native';
 import { WordItem, CategoryItem, PartOfSpeech, PART_OF_SPEECH_OPTIONS, SUPPORTED_LANGUAGES } from '../../types';
 import { vocabService, getWordCategories, getWordSubcategories } from '../../lib/vocabularyStore';
@@ -271,6 +272,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [customCategorySubInput, setCustomCategorySubInput] = useState('');
   const [isCustomSubcategoryMode, setIsCustomSubcategoryMode] = useState(false);
   const [customSubcategoryInput, setCustomSubcategoryInput] = useState('');
+  const [deleteCatTargetName, setDeleteCatTargetName] = useState<string | null>(null);
+  const [deleteSubTargetName, setDeleteSubTargetName] = useState<string | null>(null);
 
   // Get all unique categories (from prop + vocabStore)
   const allCategories = useMemo(() => {
@@ -1982,16 +1985,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                             (c) => c.toLowerCase() === cat.name.toLowerCase()
                           );
                           return (
-                            <TouchableOpacity
+                            <View
                               key={cat.name}
                               style={[
                                 styles.dropdownItem,
                                 isSelected && styles.dropdownItemActive,
                               ]}
-                              onPress={() => toggleCategory(cat.name)}
-                              activeOpacity={0.8}
                             >
-                              <View style={styles.dropdownItemLeft}>
+                              <TouchableOpacity
+                                style={[styles.dropdownItemLeft, { flex: 1 }]}
+                                onPress={() => toggleCategory(cat.name)}
+                                activeOpacity={0.8}
+                              >
                                 <Folder
                                   size={14}
                                   color={isSelected ? '#ffffff' : THEME.colors.crimsonLight}
@@ -2005,9 +2010,22 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                                 >
                                   {cat.name}
                                 </Text>
+                              </TouchableOpacity>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                {isSelected && <Check size={14} color="#ffffff" />}
+                                <TouchableOpacity
+                                  onPress={(e) => {
+                                    e?.stopPropagation?.();
+                                    setDeleteCatTargetName(cat.name);
+                                  }}
+                                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                  style={{ padding: 4 }}
+                                  accessibilityLabel={`Eliminar categoría ${cat.name}`}
+                                >
+                                  <Trash2 size={13} color={isSelected ? '#ffe4e6' : '#f87171'} />
+                                </TouchableOpacity>
                               </View>
-                              {isSelected && <Check size={14} color="#ffffff" />}
-                            </TouchableOpacity>
+                            </View>
                           );
                         })}
 
@@ -2191,16 +2209,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                             (s) => s.toLowerCase() === subName.toLowerCase()
                           );
                           return (
-                            <TouchableOpacity
+                            <View
                               key={subName}
                               style={[
                                 styles.dropdownItem,
                                 isSelected && styles.dropdownItemActive,
                               ]}
-                              onPress={() => toggleSubcategory(subName)}
-                              activeOpacity={0.8}
                             >
-                              <View style={styles.dropdownItemLeft}>
+                              <TouchableOpacity
+                                style={[styles.dropdownItemLeft, { flex: 1 }]}
+                                onPress={() => toggleSubcategory(subName)}
+                                activeOpacity={0.8}
+                              >
                                 <Pin
                                   size={13}
                                   color={isSelected ? '#ffffff' : '#ff758c'}
@@ -2214,9 +2234,22 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                                 >
                                   {subName}
                                 </Text>
+                              </TouchableOpacity>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                {isSelected && <Check size={14} color="#ffffff" />}
+                                <TouchableOpacity
+                                  onPress={(e) => {
+                                    e?.stopPropagation?.();
+                                    setDeleteSubTargetName(subName);
+                                  }}
+                                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                  style={{ padding: 4 }}
+                                  accessibilityLabel={`Eliminar subcategoría ${subName}`}
+                                >
+                                  <Trash2 size={13} color={isSelected ? '#ffe4e6' : '#f87171'} />
+                                </TouchableOpacity>
                               </View>
-                              {isSelected && <Check size={14} color="#ffffff" />}
-                            </TouchableOpacity>
+                            </View>
                           );
                         })}
 
@@ -2299,6 +2332,50 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         variant="warning"
         onConfirm={() => setDuplicateModalOpen(false)}
         isDark={isDark}
+      />
+
+      {/* Delete Category Confirmation inside AddWordModal */}
+      <ConfirmModal
+        isOpen={!!deleteCatTargetName}
+        title={`¿Eliminar categoría "${deleteCatTargetName}"?`}
+        message="Al eliminar esta categoría, también se eliminarán las palabras que pertenezcan exclusivamente a ella."
+        confirmText="Eliminar Categoría"
+        cancelText="Cancelar"
+        variant="danger"
+        isDark={isDark}
+        onConfirm={() => {
+          if (deleteCatTargetName) {
+            vocabService.deleteCategory(deleteCatTargetName);
+            setSelectedCategories((prev) =>
+              prev.filter((c) => c.toLowerCase() !== deleteCatTargetName.toLowerCase())
+            );
+            setDeleteCatTargetName(null);
+          }
+        }}
+        onCancel={() => setDeleteCatTargetName(null)}
+      />
+
+      {/* Delete Subcategory Confirmation inside AddWordModal */}
+      <ConfirmModal
+        isOpen={!!deleteSubTargetName}
+        title={`¿Eliminar subcategoría "${deleteSubTargetName}"?`}
+        message="Se eliminará esta subcategoría de las categorías seleccionadas y las palabras asociadas exclusivamente a ella."
+        confirmText="Eliminar Subcategoría"
+        cancelText="Cancelar"
+        variant="danger"
+        isDark={isDark}
+        onConfirm={() => {
+          if (deleteSubTargetName) {
+            selectedCategories.forEach((catName) => {
+              vocabService.deleteSubcategory(catName, deleteSubTargetName);
+            });
+            setSelectedSubcategories((prev) =>
+              prev.filter((s) => s.toLowerCase() !== deleteSubTargetName.toLowerCase())
+            );
+            setDeleteSubTargetName(null);
+          }
+        }}
+        onCancel={() => setDeleteSubTargetName(null)}
       />
     </Modal>
   );

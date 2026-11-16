@@ -272,9 +272,23 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
       const created = vocabService.addCategory(name, subcategories || []);
       setExpandedGroups((prev) => ({ ...prev, [created.name]: true }));
     } else if (formModal.mode === 'edit_category' && formModal.categoryId) {
+      const prevSubNames = formModal.initialSubcategories || [];
+      const nextSubNames = subcategories || [];
+      const removedSubs = prevSubNames.filter(
+        (prevSub) => !nextSubNames.some((nextSub) => nextSub.trim().toLowerCase() === prevSub.trim().toLowerCase())
+      );
+      removedSubs.forEach((rem) => {
+        vocabService.deleteSubcategory(formModal.categoryId!, rem);
+      });
       vocabService.editCategory(formModal.categoryId, name);
-      if (subcategories && subcategories.length > 0) {
-        vocabService.addSubcategories(formModal.categoryId, subcategories);
+      if (nextSubNames.length > 0) {
+        vocabService.addSubcategories(name.trim(), nextSubNames);
+      }
+      if (
+        selectedFilter.type === 'category' &&
+        selectedFilter.group.toLowerCase() === (formModal.initialValue || '').toLowerCase()
+      ) {
+        onSelectFilter({ type: 'category', group: name.trim() });
       }
       setExpandedGroups((prev) => ({ ...prev, [name.trim()]: true }));
     } else if (formModal.mode === 'create_subcategory' && formModal.categoryId) {
@@ -284,6 +298,27 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
       }
     } else if (formModal.mode === 'edit_subcategory' && formModal.categoryId && formModal.subId) {
       vocabService.editSubcategory(formModal.categoryId, formModal.subId, name);
+      if (
+        selectedFilter.type === 'category' &&
+        selectedFilter.sub?.toLowerCase() === (formModal.initialValue || '').toLowerCase()
+      ) {
+        onSelectFilter({ type: 'category', group: selectedFilter.group, sub: name.trim() });
+      }
+    }
+  };
+
+  const handleModalDelete = () => {
+    if (formModal.mode === 'edit_category' && formModal.categoryId) {
+      const cat = safeCategories.find(
+        (c) => c.id === formModal.categoryId || c.name.toLowerCase() === (formModal.initialValue || '').toLowerCase()
+      );
+      if (cat) setDeleteCategoryTarget(cat);
+    } else if (formModal.mode === 'edit_subcategory' && formModal.categoryId && formModal.subId) {
+      const cat = safeCategories.find((c) => c.id === formModal.categoryId);
+      const sub = cat?.subcategories?.find(
+        (s) => s.id === formModal.subId || s.name.toLowerCase() === (formModal.initialValue || '').toLowerCase()
+      );
+      if (cat && sub) setDeleteSubTarget({ category: cat, subcategory: sub });
     }
   };
 
@@ -382,24 +417,66 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
             </TouchableOpacity>
 
             {/* Categories */}
-            {safeCategories.map((cat) => (
-              <TouchableOpacity
-                key={cat.id}
-                style={[styles.chip, !isDark && styles.chipLight, isSelected('category', cat.name) && styles.chipActive]}
-                onPress={() => onSelectFilter({ type: 'category', group: cat.name })}
-                activeOpacity={0.75}
-              >
-                <Folder size={14} color={isSelected('category', cat.name) ? '#ffffff' : '#38bdf8'} />
-                <Text style={[styles.chipText, !isDark && styles.chipTextLight, isSelected('category', cat.name) && styles.chipTextActive]}>
-                  {cat.name}
-                </Text>
-                <View style={[styles.badge, !isDark && styles.badgeLight, isSelected('category', cat.name) && styles.badgeActive]}>
-                  <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, isSelected('category', cat.name) && styles.badgeTextActive]}>
-                    {cat.count}
-                  </Text>
+            {safeCategories.map((cat) => {
+              const catActive = isSelected('category', cat.name);
+              return (
+                <View
+                  key={cat.id}
+                  style={[styles.chip, !isDark && styles.chipLight, catActive && styles.chipActive]}
+                >
+                  <TouchableOpacity
+                    style={styles.chipMainPress}
+                    onPress={() => onSelectFilter({ type: 'category', group: cat.name })}
+                    activeOpacity={0.75}
+                  >
+                    <Folder size={14} color={catActive ? '#ffffff' : '#38bdf8'} />
+                    <Text style={[styles.chipText, !isDark && styles.chipTextLight, catActive && styles.chipTextActive]}>
+                      {cat.name}
+                    </Text>
+                    <View style={[styles.badge, !isDark && styles.badgeLight, catActive && styles.badgeActive]}>
+                      <Text style={[styles.badgeText, !isDark && styles.badgeTextLight, catActive && styles.badgeTextActive]}>
+                        {cat.count}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <View style={[styles.chipActions, catActive && styles.chipActionsActive]}>
+                    <TouchableOpacity
+                      style={styles.chipIconBtn}
+                      onPress={(e) => {
+                        e?.stopPropagation?.();
+                        handleOpenEditCategory(cat);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 6, right: 4 }}
+                      accessibilityLabel={`Editar categoría ${cat.name}`}
+                    >
+                      <Edit2 size={11} color={catActive ? '#ffffff' : (!isDark ? '#64748b' : '#cbd5e1')} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.chipIconBtn}
+                      onPress={(e) => {
+                        e?.stopPropagation?.();
+                        setDeleteCategoryTarget(cat);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                      accessibilityLabel={`Eliminar categoría ${cat.name}`}
+                    >
+                      <Trash2 size={11} color={catActive ? '#ffe4e6' : '#f87171'} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </TouchableOpacity>
-            ))}
+              );
+            })}
+
+            {/* + Nueva Categoría (Mobile chip) */}
+            <TouchableOpacity
+              style={[styles.chip, styles.subChipAdd]}
+              onPress={handleOpenCreateCategory}
+              activeOpacity={0.75}
+            >
+              <Plus size={12} color="#ff758c" />
+              <Text style={styles.subChipAddText}>Categoría</Text>
+            </TouchableOpacity>
           </ScrollView>
 
           {/* Left Arrow (when scrolled) */}
@@ -464,37 +541,67 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
                     {activeCategory.subcategories?.map((sub) => {
                       const isSubActive = activeSub === sub.name;
                       return (
-                        <TouchableOpacity
+                        <View
                           key={sub.id}
                           style={[
                             styles.subChip,
+                            styles.subChipWithActions,
                             !isDark && styles.subChipLight,
                             isSubActive && styles.subChipActive,
                           ]}
-                          onPress={() =>
-                      onSelectFilter({
-                        type: 'category',
-                        group: activeCategory.name,
-                        sub: sub.name,
-                      })
-                    }
-                    activeOpacity={0.75}
-                  >
-                    <Text
-                      style={[
-                        styles.subChipText,
-                        !isDark && styles.subChipTextLight,
-                        isSubActive && styles.subChipTextActive,
-                      ]}
-                    >
-                      {sub.name} ({sub.count})
-                    </Text>
-                  </TouchableOpacity>
+                        >
+                          <TouchableOpacity
+                            style={styles.chipMainPress}
+                            onPress={() =>
+                              onSelectFilter({
+                                type: 'category',
+                                group: activeCategory.name,
+                                sub: sub.name,
+                              })
+                            }
+                            activeOpacity={0.75}
+                          >
+                            <Text
+                              style={[
+                                styles.subChipText,
+                                !isDark && styles.subChipTextLight,
+                                isSubActive && styles.subChipTextActive,
+                              ]}
+                            >
+                              {sub.name} ({sub.count})
+                            </Text>
+                          </TouchableOpacity>
+
+                          <View style={[styles.chipActions, isSubActive && styles.chipActionsActive]}>
+                            <TouchableOpacity
+                              style={styles.chipIconBtn}
+                              onPress={(e) => {
+                                e?.stopPropagation?.();
+                                handleOpenEditSubcategory(activeCategory, sub);
+                              }}
+                              hitSlop={{ top: 8, bottom: 8, left: 6, right: 4 }}
+                              accessibilityLabel={`Editar subcategoría ${sub.name}`}
+                            >
+                              <Edit2 size={10} color={isSubActive ? '#ff758c' : (!isDark ? '#64748b' : '#94a3b8')} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.chipIconBtn}
+                              onPress={(e) => {
+                                e?.stopPropagation?.();
+                                setDeleteSubTarget({ category: activeCategory, subcategory: sub });
+                              }}
+                              hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                              accessibilityLabel={`Eliminar subcategoría ${sub.name}`}
+                            >
+                              <Trash2 size={10} color="#f87171" />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </>
                 );
-              })}
-              </>
-            );
-          })()}
+              })()}
 
               {/* + Subcategoría */}
               <TouchableOpacity
@@ -504,6 +611,16 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
               >
                 <Plus size={11} color="#ff758c" style={{ marginRight: 4 }} />
                 <Text style={styles.subChipAddText}>Subcategoría</Text>
+              </TouchableOpacity>
+
+              {/* Eliminar Categoría Activa */}
+              <TouchableOpacity
+                style={[styles.subChip, styles.subChipDeleteCat]}
+                onPress={() => setDeleteCategoryTarget(activeCategory)}
+                activeOpacity={0.75}
+              >
+                <Trash2 size={11} color="#f87171" style={{ marginRight: 4 }} />
+                <Text style={styles.subChipDeleteCatText}>Eliminar "{activeCategory.name}"</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -524,6 +641,65 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
           }
           onClose={() => setFormModal((prev) => ({ ...prev, isOpen: false }))}
           onSubmit={handleFormSubmit}
+          onDelete={handleModalDelete}
+        />
+
+        {/* Delete Category Confirmation Modal (Mobile) */}
+        <ConfirmModal
+          isOpen={!!deleteCategoryTarget}
+          title={`¿Eliminar categoría "${deleteCategoryTarget?.name}"?`}
+          message={
+            (deleteCategoryTarget?.count || 0) > 0
+              ? `Esta categoría contiene ${deleteCategoryTarget?.count} palabra(s). Al eliminarla, también se eliminarán permanentemente todas las palabras asociadas a ella.`
+              : 'Esta categoría no tiene palabras asociadas. Se eliminará de tus temarios.'
+          }
+          confirmText="Eliminar Categoría y Palabras"
+          cancelText="Cancelar"
+          variant="danger"
+          onConfirm={() => {
+            if (deleteCategoryTarget) {
+              vocabService.deleteCategory(deleteCategoryTarget.id);
+              if (
+                selectedFilter.type === 'category' &&
+                selectedFilter.group.toLowerCase() === deleteCategoryTarget.name.toLowerCase()
+              ) {
+                onSelectFilter({ type: 'all' });
+              }
+              setDeleteCategoryTarget(null);
+            }
+          }}
+          onCancel={() => setDeleteCategoryTarget(null)}
+        />
+
+        {/* Delete Subcategory Confirmation Modal (Mobile) */}
+        <ConfirmModal
+          isOpen={!!deleteSubTarget}
+          title={`¿Eliminar subcategoría "${deleteSubTarget?.subcategory.name}"?`}
+          message={
+            (deleteSubTarget?.subcategory.count || 0) > 0
+              ? `Esta subcategoría contiene ${deleteSubTarget?.subcategory.count} palabra(s). Al eliminarla, también se eliminarán permanentemente todas las palabras que pertenecen a ella.`
+              : 'Esta subcategoría no tiene palabras asociadas. Se eliminará de la categoría.'
+          }
+          confirmText="Eliminar Subcategoría y Palabras"
+          cancelText="Cancelar"
+          variant="danger"
+          onConfirm={() => {
+            if (deleteSubTarget) {
+              vocabService.deleteSubcategory(
+                deleteSubTarget.category.id,
+                deleteSubTarget.subcategory.id
+              );
+              if (
+                selectedFilter.type === 'category' &&
+                selectedFilter.group.toLowerCase() === deleteSubTarget.category.name.toLowerCase() &&
+                selectedFilter.sub?.toLowerCase() === deleteSubTarget.subcategory.name.toLowerCase()
+              ) {
+                onSelectFilter({ type: 'category', group: deleteSubTarget.category.name });
+              }
+              setDeleteSubTarget(null);
+            }
+          }}
+          onCancel={() => setDeleteSubTarget(null)}
         />
       </View>
     );
@@ -1002,6 +1178,7 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
         }
         onClose={() => setFormModal((prev) => ({ ...prev, isOpen: false }))}
         onSubmit={handleFormSubmit}
+        onDelete={handleModalDelete}
       />
 
       {/* Delete Category Confirmation Modal (Cascade to all its words) */}
@@ -1208,6 +1385,45 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#ff758c',
     fontWeight: '700',
+  },
+  subChipWithActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  subChipDeleteCat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderColor: 'rgba(248, 113, 113, 0.35)',
+    backgroundColor: 'rgba(248, 113, 113, 0.1)',
+  },
+  subChipDeleteCatText: {
+    fontSize: 11,
+    color: '#f87171',
+    fontWeight: '700',
+  },
+  chipMainPress: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  chipActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginLeft: 2,
+    paddingLeft: 6,
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  chipActionsActive: {
+    borderLeftColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  chipIconBtn: {
+    padding: 3,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   collapsedAddBtn: {
     backgroundColor: 'rgba(230, 46, 76, 0.12)',
