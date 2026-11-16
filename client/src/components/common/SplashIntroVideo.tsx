@@ -299,7 +299,9 @@ export const SplashIntroVideo: React.FC<SplashIntroVideoProps> = ({ onFinish }) 
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#0b0814',
     alignItems: 'center',
     justifyContent: 'space-between',
