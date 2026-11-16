@@ -18,6 +18,42 @@ export interface AudioSettings {
   voiceName: string;
 }
 
+export interface DayStreakEntry {
+  dateKey: string; // YYYY-MM-DD local
+  dayLabel: string; // L, M, X, J, V, S, D
+  dayNumber: number; // 1..31
+  isToday: boolean;
+  active: boolean;
+  wordsCount: number;
+}
+
+export interface StreakStats {
+  currentStreak: number;
+  longestStreak: number;
+  totalActiveDays: number;
+  addedToday: boolean;
+  todayWordsCount: number;
+  last7Days: DayStreakEntry[];
+}
+
+function toLocalDateKey(dateInput: Date | string | number): string | null {
+  try {
+    const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+    if (isNaN(d.getTime())) return null;
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  } catch {
+    return null;
+  }
+}
+
+function parseDateKeyLocal(dateKey: string): Date {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1, 12, 0, 0, 0);
+}
+
 export const INITIAL_CATEGORIES: CategoryItem[] = [];
 
 export function getWordCategories(word: Partial<WordItem>): string[] {
@@ -960,6 +996,8 @@ class VocabularyService {
     this.pendingSyncIds.add(newWord.id);
     this.deletedWordIds.delete(newWord.id);
 
+    this.recordStreakToday();
+
     this.words = [newWord, ...this.words];
     this.saveWords();
 
@@ -1159,6 +1197,134 @@ class VocabularyService {
       appStorage.setItem(STORAGE_KEY_AUDIO_SETTINGS, JSON.stringify(this.audioSettings));
     } catch {}
     this.notify();
+  }
+
+  private getStreakStorageKey(): string {
+    return `pronounceit_streak_days_u_${this.getEffectiveUserKey()}`;
+  }
+
+  public recordStreakToday(): void {
+    const todayKey = toLocalDateKey(new Date());
+    if (!todayKey) return;
+    try {
+      const key = this.getStreakStorageKey();
+      const raw = appStorage.getItem(key);
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      if (!list.includes(todayKey)) {
+        list.push(todayKey);
+        appStorage.setItem(key, JSON.stringify(list));
+      }
+    } catch {}
+  }
+
+  public getStreakStats(): StreakStats {
+    const countsByDate = new Map<string, number>();
+    const activeDaysSet = new Set<string>();
+
+    // 1. Load persisted streak days for this user
+    try {
+      const raw = appStorage.getItem(this.getStreakStorageKey());
+      if (raw) {
+        const storedDays: string[] = JSON.parse(raw);
+        if (Array.isArray(storedDays)) {
+          storedDays.forEach((dk) => {
+            if (typeof dk === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dk)) {
+              activeDaysSet.add(dk);
+            }
+          });
+        }
+      }
+    } catch {}
+
+    // 2. Scan all words created by the user
+    this.words.forEach((w) => {
+      if (!w.createdAt) return;
+      const dk = toLocalDateKey(w.createdAt);
+      if (dk) {
+        activeDaysSet.add(dk);
+        countsByDate.set(dk, (countsByDate.get(dk) || 0) + 1);
+      }
+    });
+
+    const now = new Date();
+    const todayKey = toLocalDateKey(now) || '';
+    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 12, 0, 0);
+    const yesterdayKey = toLocalDateKey(yesterday) || '';
+
+    const addedToday = activeDaysSet.has(todayKey);
+    const todayWordsCount = countsByDate.get(todayKey) || (addedToday ? 1 : 0);
+
+    // 3. Compute current streak (consecutive days up to today, or up to yesterday if today not yet added)
+    let currentStreak = 0;
+    if (addedToday || activeDaysSet.has(yesterdayKey)) {
+      const cursor = addedToday
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0)
+        : yesterday;
+
+      while (true) {
+        const key = toLocalDateKey(cursor);
+        if (key && activeDaysSet.has(key)) {
+          currentStreak += 1;
+          cursor.setDate(cursor.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+    }
+
+    // 4. Compute longest streak across all recorded dates
+    const sortedKeys = Array.from(activeDaysSet).sort();
+    let longestStreak = 0;
+    let currentRun = 0;
+    let prevDate: Date | null = null;
+
+    for (const key of sortedKeys) {
+      const currDate = parseDateKeyLocal(key);
+      if (!prevDate) {
+        currentRun = 1;
+      } else {
+        const diffDays = Math.round((currDate.getTime() - prevDate.getTime()) / 86400000);
+        if (diffDays === 1) {
+          currentRun += 1;
+        } else if (diffDays > 1) {
+          currentRun = 1;
+        }
+      }
+      if (currentRun > longestStreak) {
+        longestStreak = currentRun;
+      }
+      prevDate = currDate;
+    }
+
+    if (currentStreak > longestStreak) {
+      longestStreak = currentStreak;
+    }
+
+    // 5. Build last 7 days calendar strip
+    const dayLabels = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+    const last7Days: DayStreakEntry[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i, 12, 0, 0);
+      const dk = toLocalDateKey(d) || '';
+      const isAct = activeDaysSet.has(dk);
+      last7Days.push({
+        dateKey: dk,
+        dayLabel: dayLabels[d.getDay()],
+        dayNumber: d.getDate(),
+        isToday: i === 0,
+        active: isAct,
+        wordsCount: countsByDate.get(dk) || (isAct ? 1 : 0),
+      });
+    }
+
+    return {
+      currentStreak,
+      longestStreak,
+      totalActiveDays: activeDaysSet.size,
+      addedToday,
+      todayWordsCount,
+      last7Days,
+    };
   }
 
   public clearAll(): void {

@@ -9,6 +9,7 @@ import {
   Image,
   StatusBar,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -27,12 +28,17 @@ import {
   Plus,
   ChevronDown,
   Check,
+  Flame,
+  Trophy,
+  Calendar,
+  X,
 } from 'lucide-react-native';
 import { UserProfile, MainNavTab, SUPPORTED_LANGUAGES } from '../../types';
 import { THEME } from '../../theme';
 import { PronounceItLogo } from '../common/PronounceItLogo';
 import { useResponsive } from '../../lib/useResponsive';
 import { networkService } from '../../lib/networkService';
+import { vocabService, StreakStats } from '../../lib/vocabularyStore';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { CountryFlag } from '../common/CountryFlag';
 import { LanguagePickerModal } from '../common/LanguagePickerModal';
@@ -77,10 +83,20 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAddLangModal, setShowAddLangModal] = useState(false);
+  const [showStreakModal, setShowStreakModal] = useState(false);
+  const [streakStats, setStreakStats] = useState<StreakStats>(() => vocabService.getStreakStats());
   const [isOnline, setIsOnline] = useState(networkService.isOnline());
 
   useEffect(() => {
-    return networkService.subscribe(setIsOnline);
+    setStreakStats(vocabService.getStreakStats());
+    const unsubVocab = vocabService.subscribe(() => {
+      setStreakStats(vocabService.getStreakStats());
+    });
+    const unsubNet = networkService.subscribe(setIsOnline);
+    return () => {
+      unsubVocab();
+      unsubNet();
+    };
   }, []);
   const insets = useSafeAreaInsets();
   const topPadding = Math.max(
@@ -273,8 +289,51 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
         </View>
       )}
 
-      {/* RIGHT: Language Switcher Flags + Add (+) Button + Offline Badge + User Avatar */}
+      {/* RIGHT: Streak Pill + Language Switcher Flags + Add (+) Button + Offline Badge + User Avatar */}
       <View style={styles.rightActions}>
+        {/* Streak Counter Badge */}
+        <TouchableOpacity
+          style={[
+            styles.streakPill,
+            !isDark && styles.streakPillLight,
+            streakStats.addedToday && styles.streakPillActive,
+            !isDark && streakStats.addedToday && styles.streakPillActiveLight,
+          ]}
+          onPress={() => {
+            setShowDropdown(false);
+            setShowLangDropdown(false);
+            setShowStreakModal(true);
+          }}
+          activeOpacity={0.78}
+          accessibilityLabel={`Racha actual: ${streakStats.currentStreak} días`}
+        >
+          <Flame
+            size={15}
+            color={streakStats.currentStreak > 0 ? '#f97316' : (!isDark ? '#94a3b8' : '#64748b')}
+            fill={streakStats.addedToday ? '#f97316' : 'transparent'}
+          />
+          <Text
+            style={[
+              styles.streakPillCount,
+              !isDark && styles.streakPillCountLight,
+              streakStats.currentStreak > 0 && styles.streakPillCountActive,
+            ]}
+          >
+            {streakStats.currentStreak}
+          </Text>
+          {!isPhone && (
+            <Text
+              style={[
+                styles.streakPillLabel,
+                !isDark && styles.streakPillLabelLight,
+                streakStats.currentStreak > 0 && styles.streakPillLabelActive,
+              ]}
+            >
+              {streakStats.currentStreak === 1 ? 'día' : 'días'}
+            </Text>
+          )}
+        </TouchableOpacity>
+
         {/* Language Switcher Bar: Dropdown if multiple languages, or single flag if 1 language */}
         <View style={styles.langSwitcherWrapper}>
           <View style={[styles.langSwitcherContainer, !isDark && styles.langSwitcherContainerLight]}>
@@ -571,6 +630,161 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
         title="Agregar idioma para aprender"
         isDark={isDark}
       />
+
+      {/* Modal de Racha Diaria (Días agregando palabras) */}
+      <Modal
+        visible={showStreakModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowStreakModal(false)}
+      >
+        <View style={styles.streakModalOverlay}>
+          <View style={[styles.streakModalCard, !isDark && styles.streakModalCardLight]}>
+            {/* Top close row */}
+            <View style={styles.streakModalHeader}>
+              <View style={styles.streakModalHeaderLeft}>
+                <View style={styles.streakFlameBadge}>
+                  <Flame size={20} color="#f97316" fill="#f97316" />
+                </View>
+                <View>
+                  <Text style={[styles.streakModalTitle, !isDark && styles.streakModalTitleLight]}>
+                    Racha de Vocabulario
+                  </Text>
+                  <Text style={[styles.streakModalSubtitle, !isDark && styles.streakModalSubtitleLight]}>
+                    Días consecutivos agregando palabras
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowStreakModal(false)}
+                style={[styles.streakCloseBtn, !isDark && styles.streakCloseBtnLight]}
+              >
+                <X size={18} color={!isDark ? '#64748b' : '#94a3b8'} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Big Streak Hero */}
+            <View style={[styles.streakHeroBox, !isDark && styles.streakHeroBoxLight]}>
+              <Flame
+                size={42}
+                color={streakStats.currentStreak > 0 ? '#f97316' : '#64748b'}
+                fill={streakStats.addedToday ? '#f97316' : 'transparent'}
+              />
+              <Text style={[styles.streakHeroNumber, !isDark && styles.streakHeroNumberLight]}>
+                {streakStats.currentStreak}
+              </Text>
+              <Text style={styles.streakHeroLabel}>
+                {streakStats.currentStreak === 1 ? 'DÍA EN RACHA' : 'DÍAS EN RACHA'}
+              </Text>
+              <Text style={[styles.streakHeroStatus, !isDark && styles.streakHeroStatusLight]}>
+                {streakStats.addedToday
+                  ? `🔥 ¡Racha activa hoy! Has agregado ${streakStats.todayWordsCount} ${
+                      streakStats.todayWordsCount === 1 ? 'palabra hoy' : 'palabras hoy'
+                    }.`
+                  : streakStats.currentStreak > 0
+                  ? '⏳ Agrega al menos 1 palabra hoy para mantener y sumar tu racha.'
+                  : '✨ Agrega una palabra hoy para encender tu racha diaria.'}
+              </Text>
+            </View>
+
+            {/* 7-day calendar strip */}
+            <View style={[styles.streakWeekCard, !isDark && styles.streakWeekCardLight]}>
+              <Text style={[styles.streakWeekTitle, !isDark && styles.streakWeekTitleLight]}>
+                Actividad de los últimos 7 días
+              </Text>
+              <View style={styles.streakWeekRow}>
+                {streakStats.last7Days.map((day) => (
+                  <View key={day.dateKey} style={styles.streakDayCol}>
+                    <Text
+                      style={[
+                        styles.streakDayLabel,
+                        !isDark && styles.streakDayLabelLight,
+                        day.isToday && styles.streakDayLabelToday,
+                      ]}
+                    >
+                      {day.dayLabel}
+                    </Text>
+                    <View
+                      style={[
+                        styles.streakDayCircle,
+                        !isDark && styles.streakDayCircleLight,
+                        day.active && styles.streakDayCircleActive,
+                        day.isToday && !day.active && styles.streakDayCircleTodayPending,
+                      ]}
+                    >
+                      {day.active ? (
+                        <Flame size={15} color="#ffffff" fill="#ffffff" />
+                      ) : (
+                        <Text
+                          style={[
+                            styles.streakDayNum,
+                            !isDark && styles.streakDayNumLight,
+                          ]}
+                        >
+                          {day.dayNumber}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={[styles.streakDayWords, !isDark && styles.streakDayWordsLight]}>
+                      {day.wordsCount > 0 ? `+${day.wordsCount}` : '-'}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* 3 KPIs */}
+            <View style={styles.streakKpiRow}>
+              <View style={[styles.streakKpiBox, !isDark && styles.streakKpiBoxLight]}>
+                <Flame size={15} color="#f97316" />
+                <Text style={[styles.streakKpiVal, !isDark && styles.streakKpiValLight]}>
+                  {streakStats.currentStreak}
+                </Text>
+                <Text style={styles.streakKpiLabel}>Racha actual</Text>
+              </View>
+
+              <View style={[styles.streakKpiBox, !isDark && styles.streakKpiBoxLight]}>
+                <Trophy size={15} color="#eab308" />
+                <Text style={[styles.streakKpiVal, !isDark && styles.streakKpiValLight]}>
+                  {streakStats.longestStreak}
+                </Text>
+                <Text style={styles.streakKpiLabel}>Mejor racha</Text>
+              </View>
+
+              <View style={[styles.streakKpiBox, !isDark && styles.streakKpiBoxLight]}>
+                <Calendar size={15} color="#38bdf8" />
+                <Text style={[styles.streakKpiVal, !isDark && styles.streakKpiValLight]}>
+                  {streakStats.totalActiveDays}
+                </Text>
+                <Text style={styles.streakKpiLabel}>Días totales</Text>
+              </View>
+            </View>
+
+            {/* Footer buttons */}
+            <View style={styles.streakModalFooter}>
+              <TouchableOpacity
+                style={[styles.streakSecondaryBtn, !isDark && styles.streakSecondaryBtnLight]}
+                onPress={() => {
+                  setShowStreakModal(false);
+                  onTabChange('stats');
+                }}
+                activeOpacity={0.8}
+              >
+                <BarChart3 size={14} color={THEME.colors.crimsonLight} />
+                <Text style={styles.streakSecondaryBtnText}>Ver Estadísticas</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.streakPrimaryBtn}
+                onPress={() => setShowStreakModal(false)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.streakPrimaryBtnText}>Entendido</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -996,5 +1210,320 @@ const styles = StyleSheet.create({
   },
   dropdownDividerLight: {
     backgroundColor: 'rgba(0, 0, 0, 0.08)',
+  },
+
+  // Streak Pill & Modal Styles
+  streakPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  streakPillLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  streakPillActive: {
+    backgroundColor: 'rgba(249, 115, 22, 0.16)',
+    borderColor: 'rgba(249, 115, 22, 0.45)',
+  },
+  streakPillActiveLight: {
+    backgroundColor: '#fff7ed',
+    borderColor: '#fdba74',
+  },
+  streakPillCount: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#94a3b8',
+  },
+  streakPillCountLight: {
+    color: '#64748b',
+  },
+  streakPillCountActive: {
+    color: '#fb923c',
+  },
+  streakPillLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  streakPillLabelLight: {
+    color: '#64748b',
+  },
+  streakPillLabelActive: {
+    color: '#fdba74',
+  },
+  streakModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.78)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  streakModalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#161026',
+    borderRadius: THEME.radius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.3)',
+    padding: 20,
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.55,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  streakModalCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+  },
+  streakModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  streakModalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  streakFlameBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(249, 115, 22, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streakModalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  streakModalTitleLight: {
+    color: '#0f172a',
+  },
+  streakModalSubtitle: {
+    fontSize: 11,
+    color: '#94a3b8',
+  },
+  streakModalSubtitleLight: {
+    color: '#64748b',
+  },
+  streakCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streakCloseBtnLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  streakHeroBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(249, 115, 22, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.25)',
+    borderRadius: THEME.radius.lg,
+    paddingVertical: 18,
+    paddingHorizontal: 14,
+  },
+  streakHeroBoxLight: {
+    backgroundColor: '#fff7ed',
+    borderColor: '#fed7aa',
+  },
+  streakHeroNumber: {
+    fontSize: 42,
+    fontWeight: '900',
+    color: '#ffffff',
+    lineHeight: 48,
+    marginTop: 4,
+  },
+  streakHeroNumberLight: {
+    color: '#0f172a',
+  },
+  streakHeroLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: '#f97316',
+    marginTop: 2,
+  },
+  streakHeroStatus: {
+    fontSize: 12,
+    color: '#cbd5e1',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 17,
+  },
+  streakHeroStatusLight: {
+    color: '#475569',
+  },
+  streakWeekCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: THEME.radius.lg,
+    padding: 14,
+    gap: 10,
+  },
+  streakWeekCardLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  streakWeekTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  streakWeekTitleLight: {
+    color: '#64748b',
+  },
+  streakWeekRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  streakDayCol: {
+    alignItems: 'center',
+    gap: 4,
+    flex: 1,
+  },
+  streakDayLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94a3b8',
+  },
+  streakDayLabelLight: {
+    color: '#64748b',
+  },
+  streakDayLabelToday: {
+    color: '#f97316',
+    fontWeight: '800',
+  },
+  streakDayCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streakDayCircleLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#cbd5e1',
+  },
+  streakDayCircleActive: {
+    backgroundColor: '#f97316',
+    borderColor: '#fb923c',
+  },
+  streakDayCircleTodayPending: {
+    borderColor: '#f97316',
+    borderStyle: 'dashed',
+  },
+  streakDayNum: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94a3b8',
+  },
+  streakDayNumLight: {
+    color: '#64748b',
+  },
+  streakDayWords: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  streakDayWordsLight: {
+    color: '#94a3b8',
+  },
+  streakKpiRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  streakKpiBox: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: THEME.radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    gap: 3,
+  },
+  streakKpiBoxLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  streakKpiVal: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#ffffff',
+  },
+  streakKpiValLight: {
+    color: '#0f172a',
+  },
+  streakKpiLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#94a3b8',
+    textAlign: 'center',
+  },
+  streakModalFooter: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  streakSecondaryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 11,
+    borderRadius: THEME.radius.md,
+    backgroundColor: 'rgba(230, 46, 76, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 46, 76, 0.3)',
+  },
+  streakSecondaryBtnLight: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fecdd3',
+  },
+  streakSecondaryBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: THEME.colors.crimsonLight,
+  },
+  streakPrimaryBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 11,
+    borderRadius: THEME.radius.md,
+    backgroundColor: '#f97316',
+  },
+  streakPrimaryBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#ffffff',
   },
 });

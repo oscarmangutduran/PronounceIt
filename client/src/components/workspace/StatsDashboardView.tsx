@@ -15,9 +15,11 @@ import {
   Flame,
   Award,
   BookOpen,
+  Calendar,
 } from 'lucide-react-native';
 import { WordItem } from '../../types';
 import { testHistoryService, StoredTestItem } from '../../lib/testHistoryStore';
+import { vocabService, StreakStats } from '../../lib/vocabularyStore';
 import { THEME } from '../../theme';
 
 interface StatsDashboardViewProps {
@@ -27,14 +29,22 @@ interface StatsDashboardViewProps {
 
 export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words, isDark = true }) => {
   const [history, setHistory] = useState<StoredTestItem[]>([]);
+  const [streakStats, setStreakStats] = useState<StreakStats>(() => vocabService.getStreakStats());
 
   useEffect(() => {
     setHistory(testHistoryService.getHistory());
-    const unsub = testHistoryService.subscribe(() => {
+    setStreakStats(vocabService.getStreakStats());
+    const unsubTests = testHistoryService.subscribe(() => {
       setHistory(testHistoryService.getHistory());
     });
-    return () => unsub();
-  }, []);
+    const unsubVocab = vocabService.subscribe(() => {
+      setStreakStats(vocabService.getStreakStats());
+    });
+    return () => {
+      unsubTests();
+      unsubVocab();
+    };
+  }, [words]);
 
   const totalWords = words.length;
   const masteredCount = words.filter((w) => w.status === 'dominada').length;
@@ -65,6 +75,98 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words, i
         <View>
           <Text style={[styles.title, !isDark && styles.titleLight]}>Progreso & Estadísticas</Text>
           <Text style={[styles.subtitle, !isDark && styles.subtitleLight]}>Métricas de retención y evaluaciones completadas</Text>
+        </View>
+      </View>
+
+      {/* Streak Hero Section (Días agregando palabras) */}
+      <View style={[styles.streakCard, !isDark && styles.streakCardLight]}>
+        <View style={styles.streakTopRow}>
+          <View style={styles.streakMainLeft}>
+            <View
+              style={[
+                styles.streakIconCircle,
+                streakStats.addedToday && styles.streakIconCircleActive,
+              ]}
+            >
+              <Flame
+                size={26}
+                color="#f97316"
+                fill={streakStats.addedToday ? '#f97316' : 'transparent'}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                <Text style={[styles.streakNumber, !isDark && styles.titleLight]}>
+                  {streakStats.currentStreak}
+                </Text>
+                <Text style={styles.streakUnit}>
+                  {streakStats.currentStreak === 1 ? 'día en racha' : 'días en racha'}
+                </Text>
+              </View>
+              <Text style={[styles.streakStatusText, !isDark && styles.subtitleLight]}>
+                {streakStats.addedToday
+                  ? `🔥 ¡Racha activa hoy! Has agregado ${streakStats.todayWordsCount} ${
+                      streakStats.todayWordsCount === 1 ? 'palabra' : 'palabras'
+                    } hoy.`
+                  : streakStats.currentStreak > 0
+                  ? '⏳ Agrega al menos 1 palabra hoy para mantener tu racha.'
+                  : '✨ Agrega 1 palabra nueva cada día para sumar días a tu racha.'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.streakMiniMetrics}>
+            <View style={[styles.streakMiniBox, !isDark && styles.streakMiniBoxLight]}>
+              <Trophy size={13} color="#eab308" />
+              <Text style={[styles.streakMiniVal, !isDark && styles.titleLight]}>
+                {streakStats.longestStreak}d
+              </Text>
+              <Text style={styles.streakMiniLabel}>Mejor racha</Text>
+            </View>
+            <View style={[styles.streakMiniBox, !isDark && styles.streakMiniBoxLight]}>
+              <Calendar size={13} color="#38bdf8" />
+              <Text style={[styles.streakMiniVal, !isDark && styles.titleLight]}>
+                {streakStats.totalActiveDays}d
+              </Text>
+              <Text style={styles.streakMiniLabel}>Días activos</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 7-day calendar strip */}
+        <View style={[styles.streakWeekRow, !isDark && styles.streakWeekRowLight]}>
+          {streakStats.last7Days.map((day) => (
+            <View key={day.dateKey} style={styles.streakDayCol}>
+              <Text
+                style={[
+                  styles.streakDayLabel,
+                  !isDark && styles.subtitleLight,
+                  day.isToday && styles.streakDayLabelToday,
+                ]}
+              >
+                {day.dayLabel}
+              </Text>
+              <View
+                style={[
+                  styles.streakDayBubble,
+                  !isDark && styles.streakDayBubbleLight,
+                  day.active && styles.streakDayBubbleActive,
+                  day.isToday && !day.active && styles.streakDayBubbleTodayPending,
+                ]}
+              >
+                {day.active ? (
+                  <Flame size={14} color="#ffffff" fill="#ffffff" />
+                ) : (
+                  <Text style={[styles.streakDayNum, !isDark && styles.subtitleLight]}>
+                    {day.dayNumber}
+                  </Text>
+                )}
+              </View>
+              <Text style={styles.streakDayCount}>
+                {day.wordsCount > 0 ? `+${day.wordsCount}` : '-'}
+              </Text>
+            </View>
+          ))}
         </View>
       </View>
 
@@ -365,6 +467,155 @@ const styles = StyleSheet.create({
   },
   historyGradeLight: {
     color: '#475569',
+  },
+  streakCard: {
+    backgroundColor: THEME.colors.bgCard,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+    borderRadius: THEME.radius.lg,
+    padding: 16,
+    marginBottom: 16,
+    gap: 14,
+  },
+  streakCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#fdba74',
+  },
+  streakTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  streakMainLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    minWidth: 210,
+  },
+  streakIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streakIconCircleActive: {
+    backgroundColor: 'rgba(249, 115, 22, 0.2)',
+    borderColor: '#f97316',
+  },
+  streakNumber: {
+    fontSize: 30,
+    fontWeight: '900',
+    color: '#ffffff',
+    lineHeight: 34,
+  },
+  streakUnit: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#f97316',
+    textTransform: 'uppercase',
+  },
+  streakStatusText: {
+    fontSize: 12,
+    color: THEME.colors.textMuted,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  streakMiniMetrics: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  streakMiniBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: THEME.radius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    minWidth: 78,
+  },
+  streakMiniBoxLight: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  streakMiniVal: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginTop: 2,
+  },
+  streakMiniLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  streakWeekRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: THEME.radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  streakWeekRowLight: {
+    backgroundColor: '#fff7ed',
+    borderTopColor: '#fed7aa',
+  },
+  streakDayCol: {
+    alignItems: 'center',
+    gap: 4,
+    flex: 1,
+  },
+  streakDayLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94a3b8',
+  },
+  streakDayLabelToday: {
+    color: '#f97316',
+    fontWeight: '800',
+  },
+  streakDayBubble: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streakDayBubbleLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#cbd5e1',
+  },
+  streakDayBubbleActive: {
+    backgroundColor: '#f97316',
+    borderColor: '#fb923c',
+  },
+  streakDayBubbleTodayPending: {
+    borderColor: '#f97316',
+    borderStyle: 'dashed',
+  },
+  streakDayNum: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94a3b8',
+  },
+  streakDayCount: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#f97316',
   },
 });
 
