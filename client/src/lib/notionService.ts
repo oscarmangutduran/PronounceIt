@@ -89,10 +89,20 @@ function getCleanCats(w: Partial<WordItem>): string[] {
   if (w.categoryGroup) {
     raw.push(...w.categoryGroup.split(','));
   }
+  if (Array.isArray((w as any).categories) && (w as any).categories.length > 0) {
+    raw.push(...(w as any).categories.map((c: any) => (typeof c === 'string' ? c : c?.name)));
+  }
+  if ((w as any).category) {
+    raw.push(...String((w as any).category).split(','));
+  }
+  if ((w as any).cat) {
+    raw.push(...String((w as any).cat).split(','));
+  }
   const cleaned = Array.from(
     new Set(raw.map((c) => String(c || '').trim()).filter(Boolean))
   );
-  return cleaned.length > 0 ? cleaned : ['General'];
+  const nonGeneral = cleaned.filter((c) => c.toLowerCase() !== 'general');
+  return nonGeneral.length > 0 ? nonGeneral : (cleaned.length > 0 ? cleaned : ['General']);
 }
 
 function getCleanSubs(w: Partial<WordItem>): string[] {
@@ -102,6 +112,22 @@ function getCleanSubs(w: Partial<WordItem>): string[] {
   }
   if (w.categorySub) {
     raw.push(...w.categorySub.split(','));
+  }
+  if (Array.isArray((w as any).subcategories) && (w as any).subcategories.length > 0) {
+    raw.push(
+      ...(w as any).subcategories.map((s: any) =>
+        String(typeof s === 'string' ? s : s?.name || '').trim()
+      ).filter(Boolean)
+    );
+  }
+  if ((w as any).subcategory) {
+    raw.push(...String((w as any).subcategory).split(','));
+  }
+  if ((w as any).subCategory) {
+    raw.push(...String((w as any).subCategory).split(','));
+  }
+  if ((w as any).sub) {
+    raw.push(...String((w as any).sub).split(','));
   }
   return Array.from(
     new Set(
@@ -286,7 +312,7 @@ class NotionService {
         patchProps[subKey] = {
           [pType]: {
             options: [
-              ...curOpts.map((o: any) => ({ name: o.name, color: o.color })),
+              ...curOpts.map((o: any) => ({ name: o.name, ...(o.id ? { id: o.id } : {}) })),
               ...toAdd.map((name) => ({ name })),
             ],
           },

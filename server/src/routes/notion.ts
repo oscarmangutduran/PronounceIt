@@ -66,13 +66,22 @@ function resolveNotionToken(clientToken?: string): string {
   return token;
 }
 
-export function getCleanWordCategories(word: Partial<NotionWordPayload>): string[] {
+export function getCleanWordCategories(word: Partial<NotionWordPayload & any>): string[] {
   const raw: string[] = [];
   if (Array.isArray(word.categoryGroups) && word.categoryGroups.length > 0) {
     raw.push(...word.categoryGroups);
   }
   if (word.categoryGroup) {
-    raw.push(...word.categoryGroup.split(','));
+    raw.push(...String(word.categoryGroup).split(','));
+  }
+  if (Array.isArray(word.categories) && word.categories.length > 0) {
+    raw.push(...word.categories.map((c: any) => (typeof c === 'string' ? c : c?.name)));
+  }
+  if (word.category) {
+    raw.push(...String(word.category).split(','));
+  }
+  if (word.cat) {
+    raw.push(...String(word.cat).split(','));
   }
   const cleaned = Array.from(
     new Set(
@@ -86,13 +95,25 @@ export function getCleanWordCategories(word: Partial<NotionWordPayload>): string
   return cleaned.length > 0 ? cleaned : ['General'];
 }
 
-export function getCleanWordSubcategories(word: Partial<NotionWordPayload>): string[] {
+export function getCleanWordSubcategories(word: Partial<NotionWordPayload & any>): string[] {
   const raw: string[] = [];
   if (Array.isArray(word.categorySubs) && word.categorySubs.length > 0) {
     raw.push(...word.categorySubs);
   }
   if (word.categorySub) {
-    raw.push(...word.categorySub.split(','));
+    raw.push(...String(word.categorySub).split(','));
+  }
+  if (Array.isArray(word.subcategories) && word.subcategories.length > 0) {
+    raw.push(...word.subcategories.map((s: any) => (typeof s === 'string' ? s : s?.name)));
+  }
+  if (word.subcategory) {
+    raw.push(...String(word.subcategory).split(','));
+  }
+  if (word.subCategory) {
+    raw.push(...String(word.subCategory).split(','));
+  }
+  if (word.sub) {
+    raw.push(...String(word.sub).split(','));
   }
   return Array.from(
     new Set(
@@ -214,6 +235,14 @@ const SUBCATEGORY_CANDIDATES = [
   'subcategorias',
   'subcategory',
   'subcategories',
+  'sub-categoria',
+  'sub-categorias',
+  'sub-category',
+  'sub-categories',
+  'sub_categoria',
+  'sub_categorias',
+  'sub_category',
+  'sub_categories',
 ];
 
 const CATEGORY_CANDIDATES = ['categoria', 'categorias', 'category', 'categories'];
@@ -377,29 +406,56 @@ async function ensureDatabaseSchema(
 
     if (newNames.length === 0) return;
 
-    // Pass existing options by id (or name only, never color) so Notion API accepts the update
-    const mergedOptions = [
-      ...currentOptions.map((o: any) => (o.id ? { id: o.id } : { name: o.name })),
+    // In Notion API, EVERY option object MUST have 'name'. Passing { id } without name causes HTTP 400 validation_error!
+    const mergedOptionsWithId = [
+      ...currentOptions.map((o: any) => ({
+        name: o.name,
+        ...(o.id ? { id: o.id } : {}),
+      })),
       ...newNames.map((name) => ({ name })),
     ];
 
-    const optPatchRes = await notionFetch(`/databases/${databaseId}`, token, {
+    let optPatchRes = await notionFetch(`/databases/${databaseId}`, token, {
       method: 'PATCH',
       body: JSON.stringify({
         properties: {
           [propName]: {
             [propType]: {
-              options: mergedOptions,
+              options: mergedOptionsWithId,
             },
           },
         },
       }),
     });
 
+    // Fallback: if Notion rejects update with option IDs, retry sending pure name objects
+    if (!optPatchRes.ok) {
+      console.warn(`[Notion Schema] Retrying options update for "${propName}" with names only:`, optPatchRes.data?.message);
+      const mergedOptionsNameOnly = [
+        ...currentOptions.map((o: any) => ({ name: o.name })),
+        ...newNames.map((name) => ({ name })),
+      ];
+      optPatchRes = await notionFetch(`/databases/${databaseId}`, token, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          properties: {
+            [propName]: {
+              [propType]: {
+                options: mergedOptionsNameOnly,
+              },
+            },
+          },
+        }),
+      });
+    }
+
     if (optPatchRes.ok) {
       dbRes = optPatchRes;
       existingProps = dbRes.data?.properties || {};
       normalizedMap = getPropsMap(existingProps);
+      console.log(`[Notion Schema] Successfully registered ${newNames.length} options in "${propName}":`, newNames);
+    } else {
+      console.error(`[Notion Schema] Failed to add options to "${propName}":`, optPatchRes.status, optPatchRes.data);
     }
   };
 
@@ -582,6 +638,35 @@ function buildNotionPageChildren(word: NotionWordPayload): any[] {
       type: 'paragraph',
       paragraph: {
         rich_text: exampleRichText,
+      },
+    });
+  }
+
+  // Also include Category and Subcategory tags in the page content for Notion Gallery views using "Card preview: Page content"
+  const cats = getCleanWordCategories(word).filter((c) => c.toLowerCase() !== 'general');
+  const subs = getCleanWordSubcategories(word);
+  if (cats.length > 0 || subs.length > 0) {
+    const metaText = [
+      cats.length > 0 ? `📁 ${cats.join(', ')}` : '',
+      subs.length > 0 ? `🏷️ ${subs.join(', ')}` : '',
+    ]
+      .filter(Boolean)
+      .join('   •   ');
+
+    blocks.push({
+      object: 'block',
+      type: 'paragraph',
+      paragraph: {
+        rich_text: [
+          {
+            type: 'text',
+            text: { content: metaText },
+            annotations: {
+              italic: true,
+              color: 'gray',
+            },
+          },
+        ],
       },
     });
   }

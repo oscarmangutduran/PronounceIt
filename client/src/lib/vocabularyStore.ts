@@ -58,13 +58,23 @@ function parseDateKeyLocal(dateKey: string): Date {
 export const INITIAL_CATEGORIES: CategoryItem[] = [];
 
 export function getWordCategories(word: Partial<WordItem>): string[] {
+  const raw: string[] = [];
   if (Array.isArray(word.categoryGroups) && word.categoryGroups.length > 0) {
-    return word.categoryGroups.map((c) => c.trim()).filter(Boolean);
+    raw.push(...word.categoryGroups);
   }
   if (word.categoryGroup) {
-    return word.categoryGroup.split(',').map((c) => c.trim()).filter(Boolean);
+    raw.push(...word.categoryGroup.split(','));
   }
-  return [];
+  if (Array.isArray((word as any).categories) && (word as any).categories.length > 0) {
+    raw.push(...(word as any).categories.map((c: any) => (typeof c === 'string' ? c : c?.name)));
+  }
+  if ((word as any).category) {
+    raw.push(...String((word as any).category).split(','));
+  }
+  if ((word as any).cat) {
+    raw.push(...String((word as any).cat).split(','));
+  }
+  return Array.from(new Set(raw.map((c) => String(c || '').trim()).filter(Boolean)));
 }
 
 export function getWordSubcategories(word: Partial<WordItem>): string[] {
@@ -74,6 +84,22 @@ export function getWordSubcategories(word: Partial<WordItem>): string[] {
   }
   if (word.categorySub) {
     raw.push(...String(word.categorySub).split(',').map((s) => s.trim()).filter(Boolean));
+  }
+  if (Array.isArray((word as any).subcategories) && (word as any).subcategories.length > 0) {
+    raw.push(
+      ...(word as any).subcategories.map((s: any) =>
+        String(typeof s === 'string' ? s : s?.name || '').trim()
+      ).filter(Boolean)
+    );
+  }
+  if ((word as any).subcategory) {
+    raw.push(...String((word as any).subcategory).split(',').map((s: string) => s.trim()).filter(Boolean));
+  }
+  if ((word as any).subCategory) {
+    raw.push(...String((word as any).subCategory).split(',').map((s: string) => s.trim()).filter(Boolean));
+  }
+  if ((word as any).sub) {
+    raw.push(...String((word as any).sub).split(',').map((s: string) => s.trim()).filter(Boolean));
   }
   return Array.from(
     new Set(raw.filter((s) => s.toLowerCase() !== 'general'))
