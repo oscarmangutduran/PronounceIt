@@ -6,6 +6,7 @@ import wordsRoutes from './routes/words.js';
 import testsRoutes from './routes/tests.js';
 import discordRoutes from './routes/discord.js';
 import updatesRoutes from './routes/updates.js';
+import notionRoutes from './routes/notion.js';
 import { initDb } from './db.js';
 import { createDiscordBot } from './discordBot.js';
 import { checkAndNotifyVersionUpdate } from './services/updateNotifierService.js';
@@ -56,6 +57,7 @@ app.use('/api/words', wordsRoutes);
 app.use('/api/tests', testsRoutes);
 app.use('/api/discord', discordRoutes);
 app.use('/api/updates', updatesRoutes);
+app.use('/api/notion', notionRoutes);
 
 // 404 Handler
 app.use((_req: Request, res: Response) => {

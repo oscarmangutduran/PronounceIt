@@ -23,6 +23,7 @@ async function getApp() {
   const { default: wordsRoutes } = await import('../server/src/routes/words.js');
   const { default: testsRoutes } = await import('../server/src/routes/tests.js');
   const { default: discordRoutes } = await import('../server/src/routes/discord.js');
+  const { default: notionRoutes } = await import('../server/src/routes/notion.js');
 
   const app = express();
 
@@ -62,6 +63,8 @@ async function getApp() {
   app.use('/tests', testsRoutes as any);
   app.use('/api/discord', discordRoutes as any);
   app.use('/discord', discordRoutes as any);
+  app.use('/api/notion', notionRoutes as any);
+  app.use('/notion', notionRoutes as any);
 
   // Error handler
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

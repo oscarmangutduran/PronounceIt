@@ -53,6 +53,7 @@ import {
   setGeminiApiKey,
   testGeminiConnection,
 } from '../../lib/dictionaryService';
+import { notionService, extractNotionDatabaseId } from '../../lib/notionService';
 import { THEME } from '../../theme';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { AppleInstallModal } from '../common/AppleInstallModal';
@@ -71,6 +72,12 @@ const DiscordIcon = ({ size = 20, color = '#ffffff' }: { size?: number; color?: 
 const LinkedinIcon = ({ size = 20, color = '#ffffff' }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
     <Path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.75a1.62 1.62 0 1 0 0 3.24 1.62 1.62 0 0 0 0-3.24z" />
+  </Svg>
+);
+
+const NotionIcon = ({ size = 20, color = '#ffffff' }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+    <Path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.139c-.093-.514.28-.887.747-.933zM1.936 1.035l13.31-.98c1.634-.14 2.055-.047 3.082.7l4.249 2.986c.7.513.934.653.934 1.213v16.378c0 1.026-.373 1.634-1.68 1.726l-15.458.934c-.98.047-1.448-.093-1.962-.747l-3.129-4.06c-.56-.747-.793-1.306-.793-1.96V2.667c0-.839.374-1.54 1.447-1.632z" />
   </Svg>
 );
 
@@ -126,6 +133,97 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     testing: false,
     message: '',
   });
+
+  // Notion Database Integration State
+  const initialNotionCfg = notionService.getConfig();
+  const [notionDbInput, setNotionDbInput] = useState<string>(initialNotionCfg.rawInput || initialNotionCfg.databaseId || '');
+  const [notionTokenInput, setNotionTokenInput] = useState<string>(initialNotionCfg.notionToken || '');
+  const [notionConnectedTitle, setNotionConnectedTitle] = useState<string>(initialNotionCfg.databaseTitle || '');
+  const [isNotionSaved, setIsNotionSaved] = useState<boolean>(Boolean(initialNotionCfg.databaseId));
+  const [notionStatus, setNotionStatus] = useState<{
+    loading: boolean;
+    syncingAll: boolean;
+    message: string;
+    success?: boolean;
+  }>({
+    loading: false,
+    syncingAll: false,
+    message: '',
+  });
+  const [showNotionGuide, setShowNotionGuide] = useState<boolean>(false);
+
+  const handleSaveNotionConfig = async () => {
+    const cleanId = extractNotionDatabaseId(notionDbInput);
+    if (!cleanId) {
+      setNotionStatus({
+        loading: false,
+        syncingAll: false,
+        success: false,
+        message: 'Por favor introduce un ID de base de datos de Notion válido (32 caracteres) o pega el enlace completo de tu base de datos.',
+      });
+      return;
+    }
+
+    setNotionStatus({
+      loading: true,
+      syncingAll: false,
+      message: '',
+    });
+
+    const res = await notionService.verifyAndSaveConfig(notionDbInput, notionTokenInput);
+    setIsNotionSaved(true);
+    if (res.databaseTitle) {
+      setNotionConnectedTitle(res.databaseTitle);
+    }
+    setNotionStatus({
+      loading: false,
+      syncingAll: false,
+      success: res.success,
+      message: res.message,
+    });
+  };
+
+  const handleSyncAllWordsToNotion = async () => {
+    const allWords = vocabService.getWords(activeLanguage || 'en');
+    if (allWords.length === 0) {
+      setNotionStatus({
+        loading: false,
+        syncingAll: false,
+        success: false,
+        message: 'No tienes palabras en el idioma actual para enviar a Notion.',
+      });
+      return;
+    }
+
+    setNotionStatus({
+      loading: false,
+      syncingAll: true,
+      message: `Sincronizando ${allWords.length} palabra(s) con tu base de datos de Notion...`,
+      success: true,
+    });
+
+    const res = await notionService.syncAllWords(allWords);
+    setNotionStatus({
+      loading: false,
+      syncingAll: false,
+      success: res.success,
+      message: res.message,
+    });
+  };
+
+  const handleClearNotionConfig = () => {
+    notionService.clearConfig();
+    setNotionDbInput('');
+    setNotionTokenInput('');
+    setNotionConnectedTitle('');
+    setIsNotionSaved(false);
+    setNotionStatus({
+      loading: false,
+      syncingAll: false,
+      success: true,
+      message: 'Se ha desvinculado la base de datos de Notion.',
+    });
+  };
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -694,6 +792,259 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <View style={[styles.statusMsgBox, geminiTestStatus.success ? styles.statusSuccessBox : styles.statusErrorBox]}>
               <Text style={[styles.statusMsgText, geminiTestStatus.success ? styles.statusSuccessText : styles.statusErrorText]}>
                 {geminiTestStatus.message}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+
+      {/* Base de Datos de Notion (Sincronización de Vocabulario por Usuario) */}
+      <View style={[styles.card, !isDark && styles.cardLight]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                backgroundColor: !isDark ? '#0f172a' : 'rgba(255, 255, 255, 0.1)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <NotionIcon size={18} color="#ffffff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.sectionTitle, !isDark && styles.titleLight, { marginBottom: 0 }]}>
+                Base de Datos de Notion
+              </Text>
+              {notionConnectedTitle ? (
+                <Text style={{ fontSize: 11, color: '#10b981', fontWeight: '700', marginTop: 1 }}>
+                  ✓ Conectada a: {notionConnectedTitle}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          <View
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 999,
+              backgroundColor: isNotionSaved ? 'rgba(16, 185, 129, 0.15)' : 'rgba(230, 46, 76, 0.14)',
+              borderWidth: 1,
+              borderColor: isNotionSaved ? 'rgba(16, 185, 129, 0.4)' : 'rgba(230, 46, 76, 0.35)',
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 10,
+                fontWeight: '800',
+                color: isNotionSaved ? '#34d399' : THEME.colors.crimsonLight,
+              }}
+            >
+              {isNotionSaved ? 'ID Guardado' : 'Sincronización Automática'}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 14 }]}>
+          Agrega el ID de tu base de datos de Notion para que cada palabra que añadas o edites se guarde automáticamente con su traducción, oración en inglés y español, transcripción fonética, estado, categoría, subcategoría y nivel (A1 a C2).
+        </Text>
+
+        {/* Vista previa de la estructura de página de Notion */}
+        <View
+          style={[
+            styles.subApiBox,
+            !isDark && styles.subApiBoxLight,
+            { marginBottom: 14, borderColor: 'rgba(230, 46, 76, 0.28)' },
+          ]}
+        >
+          <Text style={{ fontSize: 11, fontWeight: '800', color: !isDark ? '#0f172a' : '#ffffff', marginBottom: 8 }}>
+            📄 Estructura de cada palabra en tu Notion:
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {[
+              { label: 'Título: Palabra (ej. January)', bg: 'rgba(255, 255, 255, 0.08)', color: !isDark ? '#0f172a' : '#ffffff' },
+              { label: '🎙️ Pronunciación (/ˈjanuary/)', bg: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' },
+              { label: '🔤 Español (Enero)', bg: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' },
+              { label: '📝 Ejemplo (Inglés + Español)', bg: 'rgba(230, 46, 76, 0.15)', color: '#ff758c' },
+              { label: '🎓 Estado (Repasando / Dominada)', bg: 'rgba(148, 163, 184, 0.16)', color: '#cbd5e1' },
+              { label: '📁 Categoría y Sub categoría', bg: 'rgba(59, 130, 246, 0.16)', color: '#60a5fa' },
+              { label: '🏷️ Nivel (A1, A2, B1, B2, C1, C2)', bg: 'rgba(16, 185, 129, 0.16)', color: '#34d399' },
+            ].map((chip, i) => (
+              <View
+                key={i}
+                style={{
+                  backgroundColor: !isDark ? '#f1f5f9' : chip.bg,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 6,
+                }}
+              >
+                <Text style={{ fontSize: 10.5, fontWeight: '700', color: !isDark ? '#334155' : chip.color }}>
+                  {chip.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Formulario de ID de Base de Datos de Notion y Token */}
+        <View style={[styles.subApiBox, !isDark && styles.subApiBoxLight]}>
+          <Text style={[styles.apiBoxTitle, !isDark && styles.titleLight]}>
+            1. ID o Enlace de tu Base de Datos de Notion *
+          </Text>
+          <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 8 }]}>
+            Pega el ID de 32 caracteres o copia directamente el enlace de tu base de datos desde Notion (nosotros extraeremos el ID automáticamente).
+          </Text>
+
+          <View style={styles.keyInputRow}>
+            <TextInput
+              style={[styles.keyInput, !isDark && styles.keyInputLight]}
+              placeholder="Ej: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d o https://notion.so/..."
+              placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+              value={notionDbInput}
+              onChangeText={setNotionDbInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
+          {extractNotionDatabaseId(notionDbInput) ? (
+            <Text style={{ fontSize: 11, color: '#34d399', fontWeight: '600', marginTop: 6 }}>
+              ✓ ID detectado: {extractNotionDatabaseId(notionDbInput)}
+            </Text>
+          ) : null}
+
+          <Text style={[styles.apiBoxTitle, !isDark && styles.titleLight, { marginTop: 14 }]}>
+            2. Token de Integración de Notion (Secreto de API)
+          </Text>
+          <Text style={[styles.sectionSubtitle, !isDark && styles.subtitleLight, { marginBottom: 8 }]}>
+            Introduce el token de tu integración interna de Notion (empieza por ntn_... o secret_...) con permiso sobre tu base de datos.
+          </Text>
+
+          <View style={styles.keyInputRow}>
+            <TextInput
+              style={[styles.keyInput, !isDark && styles.keyInputLight]}
+              placeholder="ntn_... o secret_..."
+              placeholderTextColor={!isDark ? '#94a3b8' : THEME.colors.textSubtle}
+              value={notionTokenInput}
+              onChangeText={setNotionTokenInput}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
+          {/* Botones de Acción de Notion */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
+            <TouchableOpacity
+              style={[styles.saveKeyBtn, { paddingHorizontal: 16, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', gap: 6 }]}
+              onPress={handleSaveNotionConfig}
+              disabled={notionStatus.loading}
+              activeOpacity={0.85}
+            >
+              {notionStatus.loading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Check size={16} color="#ffffff" />
+              )}
+              <Text style={styles.saveKeyText}>
+                {notionStatus.loading ? 'Conectando...' : 'Guardar ID y Conectar Notion'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.testConnectionBtn,
+                !isDark && styles.testConnectionBtnLight,
+                { paddingHorizontal: 14, paddingVertical: 11 },
+              ]}
+              onPress={handleSyncAllWordsToNotion}
+              disabled={notionStatus.syncingAll || !extractNotionDatabaseId(notionDbInput)}
+              activeOpacity={0.8}
+            >
+              {notionStatus.syncingAll ? (
+                <ActivityIndicator size="small" color="#e62e4c" style={{ marginRight: 6 }} />
+              ) : (
+                <Sparkles size={14} color="#e62e4c" style={{ marginRight: 6 }} />
+              )}
+              <Text style={[styles.testConnectionBtnText, { color: '#e62e4c' }]}>
+                {notionStatus.syncingAll ? 'Enviando palabras...' : 'Sincronizar mis palabras actuales'}
+              </Text>
+            </TouchableOpacity>
+
+            {isNotionSaved && (
+              <TouchableOpacity
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 11,
+                  borderRadius: THEME.radius.md,
+                  borderWidth: 1,
+                  borderColor: 'rgba(248, 113, 113, 0.35)',
+                  backgroundColor: 'rgba(248, 113, 113, 0.1)',
+                  justifyContent: 'center',
+                }}
+                onPress={handleClearNotionConfig}
+                activeOpacity={0.8}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#f87171' }}>Desvincular</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Guía rápida desplegable para el usuario */}
+          <TouchableOpacity
+            onPress={() => setShowNotionGuide((prev) => !prev)}
+            style={{ marginTop: 12 }}
+            activeOpacity={0.7}
+          >
+            <Text style={{ fontSize: 12, fontWeight: '700', color: THEME.colors.crimsonLight }}>
+              {showNotionGuide
+                ? '▲ Ocultar pasos para obtener tu ID de Notion'
+                : '▼ ¿Cómo obtener el ID de tu Base de Datos de Notion en 3 pasos?'}
+            </Text>
+          </TouchableOpacity>
+
+          {showNotionGuide && (
+            <View
+              style={{
+                marginTop: 8,
+                padding: 12,
+                borderRadius: 10,
+                backgroundColor: !isDark ? '#f8fafc' : 'rgba(255, 255, 255, 0.03)',
+                borderWidth: 1,
+                borderColor: !isDark ? '#e2e8f0' : 'rgba(255, 255, 255, 0.08)',
+                gap: 6,
+              }}
+            >
+              <Text style={{ fontSize: 11.5, color: !isDark ? '#334155' : '#cbd5e1', lineHeight: 17 }}>
+                <Text style={{ fontWeight: '800', color: !isDark ? '#0f172a' : '#ffffff' }}>Paso 1: </Text>
+                Entra en{' '}
+                <Text
+                  style={{ color: '#38bdf8', textDecorationLine: 'underline' }}
+                  onPress={() => Linking.openURL('https://www.notion.so/profile/integrations')}
+                >
+                  notion.so/profile/integrations
+                </Text>
+                , crea una integración interna y copia su secreto (Token).
+              </Text>
+              <Text style={{ fontSize: 11.5, color: !isDark ? '#334155' : '#cbd5e1', lineHeight: 17 }}>
+                <Text style={{ fontWeight: '800', color: !isDark ? '#0f172a' : '#ffffff' }}>Paso 2: </Text>
+                Abre tu base de datos en Notion, pulsa el menú <Text style={{ fontWeight: '800' }}>•••</Text> (arriba a la derecha) → <Text style={{ fontWeight: '800' }}>Conexiones</Text> y selecciona tu integración para darle acceso.
+              </Text>
+              <Text style={{ fontSize: 11.5, color: !isDark ? '#334155' : '#cbd5e1', lineHeight: 17 }}>
+                <Text style={{ fontWeight: '800', color: !isDark ? '#0f172a' : '#ffffff' }}>Paso 3: </Text>
+                Pulsa <Text style={{ fontWeight: '800' }}>Copiar enlace</Text> en tu base de datos de Notion y pégalo directamente en el campo de arriba. PronounceIt creará automáticamente las columnas necesarias (Pronunciación, Español, Ejemplo, Estado, Categoría, Sub categoría y Nivel).
+              </Text>
+            </View>
+          )}
+
+          {notionStatus.message ? (
+            <View style={[styles.statusMsgBox, notionStatus.success ? styles.statusSuccessBox : styles.statusErrorBox]}>
+              <Text style={[styles.statusMsgText, notionStatus.success ? styles.statusSuccessText : styles.statusErrorText]}>
+                {notionStatus.message}
               </Text>
             </View>
           ) : null}

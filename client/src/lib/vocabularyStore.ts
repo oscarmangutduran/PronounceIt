@@ -7,6 +7,7 @@ import { deduplicateCategories } from './categoryUtils';
 
 import { networkService } from './networkService';
 import { getWordLevel } from './dictionaryService';
+import { notionService } from './notionService';
 
 const STORAGE_KEY_WORDS = 'pronounceit_vocab_words_v5';
 const STORAGE_KEY_CATEGORIES = 'pronounceit_user_categories_v4';
@@ -1002,6 +1003,7 @@ class VocabularyService {
     this.saveWords();
 
     backendApi.saveWord(newWord).catch((e) => console.warn('Backend saveWord error', e));
+    notionService.syncWordIfConfigured(newWord).catch((e) => console.warn('Notion syncWord error', e));
 
     if (firebaseService.isFirebaseConnected()) {
       firebaseService
@@ -1028,6 +1030,7 @@ class VocabularyService {
     this.saveWords();
 
     backendApi.updateWord(id, updatedWord).catch((e) => console.warn('Backend updateWord error', e));
+    notionService.syncWordIfConfigured(updatedWord).catch((e) => console.warn('Notion updateWord error', e));
 
     if (firebaseService.isFirebaseConnected()) {
       firebaseService.upsertWord(updatedWord).catch((e) => console.warn('Firebase upsertWord error', e));
@@ -1107,6 +1110,7 @@ class VocabularyService {
       this.saveWords();
 
       backendApi.updateWord(id, word).catch((e) => console.warn('Backend updateWord status error', e));
+      notionService.syncWordIfConfigured(word).catch((e) => console.warn('Notion updateStatus error', e));
 
       if (firebaseService.isFirebaseConnected()) {
         firebaseService.upsertWord(word).catch((e) => console.warn('Firebase updateStatus error', e));
