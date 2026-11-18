@@ -535,6 +535,10 @@ async function ensureDatabaseViews(
           data_source_id: dataSourceId,
           name: cleanSub,
           type: 'gallery',
+          configuration: {
+            type: 'gallery',
+            card_preview: 'page_content',
+          },
           filter: {
             property: 'Sub categoría',
             type: 'select',
@@ -756,35 +760,6 @@ function buildNotionPageChildren(word: NotionWordPayload): any[] {
     });
   }
 
-  // Also include Category and Subcategory tags in the page content for Notion Gallery views using "Card preview: Page content"
-  const cats = getCleanWordCategories(word).filter((c) => c.toLowerCase() !== 'general');
-  const subs = getCleanWordSubcategories(word);
-  if (cats.length > 0 || subs.length > 0) {
-    const metaText = [
-      cats.length > 0 ? `📁 ${cats.join(', ')}` : '',
-      subs.length > 0 ? `🏷️ ${subs.join(', ')}` : '',
-    ]
-      .filter(Boolean)
-      .join('   •   ');
-
-    blocks.push({
-      object: 'block',
-      type: 'paragraph',
-      paragraph: {
-        rich_text: [
-          {
-            type: 'text',
-            text: { content: metaText },
-            annotations: {
-              italic: true,
-              color: 'gray',
-            },
-          },
-        ],
-      },
-    });
-  }
-
   return blocks;
 }
 
@@ -965,6 +940,17 @@ async function upsertWordInNotion(
         targetSubs.every((s) => existingSubs.some((es) => es.toLowerCase() === s.toLowerCase()));
 
       if (hasSameCategories && hasSameSubcategories) {
+        // Ensure content blocks exist even if properties are unchanged
+        try {
+          const blocksRes = await notionFetch(`/blocks/${matchingPages[0].notionPageId}/children?page_size=2`, token, { method: 'GET' });
+          if (blocksRes.ok && (!Array.isArray(blocksRes.data?.results) || blocksRes.data.results.length === 0)) {
+            await notionFetch(`/blocks/${matchingPages[0].notionPageId}/children`, token, {
+              method: 'PATCH',
+              body: JSON.stringify({ children: buildNotionPageChildren(enrichedWord) }),
+            });
+          }
+        } catch {}
+
         return {
           res: { ok: true, status: 200, data: { id: matchingPages[0].notionPageId } },
           mergedWord: existingPage,
@@ -978,6 +964,16 @@ async function upsertWordInNotion(
       method: 'PATCH',
       body: JSON.stringify({ properties }),
     });
+
+    try {
+      const blocksRes = await notionFetch(`/blocks/${matchingPages[0].notionPageId}/children?page_size=2`, token, { method: 'GET' });
+      if (blocksRes.ok && (!Array.isArray(blocksRes.data?.results) || blocksRes.data.results.length === 0)) {
+        await notionFetch(`/blocks/${matchingPages[0].notionPageId}/children`, token, {
+          method: 'PATCH',
+          body: JSON.stringify({ children: buildNotionPageChildren(enrichedWord) }),
+        });
+      }
+    } catch {}
     if (matchingPages.length > 1) {
       for (let i = 1; i < matchingPages.length; i++) {
         await notionFetch(`/pages/${matchingPages[i].notionPageId}`, token, {
