@@ -657,6 +657,11 @@ class VocabularyService {
     };
     this.customCategories = deduplicateCategories([...this.customCategories, newCat]);
     this.saveCategories();
+    try {
+      import('./notionService').then(({ notionService }) => {
+        notionService.syncAllWords([], this.getCategories(lang)).catch(() => {});
+      });
+    } catch {}
     return newCat;
   }
 
@@ -839,6 +844,11 @@ class VocabularyService {
     });
 
     this.saveCategories();
+    try {
+      import('./notionService').then(({ notionService }) => {
+        notionService.syncAllWords([], this.getCategories(activeLang)).catch(() => {});
+      });
+    } catch {}
     return true;
   }
 
@@ -878,6 +888,11 @@ class VocabularyService {
 
     if (addedAny) {
       this.saveCategories();
+      try {
+        import('./notionService').then(({ notionService }) => {
+          notionService.syncAllWords([], this.getCategories(activeLang)).catch(() => {});
+        });
+      } catch {}
     }
     return addedAny;
   }

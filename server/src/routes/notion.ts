@@ -462,7 +462,121 @@ async function ensureDatabaseSchema(
   await addOptionsToPropertyIfNeeded(findExistingPropName(CATEGORY_CANDIDATES), desiredCategoryNames);
   await addOptionsToPropertyIfNeeded(findExistingPropName(SUBCATEGORY_CANDIDATES), desiredSubcategoryNames);
 
+  // Automatically attempt to create Views (tabs) for subcategories via Notion Views API
+  await ensureDatabaseViews(databaseId, token, desiredSubcategoryNames);
+
   return dbRes;
+}
+
+/**
+ * Automatically creates Notion Database Views (Tabs) for subcategories using Notion's Views API (v2026-03-11).
+ * If the user's workspace/database doesn't support Views API via integration token, it logs gracefully without throwing.
+ */
+async function ensureDatabaseViews(
+  databaseId: string,
+  token: string,
+  desiredSubcategoryNames: Set<string>
+) {
+  if (desiredSubcategoryNames.size === 0) return;
+  try {
+    // 1. Fetch database container with Notion-Version: 2026-03-11 to obtain data_source_id
+    const dbContainerRes = await fetch(`${NOTION_API_BASE}/databases/${databaseId}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Notion-Version': '2026-03-11',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!dbContainerRes.ok) {
+      console.warn('[Notion Views] Could not retrieve database with version 2026-03-11:', dbContainerRes.status);
+      return;
+    }
+
+    const dbData: any = await dbContainerRes.json().catch(() => ({}));
+    const dataSourceId = dbData?.data_sources?.[0]?.id;
+    if (!dataSourceId) {
+      console.warn('[Notion Views] No data_sources array found in database response');
+      return;
+    }
+
+    // 2. Fetch existing views for this database
+    const viewsRes = await fetch(`${NOTION_API_BASE}/views?database_id=${databaseId}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Notion-Version': '2026-03-11',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const viewsData: any = await viewsRes.json().catch(() => ({}));
+    const existingViews = Array.isArray(viewsData?.results) ? viewsData.results : [];
+    const existingViewNames = new Set<string>(
+      existingViews.map((v: any) => String(v?.name || '').trim().toLowerCase())
+    );
+
+    // 3. For each subcategory, create a Gallery view tab if it does not exist yet
+    for (const subName of desiredSubcategoryNames) {
+      const cleanSub = String(subName || '').trim();
+      if (!cleanSub || cleanSub.toLowerCase() === 'general') continue;
+      if (existingViewNames.has(cleanSub.toLowerCase())) continue;
+
+      const createViewRes = await fetch(`${NOTION_API_BASE}/views`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Notion-Version': '2026-03-11',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          database_id: databaseId,
+          data_source_id: dataSourceId,
+          name: cleanSub,
+          type: 'gallery',
+          filter: {
+            property: 'Sub categoría',
+            type: 'select',
+            select: {
+              equals: cleanSub,
+            },
+          },
+        }),
+      });
+
+      if (createViewRes.ok) {
+        console.log(`[Notion Views] Successfully created view tab for "${cleanSub}"`);
+        existingViewNames.add(cleanSub.toLowerCase());
+      } else {
+        const errJson: any = await createViewRes.json().catch(() => ({}));
+        console.warn(`[Notion Views] Could not create filtered view tab for "${cleanSub}":`, createViewRes.status, errJson?.message);
+        // Fallback: retry creating a view without filter
+        if (createViewRes.status === 400) {
+          const fallbackViewRes = await fetch(`${NOTION_API_BASE}/views`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Notion-Version': '2026-03-11',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              database_id: databaseId,
+              data_source_id: dataSourceId,
+              name: cleanSub,
+              type: 'gallery',
+            }),
+          });
+          if (fallbackViewRes.ok) {
+            existingViewNames.add(cleanSub.toLowerCase());
+            console.log(`[Notion Views] Fallback view created for "${cleanSub}"`);
+          }
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn('[Notion Views] Exception while creating database views:', err?.message);
+  }
 }
 
 function buildNotionPageProperties(
