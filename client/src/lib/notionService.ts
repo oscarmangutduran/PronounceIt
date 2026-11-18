@@ -584,7 +584,8 @@ class NotionService {
 
   public async syncAllWords(
     words: WordItem[],
-    categories?: CategoryItem[]
+    categories?: CategoryItem[],
+    onProgress?: (syncedSoFar: number, total: number) => void
   ): Promise<{
     success: boolean;
     message: string;
@@ -601,17 +602,63 @@ class NotionService {
     }
 
     try {
-      const res = await this.callBackendNotion('sync-bulk', {
+      // 1. Ensure database schema & all category/subcategory options exist in Notion first
+      const verifyRes = await this.callBackendNotion('verify', {
         databaseId: cleanId,
         notionToken: cfg.notionToken,
-        words,
         categories,
+        words,
       });
+
+      const collectedNotionWords = new Map<string, Partial<WordItem>>();
+      if (Array.isArray(verifyRes?.notionWords)) {
+        for (const nw of verifyRes.notionWords) {
+          const key = String(nw?.word || '').trim().toLowerCase();
+          if (key) collectedNotionWords.set(key, nw);
+        }
+      }
+
+      if (words.length === 0) {
+        return {
+          success: true,
+          syncedCount: 0,
+          notionWords: Array.from(collectedNotionWords.values()),
+          message: 'Subcategorías verificadas en Notion.',
+        };
+      }
+
+      // 2. Sync words in fast batches of 12 to prevent serverless function timeouts
+      const BATCH_SIZE = 12;
+      let totalSynced = 0;
+
+      for (let i = 0; i < words.length; i += BATCH_SIZE) {
+        const batch = words.slice(i, i + BATCH_SIZE);
+        const batchRes = await this.callBackendNotion('sync-bulk', {
+          databaseId: cleanId,
+          notionToken: cfg.notionToken,
+          words: batch,
+          categories,
+          skipSchemaEnsure: true,
+        });
+
+        totalSynced += batchRes?.syncedCount ?? batch.length;
+        if (Array.isArray(batchRes?.notionWords)) {
+          for (const nw of batchRes.notionWords) {
+            const key = String(nw?.word || '').trim().toLowerCase();
+            if (key) collectedNotionWords.set(key, nw);
+          }
+        }
+
+        if (onProgress) {
+          onProgress(Math.min(words.length, i + batch.length), words.length);
+        }
+      }
+
       return {
         success: true,
-        syncedCount: res.syncedCount ?? words.length,
-        notionWords: res.notionWords || [],
-        message: res.message || `¡${words.length} palabras y sus subcategorías sincronizadas con Notion!`,
+        syncedCount: totalSynced,
+        notionWords: Array.from(collectedNotionWords.values()),
+        message: `¡${totalSynced} palabras y todas sus subcategorías sincronizadas con Notion!`,
       };
     } catch (err: any) {
       return {

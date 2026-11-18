@@ -29,6 +29,20 @@ export interface NotionWordPayload {
 }
 
 /**
+ * Normalizes a Notion property name for accent-insensitive and separator-insensitive matching.
+ * e.g. "Sub categoría", "Sub-categoría", "Subcategoría" -> "sub categoria" / "subcategoria"
+ */
+function normalizePropKey(name: string): string {
+  return (name || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[-_]/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+/**
  * Extracts a clean 32-hex-char Notion Database ID from either a raw ID,
  * a hyphenated UUID, or a full Notion URL.
  */
@@ -67,6 +81,8 @@ export function getCleanWordCategories(word: Partial<NotionWordPayload>): string
         .filter(Boolean)
     )
   );
+  const nonGeneral = cleaned.filter((c) => c.toLowerCase() !== 'general');
+  if (nonGeneral.length > 0) return nonGeneral;
   return cleaned.length > 0 ? cleaned : ['General'];
 }
 
@@ -167,7 +183,6 @@ function parseExampleFromNotionText(rawText: string): { exampleEn: string; examp
   const trimmed = (rawText || '').trim();
   if (!trimmed) return { exampleEn: '', exampleEs: '' };
 
-  // Pattern 1: "English sentence\n(Spanish sentence)" or "English sentence (Spanish sentence)"
   const match = trimmed.match(/^([\s\S]*?)[\s\n]*\(([^()]+)\)\s*$/);
   if (match) {
     return {
@@ -192,10 +207,21 @@ async function notionFetch(path: string, token: string, options: RequestInit = {
   return { ok: res.ok, status: res.status, data };
 }
 
+const SUBCATEGORY_CANDIDATES = [
+  'sub categoria',
+  'subcategoria',
+  'sub categorias',
+  'subcategorias',
+  'subcategory',
+  'subcategories',
+];
+
+const CATEGORY_CANDIDATES = ['categoria', 'categorias', 'category', 'categories'];
+
 /**
- * Ensures the target Notion database has the exact properties matching the user's Notion Gallery & Page view
- * AND creates any missing Categoría / Sub categoría options in the Notion database schema so all
- * categories and subcategories exist in Notion.
+ * Ensures the target Notion database has all required properties AND creates any missing
+ * Categoría / Sub categoría options in a fault-tolerant 2-step process so a schema PATCH
+ * never fails due to existing option colors.
  */
 async function ensureDatabaseSchema(
   databaseId: string,
@@ -203,33 +229,111 @@ async function ensureDatabaseSchema(
   categoriesPayload?: NotionCategoryPayload[],
   wordsPayload?: NotionWordPayload[]
 ) {
-  const dbRes = await notionFetch(`/databases/${databaseId}`, token, { method: 'GET' });
+  let dbRes = await notionFetch(`/databases/${databaseId}`, token, { method: 'GET' });
   if (!dbRes.ok) {
     return dbRes;
   }
 
-  const existingProps: Record<string, any> = dbRes.data?.properties || {};
-  const existingKeysLower = new Map<string, string>();
-  Object.keys(existingProps).forEach((k) => {
-    existingKeysLower.set(k.trim().toLowerCase(), k);
-  });
+  const getPropsMap = (propsObj: Record<string, any>) => {
+    const map = new Map<string, string>();
+    Object.keys(propsObj || {}).forEach((k) => {
+      map.set(normalizePropKey(k), k);
+    });
+    return map;
+  };
+
+  let existingProps: Record<string, any> = dbRes.data?.properties || {};
+  let normalizedMap = getPropsMap(existingProps);
 
   const findExistingPropName = (candidates: string[]): string | null => {
     for (const c of candidates) {
-      const found = existingKeysLower.get(c.toLowerCase());
+      const found = normalizedMap.get(normalizePropKey(c));
       if (found) return found;
     }
     return null;
   };
 
-  // Collect all unique categories and subcategories from payload
+  // STEP 1: Create any missing columns with clean empty schema definitions first
+  const missingColumns: Record<string, any> = {};
+
+  if (!findExistingPropName(['pronunciacion', 'fonetica', 'ipa'])) {
+    missingColumns['Pronunciación'] = { rich_text: {} };
+  }
+  if (!findExistingPropName(['espanol', 'traduccion', 'significado'])) {
+    missingColumns['Español'] = { rich_text: {} };
+  }
+  if (!findExistingPropName(['ejemplo', 'frase', 'oracion', 'example'])) {
+    missingColumns['Ejemplo'] = { rich_text: {} };
+  }
+  if (!findExistingPropName(['estado', 'status'])) {
+    missingColumns['Estado'] = {
+      select: {
+        options: [
+          { name: 'Nuevo', color: 'brown' },
+          { name: 'Repasar', color: 'blue' },
+          { name: 'Aprendido', color: 'purple' },
+          { name: 'Dominada', color: 'default' },
+          { name: 'Repasando', color: 'gray' },
+        ],
+      },
+    };
+  }
+  if (!findExistingPropName(CATEGORY_CANDIDATES)) {
+    missingColumns['Categoría'] = { select: {} };
+  }
+  if (!findExistingPropName(SUBCATEGORY_CANDIDATES)) {
+    missingColumns['Sub categoría'] = { select: {} };
+  }
+  if (!findExistingPropName(['nivel', 'level', 'mcer', 'cefr'])) {
+    missingColumns['Nivel'] = {
+      select: {
+        options: [
+          { name: 'A1', color: 'green' },
+          { name: 'A2', color: 'green' },
+          { name: 'B1', color: 'yellow' },
+          { name: 'B2', color: 'orange' },
+          { name: 'C1', color: 'purple' },
+          { name: 'C2', color: 'pink' },
+        ],
+      },
+    };
+  }
+
+  if (Object.keys(missingColumns).length > 0) {
+    const createColsRes = await notionFetch(`/databases/${databaseId}`, token, {
+      method: 'PATCH',
+      body: JSON.stringify({ properties: missingColumns }),
+    });
+    if (createColsRes.ok) {
+      dbRes = createColsRes;
+      existingProps = dbRes.data?.properties || {};
+      normalizedMap = getPropsMap(existingProps);
+    } else {
+      // Fallback: create each missing column individually so one never blocks another
+      for (const [colName, colDef] of Object.entries(missingColumns)) {
+        const singleRes = await notionFetch(`/databases/${databaseId}`, token, {
+          method: 'PATCH',
+          body: JSON.stringify({ properties: { [colName]: colDef } }),
+        });
+        if (singleRes.ok) {
+          dbRes = singleRes;
+        }
+      }
+      existingProps = dbRes.data?.properties || {};
+      normalizedMap = getPropsMap(existingProps);
+    }
+  }
+
+  // STEP 2: Collect all unique categories and subcategories from payload and register options
   const desiredCategoryNames = new Set<string>();
   const desiredSubcategoryNames = new Set<string>();
 
   if (Array.isArray(categoriesPayload)) {
     for (const cat of categoriesPayload) {
       const cName = String(cat?.name || '').trim();
-      if (cName) desiredCategoryNames.add(cName.replace(/,/g, ' ').slice(0, 95));
+      if (cName && cName.toLowerCase() !== 'general') {
+        desiredCategoryNames.add(cName.replace(/,/g, ' ').slice(0, 95));
+      }
       if (Array.isArray(cat?.subcategories)) {
         for (const sub of cat.subcategories) {
           const sName = String(sub?.name || '').trim();
@@ -245,135 +349,62 @@ async function ensureDatabaseSchema(
     for (const w of wordsPayload) {
       if (!w) continue;
       for (const cName of getCleanWordCategories(w)) {
-        if (cName) desiredCategoryNames.add(cName.replace(/,/g, ' ').slice(0, 95));
+        if (cName && cName.toLowerCase() !== 'general') {
+          desiredCategoryNames.add(cName.replace(/,/g, ' ').slice(0, 95));
+        }
       }
       for (const sName of getCleanWordSubcategories(w)) {
-        if (sName) desiredSubcategoryNames.add(sName.replace(/,/g, ' ').slice(0, 95));
+        if (sName && sName.toLowerCase() !== 'general') {
+          desiredSubcategoryNames.add(sName.replace(/,/g, ' ').slice(0, 95));
+        }
       }
     }
   }
 
-  const patchProperties: Record<string, any> = {};
+  const addOptionsToPropertyIfNeeded = async (propName: string | null, desiredNames: Set<string>) => {
+    if (!propName || desiredNames.size === 0) return;
+    const propDef = existingProps[propName];
+    if (!propDef || (propDef.type !== 'select' && propDef.type !== 'multi_select')) return;
 
-  if (!findExistingPropName(['pronunciación', 'pronunciacion', 'fonética', 'fonetica', 'ipa'])) {
-    patchProperties['Pronunciación'] = { rich_text: {} };
-  }
-  if (!findExistingPropName(['español', 'espanol', 'traducción', 'traduccion', 'significado'])) {
-    patchProperties['Español'] = { rich_text: {} };
-  }
-  if (!findExistingPropName(['ejemplo', 'frase', 'oración', 'oracion', 'example'])) {
-    patchProperties['Ejemplo'] = { rich_text: {} };
-  }
-  if (!findExistingPropName(['estado', 'status'])) {
-    patchProperties['Estado'] = {
-      select: {
-        options: [
-          { name: 'Nuevo', color: 'brown' },
-          { name: 'Repasar', color: 'blue' },
-          { name: 'Aprendido', color: 'purple' },
-          { name: 'Dominada', color: 'default' },
-          { name: 'Repasando', color: 'gray' },
-        ],
-      },
-    };
-  }
+    const propType = propDef.type;
+    const currentOptions: any[] = propDef[propType]?.options || [];
+    const existingNamesLower = new Set(
+      currentOptions.map((o: any) => String(o?.name || '').trim().toLowerCase())
+    );
+    const newNames = Array.from(desiredNames).filter(
+      (n) => !existingNamesLower.has(n.toLowerCase())
+    );
 
-  // Categoría property + options
-  const catPropName = findExistingPropName(['categoría', 'categoria', 'category']);
-  if (!catPropName) {
-    patchProperties['Categoría'] = {
-      select: {
-        options: Array.from(desiredCategoryNames).map((name) => ({ name })),
-      },
-    };
-  } else {
-    const catPropDef = existingProps[catPropName];
-    if (catPropDef?.type === 'select' || catPropDef?.type === 'multi_select') {
-      const propType = catPropDef.type;
-      const currentOptions: any[] = catPropDef[propType]?.options || [];
-      const existingOptionNamesLower = new Set(
-        currentOptions.map((o: any) => String(o?.name || '').trim().toLowerCase())
-      );
-      const newOptionsToAdd = Array.from(desiredCategoryNames).filter(
-        (name) => !existingOptionNamesLower.has(name.toLowerCase())
-      );
-      if (newOptionsToAdd.length > 0) {
-        patchProperties[catPropName] = {
-          [propType]: {
-            options: [
-              ...currentOptions.map((o: any) => ({ name: o.name, color: o.color })),
-              ...newOptionsToAdd.map((name) => ({ name })),
-            ],
-          },
-        };
-      }
-    }
-  }
+    if (newNames.length === 0) return;
 
-  // Sub categoría property + options
-  const subPropName = findExistingPropName([
-    'sub categoría',
-    'sub categoria',
-    'subcategoría',
-    'subcategoria',
-    'sub-categoría',
-    'sub-categoria',
-    'subcategory',
-  ]);
-  if (!subPropName) {
-    patchProperties['Sub categoría'] = {
-      select: {
-        options: Array.from(desiredSubcategoryNames).map((name) => ({ name })),
-      },
-    };
-  } else {
-    const subPropDef = existingProps[subPropName];
-    if (subPropDef?.type === 'select' || subPropDef?.type === 'multi_select') {
-      const propType = subPropDef.type;
-      const currentOptions: any[] = subPropDef[propType]?.options || [];
-      const existingOptionNamesLower = new Set(
-        currentOptions.map((o: any) => String(o?.name || '').trim().toLowerCase())
-      );
-      const newOptionsToAdd = Array.from(desiredSubcategoryNames).filter(
-        (name) => !existingOptionNamesLower.has(name.toLowerCase())
-      );
-      if (newOptionsToAdd.length > 0) {
-        patchProperties[subPropName] = {
-          [propType]: {
-            options: [
-              ...currentOptions.map((o: any) => ({ name: o.name, color: o.color })),
-              ...newOptionsToAdd.map((name) => ({ name })),
-            ],
-          },
-        };
-      }
-    }
-  }
+    // Pass existing options by id (or name only, never color) so Notion API accepts the update
+    const mergedOptions = [
+      ...currentOptions.map((o: any) => (o.id ? { id: o.id } : { name: o.name })),
+      ...newNames.map((name) => ({ name })),
+    ];
 
-  if (!findExistingPropName(['nivel', 'level', 'mcer', 'cefr'])) {
-    patchProperties['Nivel'] = {
-      select: {
-        options: [
-          { name: 'A1', color: 'green' },
-          { name: 'A2', color: 'green' },
-          { name: 'B1', color: 'yellow' },
-          { name: 'B2', color: 'orange' },
-          { name: 'C1', color: 'purple' },
-          { name: 'C2', color: 'pink' },
-        ],
-      },
-    };
-  }
-
-  if (Object.keys(patchProperties).length > 0) {
-    const patchRes = await notionFetch(`/databases/${databaseId}`, token, {
+    const optPatchRes = await notionFetch(`/databases/${databaseId}`, token, {
       method: 'PATCH',
-      body: JSON.stringify({ properties: patchProperties }),
+      body: JSON.stringify({
+        properties: {
+          [propName]: {
+            [propType]: {
+              options: mergedOptions,
+            },
+          },
+        },
+      }),
     });
-    if (patchRes.ok) {
-      return patchRes;
+
+    if (optPatchRes.ok) {
+      dbRes = optPatchRes;
+      existingProps = dbRes.data?.properties || {};
+      normalizedMap = getPropsMap(existingProps);
     }
-  }
+  };
+
+  await addOptionsToPropertyIfNeeded(findExistingPropName(CATEGORY_CANDIDATES), desiredCategoryNames);
+  await addOptionsToPropertyIfNeeded(findExistingPropName(SUBCATEGORY_CANDIDATES), desiredSubcategoryNames);
 
   return dbRes;
 }
@@ -404,9 +435,10 @@ function buildNotionPageProperties(
   };
 
   const findProp = (candidates: string[]): { name: string; type: string; def: any } | null => {
+    const normalizedCandidates = candidates.map(normalizePropKey);
     for (const [propName, propDef] of Object.entries(dbProperties)) {
-      const lower = propName.trim().toLowerCase();
-      if (candidates.some((c) => c.toLowerCase() === lower)) {
+      const norm = normalizePropKey(propName);
+      if (normalizedCandidates.includes(norm)) {
         return { name: propName, type: propDef?.type, def: propDef };
       }
     }
@@ -444,19 +476,16 @@ function buildNotionPageProperties(
 
   // 2. Pronunciación (/ˈθristy/)
   const phoneticText = formatPhoneticSlash(word);
-  setPropValue(
-    findProp(['pronunciación', 'pronunciacion', 'fonética', 'fonetica', 'ipa']),
-    phoneticText
-  );
+  setPropValue(findProp(['pronunciacion', 'fonetica', 'ipa']), phoneticText);
 
   // 3. Español (Sediento)
   setPropValue(
-    findProp(['español', 'espanol', 'traducción', 'traduccion', 'significado']),
+    findProp(['espanol', 'traduccion', 'significado']),
     word.translation || ''
   );
 
   // 4. Ejemplo: English sentence on line 1 + gray italic (Spanish translation) on line 2
-  const ejemploProp = findProp(['ejemplo', 'frase', 'oración', 'oracion', 'example']);
+  const ejemploProp = findProp(['ejemplo', 'frase', 'oracion', 'example']);
   const exampleRichText = buildExampleRichText(word);
   if (ejemploProp && exampleRichText.length > 0) {
     if (ejemploProp.type === 'rich_text') {
@@ -489,23 +518,18 @@ function buildNotionPageProperties(
 
   // 6. Categoría
   const cleanCategories = getCleanWordCategories(word);
-  setPropValue(findProp(['categoría', 'categoria', 'category']), cleanCategories);
+  const catProp = findProp(CATEGORY_CANDIDATES) || { name: 'Categoría', type: 'select', def: {} };
+  setPropValue(catProp, cleanCategories);
 
   // 7. Sub categoría (supports single select, multi_select, or rich_text)
   const cleanSubcategories = getCleanWordSubcategories(word);
   if (cleanSubcategories.length > 0) {
-    setPropValue(
-      findProp([
-        'sub categoría',
-        'sub categoria',
-        'subcategoría',
-        'subcategoria',
-        'sub-categoría',
-        'sub-categoria',
-        'subcategory',
-      ]),
-      cleanSubcategories
-    );
+    const subProp = findProp(SUBCATEGORY_CANDIDATES) || {
+      name: 'Sub categoría',
+      type: 'select',
+      def: {},
+    };
+    setPropValue(subProp, cleanSubcategories);
   }
 
   // 8. Nivel (A1, A2, B1, B2, C1, C2)
@@ -603,39 +627,31 @@ function parseNotionPageToWord(page: any): (NotionWordPayload & { notionPageId: 
   if (!wordTitle) return null;
 
   const findValues = (candidates: string[]): string[] => {
+    const normCandidates = candidates.map(normalizePropKey);
     for (const [propName, propDef] of Object.entries(pageProps)) {
-      const lower = propName.trim().toLowerCase();
-      if (candidates.some((c) => c.toLowerCase() === lower)) {
+      if (normCandidates.includes(normalizePropKey(propName))) {
         return readNotionPropertyValues(propDef);
       }
     }
     return [];
   };
 
-  const ipaRaw = findValues(['pronunciación', 'pronunciacion', 'fonética', 'fonetica', 'ipa'])[0] || '';
-  const translationRaw = findValues(['español', 'espanol', 'traducción', 'traduccion', 'significado'])[0] || '';
-  const ejemploRaw = findValues(['ejemplo', 'frase', 'oración', 'oracion', 'example'])[0] || '';
+  const ipaRaw = findValues(['pronunciacion', 'fonetica', 'ipa'])[0] || '';
+  const translationRaw = findValues(['espanol', 'traduccion', 'significado'])[0] || '';
+  const ejemploRaw = findValues(['ejemplo', 'frase', 'oracion', 'example'])[0] || '';
   const { exampleEn, exampleEs } = parseExampleFromNotionText(ejemploRaw);
   const estadoRaw = findValues(['estado', 'status'])[0] || '';
   const levelRaw = (findValues(['nivel', 'level', 'mcer', 'cefr'])[0] || 'B1').toUpperCase();
   const validLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
   const level = validLevels.includes(levelRaw) ? levelRaw : 'B1';
 
-  const catVals = findValues(['categoría', 'categoria', 'category'])
+  const catVals = findValues(CATEGORY_CANDIDATES)
     .flatMap((v) => v.split(','))
     .map((s) => s.trim())
     .filter(Boolean);
   const categoryGroups = catVals.length > 0 ? catVals : ['General'];
 
-  const subVals = findValues([
-    'sub categoría',
-    'sub categoria',
-    'subcategoría',
-    'subcategoria',
-    'sub-categoría',
-    'sub-categoria',
-    'subcategory',
-  ])
+  const subVals = findValues(SUBCATEGORY_CANDIDATES)
     .flatMap((v) => v.split(','))
     .map((s) => s.trim())
     .filter((s) => Boolean(s) && s.toLowerCase() !== 'general');
@@ -702,10 +718,11 @@ async function upsertWordInNotion(
   token: string,
   dbProperties: Record<string, any>,
   word: NotionWordPayload,
-  existingPagesByWordLower?: Map<string, NotionWordPayload & { notionPageId: string }>
+  existingPagesByWordLower?: Map<string, (NotionWordPayload & { notionPageId: string })[]>
 ) {
   const wordKey = (word.word || '').trim().toLowerCase();
-  const existingPage = existingPagesByWordLower?.get(wordKey);
+  const matchingPages = existingPagesByWordLower?.get(wordKey) || [];
+  const existingPage = matchingPages[0];
 
   // Merge subcategories & categories if the Notion page already had a subcategory that the local word lacked
   const localSubs = getCleanWordSubcategories(word);
@@ -715,7 +732,9 @@ async function upsertWordInNotion(
   const localCats = getCleanWordCategories(word);
   const existingNotionCats = existingPage ? getCleanWordCategories(existingPage) : [];
   const mergedCats =
-    localCats.length === 1 && localCats[0].toLowerCase() === 'general' && existingNotionCats.some((c) => c.toLowerCase() !== 'general')
+    localCats.length === 1 &&
+    localCats[0].toLowerCase() === 'general' &&
+    existingNotionCats.some((c) => c.toLowerCase() !== 'general')
       ? existingNotionCats.filter((c) => c.toLowerCase() !== 'general')
       : Array.from(new Set([...localCats, ...existingNotionCats.filter((c) => c.toLowerCase() !== 'general')]));
 
@@ -729,11 +748,20 @@ async function upsertWordInNotion(
 
   const { titlePropName, properties } = buildNotionPageProperties(dbProperties, enrichedWord);
 
-  if (existingPage?.notionPageId) {
-    const patchRes = await notionFetch(`/pages/${existingPage.notionPageId}`, token, {
+  if (matchingPages.length > 0) {
+    // Update primary page and any duplicate pages for the same word
+    const patchRes = await notionFetch(`/pages/${matchingPages[0].notionPageId}`, token, {
       method: 'PATCH',
       body: JSON.stringify({ properties }),
     });
+    if (matchingPages.length > 1) {
+      for (let i = 1; i < matchingPages.length; i++) {
+        await notionFetch(`/pages/${matchingPages[i].notionPageId}`, token, {
+          method: 'PATCH',
+          body: JSON.stringify({ properties }),
+        }).catch(() => {});
+      }
+    }
     return { res: patchRes, mergedWord: enrichedWord };
   }
 
@@ -748,7 +776,7 @@ async function upsertWordInNotion(
             equals: (word.word || '').trim(),
           },
         },
-        page_size: 1,
+        page_size: 5,
       }),
     });
 
@@ -873,10 +901,10 @@ router.post('/sync-word', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/notion/sync-bulk — Bidirectional sync: ensures all categories/subcategories exist in Notion & PronounceIt with their corresponding words
+// POST /api/notion/sync-bulk — Fast concurrent batch sync: ensures all categories/subcategories exist in Notion & PronounceIt with their corresponding words
 router.post('/sync-bulk', async (req: Request, res: Response) => {
   try {
-    const { databaseId: rawDbId, notionToken, words, categories } = req.body || {};
+    const { databaseId: rawDbId, notionToken, words, categories, skipSchemaEnsure } = req.body || {};
     const databaseId = extractNotionDatabaseId(rawDbId);
     const token = resolveNotionToken(notionToken);
 
@@ -887,19 +915,14 @@ router.post('/sync-bulk', async (req: Request, res: Response) => {
       });
     }
 
-    // 1. Fetch existing pages in Notion first so we know all categories, subcategories, and words already in Notion
-    const existingNotionWords = await fetchAllNotionPages(databaseId, token);
-    const existingMap = new Map<string, NotionWordPayload & { notionPageId: string }>();
-    for (const nw of existingNotionWords) {
-      const key = (nw.word || '').trim().toLowerCase();
-      if (key && !existingMap.has(key)) {
-        existingMap.set(key, nw);
-      }
-    }
+    // 1. Fetch existing pages in Notion and ensure schema in parallel
+    const [existingNotionWords, dbRes] = await Promise.all([
+      fetchAllNotionPages(databaseId, token),
+      skipSchemaEnsure
+        ? notionFetch(`/databases/${databaseId}`, token, { method: 'GET' })
+        : ensureDatabaseSchema(databaseId, token, categories, words),
+    ]);
 
-    // 2. Ensure Notion database schema has all Categories & Subcategories from both PronounceIt and Notion
-    const combinedWordsForSchema = [...words, ...existingNotionWords];
-    const dbRes = await ensureDatabaseSchema(databaseId, token, categories, combinedWordsForSchema);
     if (!dbRes.ok) {
       return res.status(dbRes.status || 400).json({
         success: false,
@@ -907,31 +930,46 @@ router.post('/sync-bulk', async (req: Request, res: Response) => {
       });
     }
 
+    const existingMap = new Map<string, (NotionWordPayload & { notionPageId: string })[]>();
+    for (const nw of existingNotionWords) {
+      const key = (nw.word || '').trim().toLowerCase();
+      if (!key) continue;
+      const list = existingMap.get(key) || [];
+      list.push(nw);
+      existingMap.set(key, list);
+    }
+
     const dbProperties = dbRes.data?.properties || {};
     let syncedCount = 0;
     let failedCount = 0;
     const syncedWordsMap = new Map<string, NotionWordPayload>();
 
-    // Seed with existing Notion words so any word that only exists in Notion is also returned to the client
-    for (const [key, nw] of existingMap.entries()) {
-      syncedWordsMap.set(key, nw);
+    for (const [key, nwList] of existingMap.entries()) {
+      if (nwList[0]) syncedWordsMap.set(key, nwList[0]);
     }
 
-    // 3. Upsert every PronounceIt word into Notion with its Categoría and Sub categoría
-    for (const w of words) {
-      if (!w || !w.word) continue;
-      const { res: pageRes, mergedWord } = await upsertWordInNotion(
-        databaseId,
-        token,
-        dbProperties,
-        w,
-        existingMap
+    // 2. Process words in parallel chunks of 4 to stay well within Vercel's serverless timeout
+    const validWords = words.filter((w) => w && w.word);
+    const CHUNK_SIZE = 4;
+
+    for (let i = 0; i < validWords.length; i += CHUNK_SIZE) {
+      const chunk = validWords.slice(i, i + CHUNK_SIZE);
+      const chunkResults = await Promise.all(
+        chunk.map((w) =>
+          upsertWordInNotion(databaseId, token, dbProperties, w, existingMap).catch(() => ({
+            res: { ok: false, status: 500, data: {} },
+            mergedWord: w,
+          }))
+        )
       );
-      if (pageRes.ok) {
-        syncedCount += 1;
-        syncedWordsMap.set((mergedWord.word || '').trim().toLowerCase(), mergedWord);
-      } else {
-        failedCount += 1;
+
+      for (const { res: pageRes, mergedWord } of chunkResults) {
+        if (pageRes.ok) {
+          syncedCount += 1;
+          syncedWordsMap.set((mergedWord.word || '').trim().toLowerCase(), mergedWord);
+        } else {
+          failedCount += 1;
+        }
       }
     }
 

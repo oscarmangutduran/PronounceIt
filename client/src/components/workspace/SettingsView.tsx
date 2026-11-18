@@ -167,7 +167,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setNotionStatus({
       loading: true,
       syncingAll: false,
-      message: '',
+      message: 'Conectando y creando columnas de Categoría y Sub categoría en Notion...',
+      success: true,
     });
 
     const targetLang = activeLanguage || 'en';
@@ -186,8 +187,61 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setNotionConnectedTitle(res.databaseTitle);
     }
 
-    if (res.success && Array.isArray(res.notionWords)) {
+    if (!res.success) {
+      setNotionStatus({
+        loading: false,
+        syncingAll: false,
+        success: false,
+        message: res.message,
+      });
+      return;
+    }
+
+    if (Array.isArray(res.notionWords)) {
       vocabService.mergeFromNotionSync(res.notionWords, targetLang);
+    }
+
+    // Automatically sync all words and subcategories right upon connecting
+    if (allWords.length > 0) {
+      setNotionStatus({
+        loading: false,
+        syncingAll: true,
+        success: true,
+        message: `Conectado a "${res.databaseTitle || 'Notion'}". Sincronizando subcategorías y palabras (0/${allWords.length})...`,
+      });
+
+      const syncRes = await notionService.syncAllWords(
+        allWords,
+        allCategories,
+        (done, total) => {
+          setNotionStatus({
+            loading: false,
+            syncingAll: true,
+            success: true,
+            message: `Sincronizando subcategorías y palabras en Notion (${done}/${total})...`,
+          });
+        }
+      );
+
+      if (syncRes.success && Array.isArray(syncRes.notionWords)) {
+        vocabService.mergeFromNotionSync(syncRes.notionWords, targetLang);
+      }
+
+      const updatedCategories = vocabService.getCategories(targetLang);
+      const totalSubcategories = updatedCategories.reduce(
+        (acc, c) => acc + (c.subcategories?.length || 0),
+        0
+      );
+
+      setNotionStatus({
+        loading: false,
+        syncingAll: false,
+        success: syncRes.success,
+        message: syncRes.success
+          ? `¡Conectado y sincronizado! Se han enviado ${allWords.length} palabras, ${updatedCategories.length} categorías y ${totalSubcategories} subcategorías a Notion.`
+          : syncRes.message,
+      });
+      return;
     }
 
     setNotionStatus({
@@ -207,11 +261,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setNotionStatus({
       loading: false,
       syncingAll: true,
-      message: `Sincronizando palabras, categorías y subcategorías con Notion...`,
+      message: `Sincronizando subcategorías y palabras en Notion (0/${allWords.length})...`,
       success: true,
     });
 
-    const res = await notionService.syncAllWords(allWords, allCategories);
+    const res = await notionService.syncAllWords(
+      allWords,
+      allCategories,
+      (done, total) => {
+        setNotionStatus({
+          loading: false,
+          syncingAll: true,
+          success: true,
+          message: `Sincronizando subcategorías y palabras en Notion (${done}/${total})...`,
+        });
+      }
+    );
     let finalMessage = res.message;
 
     if (res.success && Array.isArray(res.notionWords)) {

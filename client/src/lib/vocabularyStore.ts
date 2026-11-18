@@ -1164,7 +1164,8 @@ class VocabularyService {
 
         const nwCats = getWordCategories(nw);
         const nwSubs = getWordSubcategories(nw);
-        ensureCatAndSubs(nwCats, nwSubs);
+        const hasRealCategory = nwCats.some((c) => c.toLowerCase() !== 'general');
+        const hasRealSubcategory = nwSubs.length > 0;
 
         const existingIdx = this.words.findIndex(
           (w) =>
@@ -1172,8 +1173,17 @@ class VocabularyService {
             w.word.trim().toLowerCase() === wordText.toLowerCase()
         );
 
+        // Only auto-create categories/subcategories or import new words from Notion if they have a real category or subcategory
+        if (hasRealCategory || hasRealSubcategory) {
+          ensureCatAndSubs(nwCats, nwSubs);
+        }
+
         if (existingIdx === -1) {
-          const finalCats = nwCats.length > 0 ? nwCats : ['General'];
+          if (!hasRealCategory && !hasRealSubcategory) {
+            continue;
+          }
+          const finalCats = nwCats.filter((c) => c.toLowerCase() !== 'general');
+          const resolvedCats = finalCats.length > 0 ? finalCats : ['General'];
           const newWord: WordItem = {
             id: `word_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
             word: wordText,
@@ -1188,13 +1198,14 @@ class VocabularyService {
             partOfSpeech: (nw.partOfSpeech as any) || 'Sustantivo',
             status: (nw.status as WordStatus) || 'nueva',
             isFavorite: false,
-            categoryGroups: finalCats,
-            categoryGroup: finalCats.join(', '),
+            categoryGroups: resolvedCats,
+            categoryGroup: resolvedCats.join(', '),
             categorySubs: nwSubs,
             categorySub: nwSubs.join(', '),
             createdAt: new Date().toISOString(),
             srsIntervalDays: 1,
           };
+          this.pendingSyncIds.add(newWord.id);
           this.words.unshift(newWord);
           wordsToPushFirebase.push(newWord);
           importedWordsCount += 1;
