@@ -22,6 +22,8 @@ import {
   Check,
   FolderOpen,
   Folder,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react-native';
 import { WordItem, CategoryItem, PART_OF_SPEECH_OPTIONS, PartOfSpeech } from '../../types';
 import { vocabService, getWordCategories, getWordSubcategories } from '../../lib/vocabularyStore';
@@ -54,6 +56,7 @@ const FALLBACK_DISTRACTORS = [
 
 export const TestView: React.FC<TestViewProps> = ({ words, categories, onBackToVocabulary, isDark = true }) => {
   const [testType, setTestType] = useState<'vocabulary' | 'category' | 'part_of_speech' | 'irregular_verbs'>('vocabulary');
+  const [isTestDropdownOpen, setIsTestDropdownOpen] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState<string>('TODOS');
   const [selectedPartOfSpeech, setSelectedPartOfSpeech] = useState<string>('TODOS');
   const [selectedCategory, setSelectedCategory] = useState<string>('TODAS');
@@ -350,64 +353,153 @@ export const TestView: React.FC<TestViewProps> = ({ words, categories, onBackToV
     });
   };
 
+  const TEST_MODE_OPTIONS = [
+    {
+      id: 'vocabulary' as const,
+      label: 'Test de Vocabulario',
+      subtitle: 'Evalúa significado y pronunciación por niveles (A1 a C2)',
+      Icon: BookOpen,
+      iconColor: THEME.colors.crimsonLight,
+      iconBg: 'rgba(230, 46, 76, 0.15)',
+    },
+    {
+      id: 'category' as const,
+      label: 'Por Categoría y Subcategoría',
+      subtitle: 'Examina tus propios temas y subtemas personalizados',
+      Icon: FolderOpen,
+      iconColor: '#38bdf8',
+      iconBg: 'rgba(56, 189, 248, 0.15)',
+    },
+    {
+      id: 'part_of_speech' as const,
+      label: 'Por Tipo Gramatical',
+      subtitle: 'Practica sustantivos, verbos, adjetivos, phrasal verbs, etc.',
+      Icon: Tag,
+      iconColor: '#ff758c',
+      iconBg: 'rgba(255, 117, 140, 0.15)',
+    },
+    {
+      id: 'irregular_verbs' as const,
+      label: 'Verbos Irregulares',
+      subtitle: 'Entrena el pasado simple y participio de verbos irregulares',
+      Icon: Zap,
+      iconColor: '#fbbf24',
+      iconBg: 'rgba(251, 191, 36, 0.15)',
+    },
+  ];
+
+  const activeModeOption =
+    TEST_MODE_OPTIONS.find((opt) => opt.id === testType) || TEST_MODE_OPTIONS[0];
+
+  const renderTestModeDropdown = () => {
+    const ActiveIcon = activeModeOption.Icon;
+    return (
+      <View style={styles.testDropdownWrapper}>
+        <Text style={[styles.testDropdownHeaderLabel, !isDark && styles.testDropdownHeaderLabelLight]}>
+          SELECCIONA EL TIPO DE TEST:
+        </Text>
+        <TouchableOpacity
+          style={[
+            styles.testDropdownTrigger,
+            !isDark && styles.testDropdownTriggerLight,
+            isTestDropdownOpen && styles.testDropdownTriggerOpen,
+          ]}
+          onPress={() => setIsTestDropdownOpen((prev) => !prev)}
+          activeOpacity={0.82}
+        >
+          <View style={[styles.testDropdownIconBadge, { backgroundColor: activeModeOption.iconBg }]}>
+            <ActiveIcon size={18} color={activeModeOption.iconColor} />
+          </View>
+          <View style={styles.testDropdownTextCol}>
+            <Text style={[styles.testDropdownTitle, !isDark && styles.testDropdownTitleLight]}>
+              {activeModeOption.label}
+            </Text>
+            <Text
+              style={[styles.testDropdownSubtitle, !isDark && styles.testDropdownSubtitleLight]}
+              numberOfLines={1}
+            >
+              {activeModeOption.subtitle}
+            </Text>
+          </View>
+          <View style={[styles.testDropdownChevronBox, !isDark && styles.testDropdownChevronBoxLight]}>
+            {isTestDropdownOpen ? (
+              <ChevronUp size={16} color={!isDark ? '#475569' : '#cbd5e1'} />
+            ) : (
+              <ChevronDown size={16} color={!isDark ? '#475569' : '#cbd5e1'} />
+            )}
+          </View>
+        </TouchableOpacity>
+
+        {isTestDropdownOpen && (
+          <View style={[styles.testDropdownMenu, !isDark && styles.testDropdownMenuLight]}>
+            {TEST_MODE_OPTIONS.map((opt) => {
+              const isSelected = testType === opt.id;
+              const ItemIcon = opt.Icon;
+              return (
+                <TouchableOpacity
+                  key={opt.id}
+                  style={[
+                    styles.testDropdownItem,
+                    !isDark && styles.testDropdownItemLight,
+                    isSelected && styles.testDropdownItemActive,
+                    !isDark && isSelected && styles.testDropdownItemActiveLight,
+                  ]}
+                  onPress={() => {
+                    setTestType(opt.id);
+                    if (opt.id === 'vocabulary') {
+                      setSelectedPartOfSpeech('TODOS');
+                    }
+                    setIsTestActive(false);
+                    setIsTestFinished(false);
+                    setIsTestDropdownOpen(false);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View
+                    style={[
+                      styles.testDropdownItemIcon,
+                      { backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.2)' : opt.iconBg },
+                    ]}
+                  >
+                    <ItemIcon size={16} color={isSelected ? '#ffffff' : opt.iconColor} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.testDropdownItemTitle,
+                        !isDark && styles.testDropdownItemTitleLight,
+                        isSelected && styles.testDropdownItemTitleActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.testDropdownItemSub,
+                        !isDark && styles.testDropdownItemSubLight,
+                        isSelected && styles.testDropdownItemSubActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {opt.subtitle}
+                    </Text>
+                  </View>
+                  {isSelected && <Check size={16} color="#ffffff" />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   // Modo: Verbos Irregulares
   if (testType === 'irregular_verbs') {
     return (
       <View style={styles.container}>
         <View style={styles.contentWrapper}>
-          <View style={[styles.modeTabBar, !isDark && styles.modeTabBarLight]}>
-            <TouchableOpacity
-              style={styles.modeTab}
-              onPress={() => {
-                setTestType('vocabulary');
-                setIsTestActive(false);
-                setIsTestFinished(false);
-              }}
-            >
-              <BookOpen size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
-              <Text style={[styles.modeTabText, !isDark && styles.modeTabTextLight]}>
-                Test Vocabulario
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modeTab}
-              onPress={() => {
-                setTestType('category');
-                setIsTestActive(false);
-                setIsTestFinished(false);
-              }}
-            >
-              <FolderOpen size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
-              <Text style={[styles.modeTabText, !isDark && styles.modeTabTextLight]}>
-                Por Categoría
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modeTab}
-              onPress={() => {
-                setTestType('part_of_speech');
-                setIsTestActive(false);
-                setIsTestFinished(false);
-              }}
-            >
-              <Tag size={16} color={!isDark ? '#64748b' : THEME.colors.textMuted} />
-              <Text style={[styles.modeTabText, !isDark && styles.modeTabTextLight]}>
-                Test por Tipo
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.modeTab, styles.modeTabActive]}
-              onPress={() => setTestType('irregular_verbs')}
-            >
-              <Zap size={16} color="#ffffff" />
-              <Text style={[styles.modeTabText, styles.modeTabTextActive]}>
-                Verbos Irregulares
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {renderTestModeDropdown()}
 
           <IrregularVerbsTestView onBackToVocabulary={onBackToVocabulary} isDark={isDark} />
         </View>
@@ -590,89 +682,8 @@ export const TestView: React.FC<TestViewProps> = ({ words, categories, onBackToV
   return (
     <View style={styles.container}>
       <View style={styles.contentWrapper}>
-        {/* Selector de modo principal: 4 pestañas */}
-        <View style={[styles.modeTabBar, !isDark && styles.modeTabBarLight]}>
-          <TouchableOpacity
-            style={[styles.modeTab, testType === 'vocabulary' && styles.modeTabActive]}
-            onPress={() => {
-              setTestType('vocabulary');
-              setSelectedPartOfSpeech('TODOS');
-            }}
-          >
-            <BookOpen
-              size={16}
-              color={testType === 'vocabulary' ? '#ffffff' : !isDark ? '#64748b' : THEME.colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.modeTabText,
-                testType === 'vocabulary' && styles.modeTabTextActive,
-                !isDark && testType !== 'vocabulary' && styles.modeTabTextLight,
-              ]}
-            >
-              Test Vocabulario
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.modeTab, testType === 'category' && styles.modeTabActive]}
-            onPress={() => {
-              setTestType('category');
-            }}
-          >
-            <FolderOpen
-              size={16}
-              color={testType === 'category' ? '#ffffff' : !isDark ? '#64748b' : THEME.colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.modeTabText,
-                testType === 'category' && styles.modeTabTextActive,
-                !isDark && testType !== 'category' && styles.modeTabTextLight,
-              ]}
-            >
-              Por Categoría
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.modeTab, testType === 'part_of_speech' && styles.modeTabActive]}
-            onPress={() => setTestType('part_of_speech')}
-          >
-            <Tag
-              size={16}
-              color={testType === 'part_of_speech' ? '#ffffff' : !isDark ? '#64748b' : THEME.colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.modeTabText,
-                testType === 'part_of_speech' && styles.modeTabTextActive,
-                !isDark && testType !== 'part_of_speech' && styles.modeTabTextLight,
-              ]}
-            >
-              Por Tipo
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.modeTab, (testType as string) === 'irregular_verbs' && styles.modeTabActive]}
-            onPress={() => setTestType('irregular_verbs')}
-          >
-            <Zap
-              size={16}
-              color={(testType as string) === 'irregular_verbs' ? '#ffffff' : !isDark ? '#64748b' : THEME.colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.modeTabText,
-                (testType as string) === 'irregular_verbs' && styles.modeTabTextActive,
-                !isDark && (testType as string) !== 'irregular_verbs' && styles.modeTabTextLight,
-              ]}
-            >
-              Verbos Irregulares
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {/* Selector de modo principal: Dropdown */}
+        {renderTestModeDropdown()}
 
         {/* CONTENIDO SEGÚN PESTAÑA: TEST POR CATEGORÍA */}
         {testType === 'category' ? (
@@ -1773,5 +1784,152 @@ const styles = StyleSheet.create({
   },
   resultSubLight: {
     color: '#475569',
+  },
+
+  // Test Mode Dropdown Styles
+  testDropdownWrapper: {
+    width: '100%',
+    marginBottom: 16,
+    zIndex: 50,
+  },
+  testDropdownHeaderLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: THEME.colors.textMuted,
+    letterSpacing: 0.6,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  testDropdownHeaderLabelLight: {
+    color: '#475569',
+  },
+  testDropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.bgCard,
+    borderWidth: 1.5,
+    borderColor: 'rgba(230, 46, 76, 0.35)',
+    borderRadius: THEME.radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  testDropdownTriggerLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#cbd5e1',
+    shadowOpacity: 0.06,
+  },
+  testDropdownTriggerOpen: {
+    borderColor: THEME.colors.crimson,
+  },
+  testDropdownIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  testDropdownTextCol: {
+    flex: 1,
+    gap: 2,
+  },
+  testDropdownTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  testDropdownTitleLight: {
+    color: '#0f172a',
+  },
+  testDropdownSubtitle: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+  },
+  testDropdownSubtitleLight: {
+    color: '#64748b',
+  },
+  testDropdownChevronBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  testDropdownChevronBoxLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  testDropdownMenu: {
+    marginTop: 8,
+    backgroundColor: '#161026',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: THEME.radius.lg,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  testDropdownMenuLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
+    shadowOpacity: 0.1,
+  },
+  testDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  testDropdownItemLight: {
+    borderBottomColor: '#f1f5f9',
+  },
+  testDropdownItemActive: {
+    backgroundColor: THEME.colors.crimson,
+  },
+  testDropdownItemActiveLight: {
+    backgroundColor: THEME.colors.crimson,
+  },
+  testDropdownItemIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  testDropdownItemTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#f1f5f9',
+  },
+  testDropdownItemTitleLight: {
+    color: '#0f172a',
+  },
+  testDropdownItemTitleActive: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+  testDropdownItemSub: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 1,
+  },
+  testDropdownItemSubLight: {
+    color: '#64748b',
+  },
+  testDropdownItemSubActive: {
+    color: 'rgba(255, 255, 255, 0.88)',
   },
 });
