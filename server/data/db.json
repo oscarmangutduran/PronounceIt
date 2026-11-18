@@ -50,8 +50,8 @@
     }
   ],
   "appMeta": {
-    "lastNotifiedVersion": "1.7.1",
-    "lastNotificationDate": "2026-11-07T15:08:49.484Z",
+    "lastNotifiedVersion": "1.7.2",
+    "lastNotificationDate": "2026-11-16T12:36:59.009Z",
     "notificationHistory": [
       {
         "version": "1.7.0",
@@ -68,6 +68,12 @@
       {
         "version": "1.7.1",
         "sentAt": "2026-11-07T15:08:49.484Z",
+        "recipientCount": 4,
+        "successCount": 4
+      },
+      {
+        "version": "1.7.2",
+        "sentAt": "2026-11-16T12:36:59.009Z",
         "recipientCount": 4,
         "successCount": 4
       }
