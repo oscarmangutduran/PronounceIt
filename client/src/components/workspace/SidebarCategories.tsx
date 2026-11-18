@@ -216,9 +216,11 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
   }, [safeCategories]);
 
   const toggleGroup = (groupName: string) => {
+    const cat = safeCategories.find((c) => c.name === groupName);
+    const defaultExpanded = Boolean(cat?.subcategories && cat.subcategories.length > 0);
     setExpandedGroups((prev) => ({
       ...prev,
-      [groupName]: !prev[groupName],
+      [groupName]: !(prev[groupName] ?? defaultExpanded),
     }));
   };
 
@@ -969,7 +971,8 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
         ) : (
           <View style={styles.treeList}>
             {safeCategories.map((cat) => {
-              const isExpanded = !!expandedGroups[cat.name];
+              const isExpanded =
+                expandedGroups[cat.name] ?? Boolean(cat.subcategories && cat.subcategories.length > 0);
               const groupActive = isSelected('category', cat.name);
 
               return (

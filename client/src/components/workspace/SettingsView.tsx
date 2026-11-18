@@ -170,11 +170,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       message: '',
     });
 
-    const res = await notionService.verifyAndSaveConfig(notionDbInput, notionTokenInput);
+    const targetLang = activeLanguage || 'en';
+    vocabService.mergeFromNotionSync([], targetLang);
+    const allWords = vocabService.getWords(targetLang);
+    const allCategories = vocabService.getCategories(targetLang);
+
+    const res = await notionService.verifyAndSaveConfig(
+      notionDbInput,
+      notionTokenInput,
+      allCategories,
+      allWords
+    );
     setIsNotionSaved(true);
     if (res.databaseTitle) {
       setNotionConnectedTitle(res.databaseTitle);
     }
+
+    if (res.success && Array.isArray(res.notionWords)) {
+      vocabService.mergeFromNotionSync(res.notionWords, targetLang);
+    }
+
     setNotionStatus({
       loading: false,
       syncingAll: false,
@@ -184,30 +199,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleSyncAllWordsToNotion = async () => {
-    const allWords = vocabService.getWords(activeLanguage || 'en');
-    if (allWords.length === 0) {
-      setNotionStatus({
-        loading: false,
-        syncingAll: false,
-        success: false,
-        message: 'No tienes palabras en el idioma actual para enviar a Notion.',
-      });
-      return;
-    }
+    const targetLang = activeLanguage || 'en';
+    vocabService.mergeFromNotionSync([], targetLang);
+    const allWords = vocabService.getWords(targetLang);
+    const allCategories = vocabService.getCategories(targetLang);
 
     setNotionStatus({
       loading: false,
       syncingAll: true,
-      message: `Sincronizando ${allWords.length} palabra(s) con tu base de datos de Notion...`,
+      message: `Sincronizando palabras, categorías y subcategorías con Notion...`,
       success: true,
     });
 
-    const res = await notionService.syncAllWords(allWords);
+    const res = await notionService.syncAllWords(allWords, allCategories);
+    let finalMessage = res.message;
+
+    if (res.success && Array.isArray(res.notionWords)) {
+      const mergeStats = vocabService.mergeFromNotionSync(res.notionWords, targetLang);
+      const updatedCategories = vocabService.getCategories(targetLang);
+      const totalSubcategories = updatedCategories.reduce(
+        (acc, c) => acc + (c.subcategories?.length || 0),
+        0
+      );
+      finalMessage = `¡Sincronización completada! ${vocabService.getWords(targetLang).length} palabra(s), ${updatedCategories.length} categoría(s) y ${totalSubcategories} subcategoría(s) sincronizadas con Notion${
+        mergeStats.createdSubcategoriesCount > 0
+          ? ` (${mergeStats.createdSubcategoriesCount} nueva(s) subcategoría(s) creada(s))`
+          : ''
+      }.`;
+    }
+
     setNotionStatus({
       loading: false,
       syncingAll: false,
       success: res.success,
-      message: res.message,
+      message: finalMessage,
     });
   };
 

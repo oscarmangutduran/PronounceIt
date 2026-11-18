@@ -279,7 +279,7 @@ class BackendApiClient {
         status: w.status || 'learning',
         isFavorite: Boolean(w.isFavorite),
         categoryGroup: w.categoryGroup || w.category || 'General',
-        categorySub: w.categorySub || 'General',
+        categorySub: w.categorySub && String(w.categorySub).trim().toLowerCase() !== 'general' ? String(w.categorySub).trim() : '',
         createdAt: w.createdAt || w.created_at || new Date().toISOString(),
       }));
     } catch {

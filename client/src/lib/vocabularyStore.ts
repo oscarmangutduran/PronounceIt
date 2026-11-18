@@ -68,13 +68,16 @@ export function getWordCategories(word: Partial<WordItem>): string[] {
 }
 
 export function getWordSubcategories(word: Partial<WordItem>): string[] {
+  const raw: string[] = [];
   if (Array.isArray(word.categorySubs) && word.categorySubs.length > 0) {
-    return word.categorySubs.map((s) => s.trim()).filter(Boolean);
+    raw.push(...word.categorySubs.map((s) => String(s || '').trim()).filter(Boolean));
   }
   if (word.categorySub) {
-    return word.categorySub.split(',').map((s) => s.trim()).filter(Boolean);
+    raw.push(...String(word.categorySub).split(',').map((s) => s.trim()).filter(Boolean));
   }
-  return [];
+  return Array.from(
+    new Set(raw.filter((s) => s.toLowerCase() !== 'general'))
+  );
 }
 
 export const INITIAL_WORDS: WordItem[] = [];
@@ -485,12 +488,15 @@ class VocabularyService {
       if (catLang === target) {
         relevantCats.push({
           ...c,
-          subcategories: c.subcategories ? [...c.subcategories] : [],
+          subcategories: c.subcategories
+            ? c.subcategories.filter((s) => s && s.name && s.name.trim().toLowerCase() !== 'general')
+            : [],
         });
       }
     }
 
-    // 3. Ensure any words in targetWords with categoryGroup / categoryGroups are represented
+    // 3. Ensure any words in targetWords with categoryGroup / categoryGroups and subcategories are represented & persisted
+    let needsPersistCategories = false;
     for (const w of targetWords) {
       const groups = getWordCategories(w);
       const subs = getWordSubcategories(w);
@@ -511,23 +517,49 @@ class VocabularyService {
             language: target,
           };
           relevantCats.push(cat);
+          this.customCategories.push({ ...cat, subcategories: [] });
+          needsPersistCategories = true;
         }
 
         for (const subRaw of subs) {
           const subTrimmed = subRaw.trim();
-          if (!subTrimmed) continue;
+          if (!subTrimmed || subTrimmed.toLowerCase() === 'general') continue;
           if (!cat.subcategories) cat.subcategories = [];
           const subExists = cat.subcategories.some(
             (s) => s.name.trim().toLowerCase() === subTrimmed.toLowerCase()
           );
           if (!subExists) {
-            cat.subcategories.push({
+            const newSub = {
               id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
               name: subTrimmed,
               count: 0,
-            });
+            };
+            cat.subcategories.push(newSub);
+            const persistedCat = this.customCategories.find(
+              (c) =>
+                c.name.trim().toLowerCase() === groupTrimmed.toLowerCase() &&
+                (c.language || 'en').trim().toLowerCase() === target
+            );
+            if (persistedCat) {
+              if (!persistedCat.subcategories) persistedCat.subcategories = [];
+              if (
+                !persistedCat.subcategories.some(
+                  (s) => s.name.trim().toLowerCase() === subTrimmed.toLowerCase()
+                )
+              ) {
+                persistedCat.subcategories.push({ ...newSub });
+                needsPersistCategories = true;
+              }
+            }
           }
         }
+      }
+    }
+
+    if (needsPersistCategories) {
+      this.saveCategoriesToDisk();
+      if (firebaseService.isFirebaseConnected()) {
+        firebaseService.saveCategories(this.customCategories).catch(() => {});
       }
     }
 
@@ -1003,7 +1035,7 @@ class VocabularyService {
     this.saveWords();
 
     backendApi.saveWord(newWord).catch((e) => console.warn('Backend saveWord error', e));
-    notionService.syncWordIfConfigured(newWord).catch((e) => console.warn('Notion syncWord error', e));
+    notionService.syncWordIfConfigured(newWord, this.getCategories(lang)).catch((e) => console.warn('Notion syncWord error', e));
 
     if (firebaseService.isFirebaseConnected()) {
       firebaseService
@@ -1029,14 +1061,200 @@ class VocabularyService {
     this.words[idx] = updatedWord;
     this.saveWords();
 
+    const lang = (updatedWord.language || this.activeLanguage || 'en').trim().toLowerCase();
     backendApi.updateWord(id, updatedWord).catch((e) => console.warn('Backend updateWord error', e));
-    notionService.syncWordIfConfigured(updatedWord).catch((e) => console.warn('Notion updateWord error', e));
+    notionService.syncWordIfConfigured(updatedWord, this.getCategories(lang)).catch((e) => console.warn('Notion updateWord error', e));
 
     if (firebaseService.isFirebaseConnected()) {
       firebaseService.upsertWord(updatedWord).catch((e) => console.warn('Firebase upsertWord error', e));
     }
 
     return updatedWord;
+  }
+
+  /**
+   * Ensures all categories and subcategories from both local words and Notion pages
+   * are created in PronounceIt, and links their corresponding words to those subcategories.
+   */
+  public mergeFromNotionSync(
+    notionWords?: Partial<WordItem>[],
+    language?: string
+  ): {
+    createdCategoriesCount: number;
+    createdSubcategoriesCount: number;
+    importedWordsCount: number;
+    updatedWordsCount: number;
+  } {
+    const targetLang = (language || this.activeLanguage || 'en').trim().toLowerCase();
+    let createdCategoriesCount = 0;
+    let createdSubcategoriesCount = 0;
+    let importedWordsCount = 0;
+    let updatedWordsCount = 0;
+
+    const ensureCatAndSubs = (catNames: string[], subNames: string[]) => {
+      const validCats = catNames.map((c) => c.trim()).filter(Boolean);
+      const validSubs = subNames
+        .map((s) => s.trim())
+        .filter((s) => Boolean(s) && s.toLowerCase() !== 'general');
+
+      for (const catName of validCats.length > 0 ? validCats : ['General']) {
+        let cat = this.customCategories.find(
+          (c) =>
+            c.name.trim().toLowerCase() === catName.toLowerCase() &&
+            (c.language || 'en').trim().toLowerCase() === targetLang
+        );
+        if (!cat) {
+          cat = {
+            id: `cat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            name: catName,
+            icon: 'Folder',
+            count: 0,
+            subcategories: [],
+            language: targetLang,
+          };
+          this.customCategories.push(cat);
+          createdCategoriesCount += 1;
+        }
+        if (!cat.subcategories) cat.subcategories = [];
+
+        for (const subName of validSubs) {
+          const exists = cat.subcategories.some(
+            (s) => s.name.trim().toLowerCase() === subName.toLowerCase()
+          );
+          if (!exists) {
+            cat.subcategories.push({
+              id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              name: subName,
+              count: 0,
+            });
+            createdSubcategoriesCount += 1;
+          }
+        }
+      }
+    };
+
+    // 1. Clean legacy 'General' subcategory on local words and ensure their categories/subcategories exist
+    const wordsToPushFirebase: WordItem[] = [];
+    this.words = this.words.map((w) => {
+      if ((w.language || 'en').trim().toLowerCase() !== targetLang) return w;
+      const cats = getWordCategories(w);
+      const subs = getWordSubcategories(w);
+      ensureCatAndSubs(cats, subs);
+
+      const cleanSubStr = subs.join(', ');
+      if (w.categorySub !== cleanSubStr || JSON.stringify(w.categorySubs || []) !== JSON.stringify(subs)) {
+        const cleanedWord: WordItem = {
+          ...w,
+          categoryGroups: cats.length > 0 ? cats : ['General'],
+          categoryGroup: (cats.length > 0 ? cats : ['General']).join(', '),
+          categorySubs: subs,
+          categorySub: cleanSubStr,
+        };
+        wordsToPushFirebase.push(cleanedWord);
+        return cleanedWord;
+      }
+      return w;
+    });
+
+    // 2. Merge words and subcategories coming from Notion
+    if (Array.isArray(notionWords) && notionWords.length > 0) {
+      for (const nw of notionWords) {
+        const wordText = String(nw?.word || '').trim();
+        if (!wordText) continue;
+
+        const nwCats = getWordCategories(nw);
+        const nwSubs = getWordSubcategories(nw);
+        ensureCatAndSubs(nwCats, nwSubs);
+
+        const existingIdx = this.words.findIndex(
+          (w) =>
+            (w.language || 'en').trim().toLowerCase() === targetLang &&
+            w.word.trim().toLowerCase() === wordText.toLowerCase()
+        );
+
+        if (existingIdx === -1) {
+          const finalCats = nwCats.length > 0 ? nwCats : ['General'];
+          const newWord: WordItem = {
+            id: `word_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            word: wordText,
+            translation: String(nw.translation || wordText).trim(),
+            language: targetLang,
+            ipa: String(nw.ipa || '').trim(),
+            phoneticGuide: String(nw.phoneticGuide || '').trim() || `"${wordText.toLowerCase()}"`,
+            definition: String(nw.translation || wordText).trim(),
+            exampleEn: String(nw.exampleEn || '').trim(),
+            exampleEs: String(nw.exampleEs || '').trim(),
+            level: (nw.level as any) || getWordLevel(wordText),
+            partOfSpeech: (nw.partOfSpeech as any) || 'Sustantivo',
+            status: (nw.status as WordStatus) || 'nueva',
+            isFavorite: false,
+            categoryGroups: finalCats,
+            categoryGroup: finalCats.join(', '),
+            categorySubs: nwSubs,
+            categorySub: nwSubs.join(', '),
+            createdAt: new Date().toISOString(),
+            srsIntervalDays: 1,
+          };
+          this.words.unshift(newWord);
+          wordsToPushFirebase.push(newWord);
+          importedWordsCount += 1;
+        } else {
+          const existingWord = this.words[existingIdx];
+          const localCats = getWordCategories(existingWord);
+          const localSubs = getWordSubcategories(existingWord);
+
+          const mergedSubs = Array.from(new Set([...localSubs, ...nwSubs]));
+          const mergedCats =
+            localCats.length === 1 &&
+            localCats[0].toLowerCase() === 'general' &&
+            nwCats.some((c) => c.toLowerCase() !== 'general')
+              ? nwCats.filter((c) => c.toLowerCase() !== 'general')
+              : Array.from(new Set([...localCats, ...nwCats.filter((c) => c.toLowerCase() !== 'general')]));
+          const finalCats = mergedCats.length > 0 ? mergedCats : ['General'];
+
+          ensureCatAndSubs(finalCats, mergedSubs);
+
+          const subsChanged =
+            JSON.stringify(localSubs) !== JSON.stringify(mergedSubs) ||
+            existingWord.categorySub !== mergedSubs.join(', ');
+          const catsChanged =
+            JSON.stringify(localCats) !== JSON.stringify(finalCats) ||
+            existingWord.categoryGroup !== finalCats.join(', ');
+
+          if (subsChanged || catsChanged) {
+            const updated: WordItem = {
+              ...existingWord,
+              categoryGroups: finalCats,
+              categoryGroup: finalCats.join(', '),
+              categorySubs: mergedSubs,
+              categorySub: mergedSubs.join(', '),
+            };
+            this.words[existingIdx] = updated;
+            wordsToPushFirebase.push(updated);
+            updatedWordsCount += 1;
+          }
+        }
+      }
+    }
+
+    this.saveWords();
+    this.saveCategories();
+
+    if (wordsToPushFirebase.length > 0) {
+      wordsToPushFirebase.forEach((w) => {
+        backendApi.saveWord(w).catch(() => {});
+        if (firebaseService.isFirebaseConnected()) {
+          firebaseService.upsertWord(w).catch(() => {});
+        }
+      });
+    }
+
+    return {
+      createdCategoriesCount,
+      createdSubcategoriesCount,
+      importedWordsCount,
+      updatedWordsCount,
+    };
   }
 
   public deleteWord(id: string): boolean {

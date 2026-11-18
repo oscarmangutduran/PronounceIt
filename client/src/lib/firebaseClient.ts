@@ -1749,10 +1749,19 @@ class FirebaseService {
       categoryGroups: Array.isArray(data.categoryGroups) && data.categoryGroups.length > 0
         ? data.categoryGroups
         : (data.categoryGroup ? [data.categoryGroup] : ['General']),
-      categorySub: data.categorySub || (Array.isArray(data.categorySubs) && data.categorySubs[0]) || 'General',
-      categorySubs: Array.isArray(data.categorySubs) && data.categorySubs.length > 0
-        ? data.categorySubs
-        : (data.categorySub ? [data.categorySub] : ['General']),
+      categorySub: (() => {
+        const rawSubs = Array.isArray(data.categorySubs) && data.categorySubs.length > 0
+          ? data.categorySubs
+          : (data.categorySub ? String(data.categorySub).split(',') : []);
+        const cleanSubs = rawSubs.map((s: string) => String(s || '').trim()).filter((s: string) => Boolean(s) && s.toLowerCase() !== 'general');
+        return cleanSubs.join(', ');
+      })(),
+      categorySubs: (() => {
+        const rawSubs = Array.isArray(data.categorySubs) && data.categorySubs.length > 0
+          ? data.categorySubs
+          : (data.categorySub ? String(data.categorySub).split(',') : []);
+        return rawSubs.map((s: string) => String(s || '').trim()).filter((s: string) => Boolean(s) && s.toLowerCase() !== 'general');
+      })(),
       srsIntervalDays: data.srsIntervalDays ?? 1,
       lastReviewedAt: data.lastReviewedAt,
       createdAt: data.createdAt || new Date().toISOString(),
@@ -1942,8 +1951,8 @@ class FirebaseService {
         isFavorite: word.isFavorite,
         categoryGroup: word.categoryGroup || (word.categoryGroups && word.categoryGroups[0]) || 'General',
         categoryGroups: word.categoryGroups || (word.categoryGroup ? [word.categoryGroup] : ['General']),
-        categorySub: word.categorySub || (word.categorySubs && word.categorySubs[0]) || 'General',
-        categorySubs: word.categorySubs || (word.categorySub ? [word.categorySub] : ['General']),
+        categorySub: (word.categorySubs ? word.categorySubs.filter((s) => s && s.trim().toLowerCase() !== 'general').join(', ') : (word.categorySub && word.categorySub.trim().toLowerCase() !== 'general' ? word.categorySub.trim() : '')),
+        categorySubs: (word.categorySubs || (word.categorySub ? word.categorySub.split(',') : [])).map((s) => s.trim()).filter((s) => Boolean(s) && s.toLowerCase() !== 'general'),
         srsIntervalDays: word.srsIntervalDays ?? 1,
         lastReviewedAt: word.lastReviewedAt || null,
         language: word.language || 'en',
@@ -2073,8 +2082,8 @@ class FirebaseService {
             isFavorite: w.isFavorite,
             categoryGroup: w.categoryGroup || (w.categoryGroups && w.categoryGroups[0]) || 'General',
             categoryGroups: w.categoryGroups || (w.categoryGroup ? [w.categoryGroup] : ['General']),
-            categorySub: w.categorySub || (w.categorySubs && w.categorySubs[0]) || 'General',
-            categorySubs: w.categorySubs || (w.categorySub ? [w.categorySub] : ['General']),
+            categorySub: (w.categorySubs ? w.categorySubs.filter((s) => s && s.trim().toLowerCase() !== 'general').join(', ') : (w.categorySub && w.categorySub.trim().toLowerCase() !== 'general' ? w.categorySub.trim() : '')),
+            categorySubs: (w.categorySubs || (w.categorySub ? w.categorySub.split(',') : [])).map((s) => s.trim()).filter((s) => Boolean(s) && s.toLowerCase() !== 'general'),
             srsIntervalDays: w.srsIntervalDays ?? 1,
             lastReviewedAt: w.lastReviewedAt || null,
             language: w.language || 'en',
