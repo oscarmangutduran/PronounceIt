@@ -997,8 +997,13 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
                           <ChevronRight size={14} color={!isDark ? '#94a3b8' : THEME.colors.textSubtle} />
                         )}
                       </TouchableOpacity>
-                      <Folder size={14} color="#ff4d6d" />
-                      <Text style={[styles.treeHeaderText, !isDark && styles.treeHeaderTextLight]}>{cat.name}</Text>
+                      <Folder size={14} color="#ff4d6d" style={{ flexShrink: 0 }} />
+                      <Text
+                        style={[styles.treeHeaderText, !isDark && styles.treeHeaderTextLight]}
+                        numberOfLines={2}
+                      >
+                        {cat.name}
+                      </Text>
                     </View>
 
                     <View style={styles.actionsContainer}>
@@ -1062,14 +1067,18 @@ export const SidebarCategories: React.FC<SidebarCategoriesProps> = ({
                             activeOpacity={0.8}
                           >
                             <View style={styles.subItemLeft}>
-                              <Pin size={11} color={subActive ? '#ffffff' : (!isDark ? '#94a3b8' : THEME.colors.textSubtle)} />
+                              <Pin
+                                size={11}
+                                color={subActive ? '#ffffff' : (!isDark ? '#94a3b8' : THEME.colors.textSubtle)}
+                                style={{ flexShrink: 0 }}
+                              />
                               <Text
                                 style={[
                                   styles.subItemText,
                                   !isDark && styles.subItemTextLight,
                                   subActive && styles.subItemTextActive,
                                 ]}
-                                numberOfLines={1}
+                                numberOfLines={2}
                               >
                                 {sub.name}
                               </Text>
@@ -1653,26 +1662,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: THEME.radius.sm,
+    gap: 10,
   },
   treeHeaderActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   treeHeaderLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    paddingRight: 8,
   },
   treeHeaderText: {
+    flex: 1,
     fontSize: 12,
     fontWeight: '600',
     color: '#ffffff',
+    lineHeight: 16,
   },
   treeCountText: {
     fontSize: 11,
     fontWeight: '600',
     color: THEME.colors.textSubtle,
+    minWidth: 16,
+    textAlign: 'right',
   },
   subList: {
     paddingLeft: 22,
@@ -1687,20 +1703,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: THEME.radius.sm,
+    gap: 8,
   },
   subItemActive: {
     backgroundColor: THEME.colors.crimson,
   },
   subItemLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    paddingRight: 8,
   },
   subItemText: {
+    flex: 1,
     fontSize: 11,
     color: THEME.colors.textMuted,
+    lineHeight: 15,
   },
   subItemTextActive: {
     color: '#ffffff',
@@ -1803,6 +1824,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    flexShrink: 0,
   },
   actionIconBtn: {
     padding: 3,
