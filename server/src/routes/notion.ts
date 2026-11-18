@@ -28,15 +28,11 @@ export interface NotionWordPayload {
 export function extractNotionDatabaseId(rawInput: string): string | null {
   if (!rawInput || typeof rawInput !== 'string') return null;
   const trimmed = rawInput.trim();
-
-  // If it's a URL, look for the 32-hex-char ID in the path (before ?v=...)
   const withoutQuery = trimmed.split('?')[0];
   const hexMatches = withoutQuery.replace(/-/g, '').match(/[0-9a-fA-F]{32}/g);
   if (hexMatches && hexMatches.length > 0) {
-    // Return the last 32-char match in the path (which is the database ID in Notion URLs)
     return hexMatches[hexMatches.length - 1].toLowerCase();
   }
-
   return null;
 }
 
@@ -49,10 +45,69 @@ function resolveNotionToken(clientToken?: string): string {
   return token;
 }
 
-function mapStatusToNotionLabel(status?: string): string {
-  if (status === 'dominada' || status === 'mastered') return 'Dominada';
-  if (status === 'en_repaso' || status === 'reviewing' || status === 'learning') return 'Repasando';
-  return 'Repasando';
+/**
+ * Maps word status to the Notion gallery badges shown in the user's Notion view:
+ * - 'nueva' -> 'Nuevo' (brown/amber)
+ * - 'en_repaso' -> 'Repasar' (blue)
+ * - 'dominada' -> 'Aprendido' (purple)
+ * Also respects existing option names if the user's database uses 'Dominada' or 'Repasando'.
+ */
+function resolveStatusOptionName(status?: string, existingOptions?: { name: string }[]): string {
+  const opts = Array.isArray(existingOptions) ? existingOptions.map((o) => o.name) : [];
+  const hasOpt = (name: string) => opts.some((o) => o.toLowerCase() === name.toLowerCase());
+
+  if (status === 'dominada' || status === 'mastered') {
+    if (hasOpt('Aprendido')) return 'Aprendido';
+    if (hasOpt('Dominada')) return 'Dominada';
+    return 'Aprendido';
+  }
+  if (status === 'en_repaso' || status === 'reviewing' || status === 'learning') {
+    if (hasOpt('Repasar')) return 'Repasar';
+    if (hasOpt('Repasando')) return 'Repasando';
+    return 'Repasar';
+  }
+  if (hasOpt('Nuevo')) return 'Nuevo';
+  if (hasOpt('Nueva')) return 'Nueva';
+  return 'Nuevo';
+}
+
+function formatPhoneticSlash(word: NotionWordPayload): string {
+  const raw = (word.ipa || word.phoneticGuide || '').trim();
+  if (!raw) return '';
+  if (raw.startsWith('/') && raw.endsWith('/')) return raw;
+  return `/${raw.replace(/^\/+|\/+$/g, '')}/`;
+}
+
+function buildExampleRichText(word: NotionWordPayload): any[] {
+  const en = (word.exampleEn || '').trim();
+  const esRaw = (word.exampleEs || '').trim();
+  const richText: any[] = [];
+
+  if (en) {
+    richText.push({
+      type: 'text',
+      text: {
+        content: esRaw ? `${en}\n` : en,
+      },
+    });
+  }
+
+  if (esRaw) {
+    const esFormatted =
+      esRaw.startsWith('(') && esRaw.endsWith(')') ? esRaw : `(${esRaw})`;
+    richText.push({
+      type: 'text',
+      text: {
+        content: esFormatted,
+      },
+      annotations: {
+        italic: true,
+        color: 'gray',
+      },
+    });
+  }
+
+  return richText;
 }
 
 async function notionFetch(path: string, token: string, options: RequestInit = {}) {
@@ -70,15 +125,14 @@ async function notionFetch(path: string, token: string, options: RequestInit = {
 }
 
 /**
- * Ensures the target Notion database has the properties shown in the PronounceIt Notion template:
- * - Pronunciación (rich_text)
- * - Español (rich_text)
- * - Ejemplo (rich_text)
- * - Frase Español (rich_text)
- * - Estado (select)
- * - Categoría (select)
- * - Sub categoría (select)
- * - Nivel (select: A1..C2)
+ * Ensures the target Notion database has the exact properties matching the user's Notion Gallery & Page view:
+ * - Pronunciación (rich_text) -> /ˈθristy/
+ * - Español (rich_text) -> Sediento
+ * - Ejemplo (rich_text) -> English sentence + newline + gray italic (Spanish sentence)
+ * - Estado (select) -> Nuevo (brown), Repasar (blue), Aprendido (purple), Dominada (default), Repasando (default)
+ * - Categoría (select) -> Rutinas
+ * - Sub categoría (select) -> Meses
+ * - Nivel (select) -> A1, A2, B1, B2, C1, C2
  */
 async function ensureDatabaseSchema(databaseId: string, token: string) {
   const dbRes = await notionFetch(`/databases/${databaseId}`, token, { method: 'GET' });
@@ -106,16 +160,15 @@ async function ensureDatabaseSchema(databaseId: string, token: string) {
   if (!hasAny(['ejemplo', 'frase', 'oración', 'oracion', 'example'])) {
     missingProperties['Ejemplo'] = { rich_text: {} };
   }
-  if (!hasAny(['frase español', 'frase espanol', 'traducción ejemplo', 'traduccion ejemplo'])) {
-    missingProperties['Frase Español'] = { rich_text: {} };
-  }
   if (!hasAny(['estado', 'status'])) {
     missingProperties['Estado'] = {
       select: {
         options: [
-          { name: 'Repasando', color: 'default' },
-          { name: 'Nueva', color: 'blue' },
-          { name: 'Dominada', color: 'green' },
+          { name: 'Nuevo', color: 'brown' },
+          { name: 'Repasar', color: 'blue' },
+          { name: 'Aprendido', color: 'purple' },
+          { name: 'Dominada', color: 'default' },
+          { name: 'Repasando', color: 'gray' },
         ],
       },
     };
@@ -179,19 +232,17 @@ function buildNotionPageProperties(
     ],
   };
 
-  // Helper to find matching property name in database
-  const findProp = (candidates: string[]): { name: string; type: string } | null => {
+  const findProp = (candidates: string[]): { name: string; type: string; def: any } | null => {
     for (const [propName, propDef] of Object.entries(dbProperties)) {
       const lower = propName.trim().toLowerCase();
       if (candidates.some((c) => c.toLowerCase() === lower)) {
-        return { name: propName, type: propDef?.type };
+        return { name: propName, type: propDef?.type, def: propDef };
       }
     }
     return null;
   };
 
-  // Helper to assign value based on actual Notion column type
-  const setPropValue = (propInfo: { name: string; type: string } | null, rawValue: string) => {
+  const setPropValue = (propInfo: { name: string; type: string; def?: any } | null, rawValue: string) => {
     if (!propInfo || !rawValue) return;
     const cleanVal = rawValue.trim();
     if (!cleanVal) return;
@@ -220,39 +271,49 @@ function buildNotionPageProperties(
     }
   };
 
-  // 2. Pronunciación (IPA / phonetic transcription)
-  const phoneticText = word.ipa?.trim() || (word.phoneticGuide ? `/${word.phoneticGuide.trim()}/` : '');
+  // 2. Pronunciación (/ˈθristy/)
+  const phoneticText = formatPhoneticSlash(word);
   setPropValue(
     findProp(['pronunciación', 'pronunciacion', 'fonética', 'fonetica', 'ipa']),
     phoneticText
   );
 
-  // 3. Español (Translation)
+  // 3. Español (Sediento)
   setPropValue(
     findProp(['español', 'espanol', 'traducción', 'traduccion', 'significado']),
     word.translation || ''
   );
 
-  // 4. Ejemplo (English sentence, or combined if no separate Spanish sentence column exists)
-  const fraseEsProp = findProp(['frase español', 'frase espanol', 'traducción ejemplo', 'traduccion ejemplo']);
-  const exampleEn = (word.exampleEn || '').trim();
-  const exampleEs = (word.exampleEs || '').trim();
-
-  if (fraseEsProp) {
-    setPropValue(findProp(['ejemplo', 'frase', 'oración', 'oracion', 'example']), exampleEn);
-    setPropValue(fraseEsProp, exampleEs);
-  } else {
-    const combinedExample =
-      exampleEn && exampleEs
-        ? `${exampleEn} (${exampleEs})`
-        : exampleEn || exampleEs;
-    setPropValue(findProp(['ejemplo', 'frase', 'oración', 'oracion', 'example']), combinedExample);
+  // 4. Ejemplo: English sentence on line 1 + gray italic (Spanish translation) on line 2
+  const ejemploProp = findProp(['ejemplo', 'frase', 'oración', 'oracion', 'example']);
+  const exampleRichText = buildExampleRichText(word);
+  if (ejemploProp && exampleRichText.length > 0) {
+    if (ejemploProp.type === 'rich_text') {
+      props[ejemploProp.name] = {
+        rich_text: exampleRichText,
+      };
+    } else {
+      const fallbackText = [
+        (word.exampleEn || '').trim(),
+        word.exampleEs ? `(${word.exampleEs.trim()})` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+      setPropValue(ejemploProp, fallbackText);
+    }
   }
 
-  // 5. Estado (Repasando / Nueva / Dominada)
+  // 5. Estado: Nuevo / Repasar / Aprendido (or Dominada / Repasando)
   const estadoProp = findProp(['estado', 'status']);
-  if (estadoProp && estadoProp.type !== 'status') {
-    setPropValue(estadoProp, mapStatusToNotionLabel(word.status));
+  if (estadoProp) {
+    const existingOpts =
+      estadoProp.def?.select?.options || estadoProp.def?.status?.options || [];
+    const statusLabel = resolveStatusOptionName(word.status, existingOpts);
+    if (estadoProp.type === 'select') {
+      props[estadoProp.name] = { select: { name: statusLabel } };
+    } else if (estadoProp.type === 'rich_text') {
+      setPropValue(estadoProp, statusLabel);
+    }
   }
 
   // 6. Categoría
@@ -283,61 +344,47 @@ function buildNotionPageProperties(
   return { titlePropName, properties: props };
 }
 
+/**
+ * Builds page body blocks matching the Gallery Card layout in case the user's
+ * Notion Gallery view has "Card preview: Page content" enabled:
+ * - Line 1: /jɔːnd/   Bostezó
+ * - Line 2: English example sentence + gray italic (Spanish translation)
+ */
 function buildNotionPageChildren(word: NotionWordPayload): any[] {
-  const phoneticText = word.ipa?.trim() || (word.phoneticGuide ? `/${word.phoneticGuide.trim()}/` : '');
-  const guideText = word.phoneticGuide?.trim() ? ` (Guía: "${word.phoneticGuide.trim()}")` : '';
-  const blocks: any[] = [
-    {
-      object: 'block',
-      type: 'callout',
-      callout: {
-        icon: { type: 'emoji', emoji: '🔊' },
-        color: 'purple_background',
-        rich_text: [
-          {
-            type: 'text',
-            annotations: { bold: true },
-            text: { content: 'Pronunciación y Traducción: ' },
-          },
-          {
-            type: 'text',
-            text: {
-              content: `${phoneticText}${guideText}  •  🇪🇸 ${word.translation || ''}`,
-            },
-          },
-        ],
-      },
-    },
-  ];
+  const phoneticText = formatPhoneticSlash(word);
+  const translationText = (word.translation || '').trim();
+  const blocks: any[] = [];
 
-  if (word.exampleEn || word.exampleEs) {
+  if (phoneticText || translationText) {
+    const headerRichText: any[] = [];
+    if (phoneticText) {
+      headerRichText.push({
+        type: 'text',
+        text: { content: translationText ? `${phoneticText}   ` : phoneticText },
+      });
+    }
+    if (translationText) {
+      headerRichText.push({
+        type: 'text',
+        text: { content: translationText },
+      });
+    }
     blocks.push({
       object: 'block',
-      type: 'callout',
-      callout: {
-        icon: { type: 'emoji', emoji: '💬' },
-        color: 'gray_background',
-        rich_text: [
-          {
-            type: 'text',
-            annotations: { bold: true },
-            text: { content: 'Ejemplo en Inglés:\n' },
-          },
-          {
-            type: 'text',
-            annotations: { italic: true },
-            text: { content: `${word.exampleEn || '-'}\n\n` },
-          },
-          {
-            type: 'text',
-            annotations: { bold: true },
-            text: { content: 'Traducción en Español:\n' },
-          },
-          {
-            type: 'text',
-            text: { content: `${word.exampleEs || '-'}` },
-          },
-        ],
+      type: 'paragraph',
+      paragraph: {
+        rich_text: headerRichText,
+      },
+    });
+  }
+
+  const exampleRichText = buildExampleRichText(word);
+  if (exampleRichText.length > 0) {
+    blocks.push({
+      object: 'block',
+      type: 'paragraph',
+      paragraph: {
+        rich_text: exampleRichText,
       },
     });
   }

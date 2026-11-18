@@ -65,9 +65,9 @@ function getCandidateApiBases(): string[] {
 }
 
 function mapStatusToNotionLabel(status?: string): string {
-  if (status === 'dominada') return 'Dominada';
-  if (status === 'en_repaso') return 'Repasando';
-  return 'Repasando';
+  if (status === 'dominada') return 'Aprendido';
+  if (status === 'en_repaso') return 'Repasar';
+  return 'Nuevo';
 }
 
 class NotionService {
@@ -256,7 +256,30 @@ class NotionService {
         } else if (['español', 'espanol', 'traducción', 'traduccion', 'significado'].includes(lower)) {
           setVal(w.translation || '');
         } else if (['ejemplo', 'frase', 'oración', 'oracion'].includes(lower)) {
-          setVal(exampleCombined);
+          if (propDef.type === 'rich_text') {
+            const richArr: any[] = [];
+            const en = (w.exampleEn || '').trim();
+            const esRaw = (w.exampleEs || '').trim();
+            if (en) {
+              richArr.push({
+                type: 'text',
+                text: { content: esRaw ? `${en}\n` : en },
+              });
+            }
+            if (esRaw) {
+              const esFormatted = esRaw.startsWith('(') && esRaw.endsWith(')') ? esRaw : `(${esRaw})`;
+              richArr.push({
+                type: 'text',
+                text: { content: esFormatted },
+                annotations: { italic: true, color: 'gray' },
+              });
+            }
+            if (richArr.length > 0) {
+              props[propName] = { rich_text: richArr };
+            }
+          } else {
+            setVal(exampleCombined);
+          }
         } else if (['estado', 'status'].includes(lower) && propDef.type !== 'status') {
           setVal(mapStatusToNotionLabel(w.status));
         } else if (['categoría', 'categoria'].includes(lower)) {

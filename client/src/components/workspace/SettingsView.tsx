@@ -852,7 +852,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           Agrega el ID de tu base de datos de Notion para que cada palabra que añadas o edites se guarde automáticamente con su traducción, oración en inglés y español, transcripción fonética, estado, categoría, subcategoría y nivel (A1 a C2).
         </Text>
 
-        {/* Vista previa de la estructura de página de Notion */}
+        {/* Vista previa de cómo se ven las tarjetas en la Galería de Notion */}
         <View
           style={[
             styles.subApiBox,
@@ -860,33 +860,80 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             { marginBottom: 14, borderColor: 'rgba(230, 46, 76, 0.28)' },
           ]}
         >
-          <Text style={{ fontSize: 11, fontWeight: '800', color: !isDark ? '#0f172a' : '#ffffff', marginBottom: 8 }}>
-            📄 Estructura de cada palabra en tu Notion:
+          <Text style={{ fontSize: 11, fontWeight: '800', color: !isDark ? '#0f172a' : '#ffffff', marginBottom: 10 }}>
+            🗂️ Así se verán las tarjetas de tus palabras en la galería de Notion:
           </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {[
-              { label: 'Título: Palabra (ej. January)', bg: 'rgba(255, 255, 255, 0.08)', color: !isDark ? '#0f172a' : '#ffffff' },
-              { label: '🎙️ Pronunciación (/ˈjanuary/)', bg: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' },
-              { label: '🔤 Español (Enero)', bg: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' },
-              { label: '📝 Ejemplo (Inglés + Español)', bg: 'rgba(230, 46, 76, 0.15)', color: '#ff758c' },
-              { label: '🎓 Estado (Repasando / Dominada)', bg: 'rgba(148, 163, 184, 0.16)', color: '#cbd5e1' },
-              { label: '📁 Categoría y Sub categoría', bg: 'rgba(59, 130, 246, 0.16)', color: '#60a5fa' },
-              { label: '🏷️ Nivel (A1, A2, B1, B2, C1, C2)', bg: 'rgba(16, 185, 129, 0.16)', color: '#34d399' },
-            ].map((chip, i) => (
-              <View
-                key={i}
-                style={{
-                  backgroundColor: !isDark ? '#f1f5f9' : chip.bg,
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                  borderRadius: 6,
-                }}
-              >
-                <Text style={{ fontSize: 10.5, fontWeight: '700', color: !isDark ? '#334155' : chip.color }}>
-                  {chip.label}
+
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {/* Tarjeta de ejemplo 1 */}
+            <View
+              style={{
+                flex: 1,
+                minWidth: 210,
+                backgroundColor: !isDark ? '#f8fafc' : '#1e1e1e',
+                borderWidth: 1,
+                borderColor: !isDark ? '#e2e8f0' : 'rgba(255, 255, 255, 0.1)',
+                borderRadius: 10,
+                padding: 12,
+                gap: 6,
+              }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: '800', color: !isDark ? '#0f172a' : '#ffffff' }}>
+                yawned
+              </Text>
+              <Text style={{ fontSize: 11.5, color: !isDark ? '#334155' : '#e2e8f0' }}>
+                /jɔːnd/   Bostezó
+              </Text>
+              <Text style={{ fontSize: 11, color: !isDark ? '#334155' : '#e2e8f0', lineHeight: 16 }}>
+                She covered her mouth when she yawned during the long lecture.{'\n'}
+                <Text style={{ fontStyle: 'italic', color: !isDark ? '#64748b' : '#9ca3af' }}>
+                  (Se cubrió la boca cuando bostezó durante la larga conferencia.)
                 </Text>
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                <View style={{ backgroundColor: 'rgba(147, 51, 234, 0.35)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 10.5, fontWeight: '700', color: '#e9d5ff' }}>Aprendido</Text>
+                </View>
+                <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.25)', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#6ee7b7' }}>Nivel B2</Text>
+                </View>
               </View>
-            ))}
+            </View>
+
+            {/* Tarjeta de ejemplo 2 */}
+            <View
+              style={{
+                flex: 1,
+                minWidth: 210,
+                backgroundColor: !isDark ? '#f8fafc' : '#1e1e1e',
+                borderWidth: 1,
+                borderColor: !isDark ? '#e2e8f0' : 'rgba(255, 255, 255, 0.1)',
+                borderRadius: 10,
+                padding: 12,
+                gap: 6,
+              }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: '800', color: !isDark ? '#0f172a' : '#ffffff' }}>
+                Tippler
+              </Text>
+              <Text style={{ fontSize: 11.5, color: !isDark ? '#334155' : '#e2e8f0' }}>
+                /ˈtɪplər/   Bebedor
+              </Text>
+              <Text style={{ fontSize: 11, color: !isDark ? '#334155' : '#e2e8f0', lineHeight: 16 }}>
+                The tippler visits the pub every Friday evening.{'\n'}
+                <Text style={{ fontStyle: 'italic', color: !isDark ? '#64748b' : '#9ca3af' }}>
+                  (El bebedor visita el pub cada viernes por la tarde.)
+                </Text>
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                <View style={{ backgroundColor: 'rgba(37, 99, 235, 0.38)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 10.5, fontWeight: '700', color: '#bfdbfe' }}>Repasar</Text>
+                </View>
+                <View style={{ backgroundColor: 'rgba(217, 119, 6, 0.35)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 10.5, fontWeight: '700', color: '#fde68a' }}>Nuevo</Text>
+                </View>
+              </View>
+            </View>
           </View>
         </View>
 
