@@ -340,6 +340,7 @@ class NotionService {
     const qData: any = await qRes.json().catch(() => ({}));
     const notionWords: Partial<WordItem>[] = [];
     const existingPageIdsByWord = new Map<string, string>();
+    const existingNotionWordsMap = new Map<string, Partial<WordItem>>();
 
     if (qRes.ok && Array.isArray(qData?.results)) {
       for (const page of qData.results) {
@@ -380,7 +381,7 @@ class NotionService {
         const estado = readVals(['estado', 'status'])[0] || 'Nuevo';
         const nivel = readVals(['nivel', 'level'])[0] || 'B1';
 
-        notionWords.push({
+        const parsedWord: Partial<WordItem> = {
           word: wTitle,
           translation: esp,
           ipa: pron,
@@ -390,7 +391,9 @@ class NotionService {
           categoryGroup: (cats.length > 0 ? cats : ['General']).join(', '),
           categorySubs: subs,
           categorySub: subs.join(', '),
-        });
+        };
+        notionWords.push(parsedWord);
+        existingNotionWordsMap.set(wTitle.toLowerCase(), parsedWord);
       }
     }
 
@@ -492,6 +495,28 @@ class NotionService {
 
       const existingId = existingPageIdsByWord.get((w.word || '').trim().toLowerCase());
       if (existingId) {
+        const existingWord = existingNotionWordsMap.get((w.word || '').trim().toLowerCase());
+        if (existingWord) {
+          const existingCats = getCleanCats(existingWord);
+          const existingSubs = getCleanSubs(existingWord);
+          const targetCats = getCleanCats(w);
+          const targetSubs = getCleanSubs(w);
+
+          const hasSameCats =
+            targetCats.length === 0 ||
+            (targetCats.length === 1 && targetCats[0].toLowerCase() === 'general') ||
+            targetCats.every((c) => existingCats.some((ec) => ec.toLowerCase() === c.toLowerCase()));
+
+          const hasSameSubs =
+            targetSubs.length === 0 ||
+            targetSubs.every((s) => existingSubs.some((es) => es.toLowerCase() === s.toLowerCase()));
+
+          if (hasSameCats && hasSameSubs) {
+            // Both the word, category and subcategory already exist in Notion: do nothing!
+            return;
+          }
+        }
+
         await fetch(`${NOTION_API_BASE}/pages/${existingId}`, {
           method: 'PATCH',
           headers,

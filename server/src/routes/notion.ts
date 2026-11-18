@@ -948,7 +948,32 @@ async function upsertWordInNotion(
   const { titlePropName, properties } = buildNotionPageProperties(dbProperties, enrichedWord);
 
   if (matchingPages.length > 0) {
-    // Update primary page and any duplicate pages for the same word
+    // If the word, its category and its subcategory already exist in Notion, do nothing!
+    if (existingPage) {
+      const existingCats = getCleanWordCategories(existingPage);
+      const existingSubs = getCleanWordSubcategories(existingPage);
+      const targetCats = getCleanWordCategories(word);
+      const targetSubs = getCleanWordSubcategories(word);
+
+      const hasSameCategories =
+        targetCats.length === 0 ||
+        (targetCats.length === 1 && targetCats[0].toLowerCase() === 'general') ||
+        targetCats.every((c) => existingCats.some((ec) => ec.toLowerCase() === c.toLowerCase()));
+
+      const hasSameSubcategories =
+        targetSubs.length === 0 ||
+        targetSubs.every((s) => existingSubs.some((es) => es.toLowerCase() === s.toLowerCase()));
+
+      if (hasSameCategories && hasSameSubcategories) {
+        return {
+          res: { ok: true, status: 200, data: { id: matchingPages[0].notionPageId } },
+          mergedWord: existingPage,
+          skipped: true,
+        };
+      }
+    }
+
+    // Only update if category or subcategory was missing in Notion
     const patchRes = await notionFetch(`/pages/${matchingPages[0].notionPageId}`, token, {
       method: 'PATCH',
       body: JSON.stringify({ properties }),
@@ -980,8 +1005,33 @@ async function upsertWordInNotion(
     });
 
     if (queryRes.ok && Array.isArray(queryRes.data?.results) && queryRes.data.results.length > 0) {
-      const existingPageId = queryRes.data.results[0].id;
-      const patchRes = await notionFetch(`/pages/${existingPageId}`, token, {
+      const existingPageRaw = queryRes.data.results[0];
+      const parsedExisting = parseNotionPageToWord(existingPageRaw);
+      if (parsedExisting) {
+        const existingCats = getCleanWordCategories(parsedExisting);
+        const existingSubs = getCleanWordSubcategories(parsedExisting);
+        const targetCats = getCleanWordCategories(word);
+        const targetSubs = getCleanWordSubcategories(word);
+
+        const hasSameCategories =
+          targetCats.length === 0 ||
+          (targetCats.length === 1 && targetCats[0].toLowerCase() === 'general') ||
+          targetCats.every((c) => existingCats.some((ec) => ec.toLowerCase() === c.toLowerCase()));
+
+        const hasSameSubcategories =
+          targetSubs.length === 0 ||
+          targetSubs.every((s) => existingSubs.some((es) => es.toLowerCase() === s.toLowerCase()));
+
+        if (hasSameCategories && hasSameSubcategories) {
+          return {
+            res: { ok: true, status: 200, data: { id: existingPageRaw.id } },
+            mergedWord: parsedExisting,
+            skipped: true,
+          };
+        }
+      }
+
+      const patchRes = await notionFetch(`/pages/${existingPageRaw.id}`, token, {
         method: 'PATCH',
         body: JSON.stringify({ properties }),
       });
