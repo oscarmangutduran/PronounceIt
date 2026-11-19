@@ -483,8 +483,9 @@ async function ensureDatabaseSchema(
   await addOptionsToPropertyIfNeeded(findExistingPropName(CATEGORY_CANDIDATES), desiredCategoryNames);
   await addOptionsToPropertyIfNeeded(findExistingPropName(SUBCATEGORY_CANDIDATES), desiredSubcategoryNames);
 
-  // Automatically attempt to create Views (tabs) for subcategories via Notion Views API
-  await ensureDatabaseViews(databaseId, token, desiredSubcategoryNames);
+  // Automatically attempt to create & align Gallery Views (tabs) for subcategories via Notion Views API
+  const subPropActualName = findExistingPropName(SUBCATEGORY_CANDIDATES) || 'Sub categoría';
+  await ensureDatabaseViews(databaseId, token, desiredSubcategoryNames, existingProps, subPropActualName);
 
   return dbRes;
 }
@@ -514,15 +515,98 @@ async function notionViewsFetch(path: string, token: string, options: RequestIni
   return { ok: false, status: 429, data: { message: 'Notion Views API rate limit exceeded' } };
 }
 
+function buildSubcategoryViewFilter(
+  subPropName: string,
+  subPropType: string,
+  cleanSub: string
+): Record<string, any> {
+  if (subPropType === 'multi_select') {
+    return {
+      property: subPropName,
+      type: 'multi_select',
+      multi_select: { contains: cleanSub },
+    };
+  }
+  if (subPropType === 'rich_text') {
+    return {
+      property: subPropName,
+      type: 'rich_text',
+      rich_text: { contains: cleanSub },
+    };
+  }
+  return {
+    property: subPropName,
+    type: 'select',
+    select: { equals: cleanSub },
+  };
+}
+
+function sanitizeGalleryConfiguration(rawConfig: any): Record<string, any> | null {
+  if (!rawConfig || typeof rawConfig !== 'object') return null;
+  const cleaned: Record<string, any> = { type: 'gallery' };
+  const allowedKeys = [
+    'cover',
+    'cover_size',
+    'cover_aspect',
+    'card_layout',
+    'card_preview',
+    'card_size',
+    'fit_image',
+    'properties',
+    'wrap',
+    'wrap_cells',
+  ];
+  for (const k of allowedKeys) {
+    if (rawConfig[k] !== undefined && rawConfig[k] !== null) {
+      cleaned[k] = rawConfig[k];
+    }
+  }
+  return cleaned;
+}
+
+function buildFallbackGalleryConfiguration(dbProperties: Record<string, any>): Record<string, any> {
+  const showCandidates = new Set([
+    'pronunciacion',
+    'fonetica',
+    'ipa',
+    'espanol',
+    'traduccion',
+    'significado',
+    'ejemplo',
+    'frase',
+    'oracion',
+    'example',
+    'estado',
+    'status',
+  ]);
+  const propsConfig: { property_id: string; visible: boolean }[] = [];
+  for (const [propName, propDef] of Object.entries(dbProperties || {})) {
+    const propId = propDef?.id;
+    if (!propId) continue;
+    const isTitle = propDef?.type === 'title';
+    const visible = isTitle || showCandidates.has(normalizePropKey(propName));
+    propsConfig.push({ property_id: propId, visible });
+  }
+  return {
+    type: 'gallery',
+    cover: { type: 'none' },
+    ...(propsConfig.length > 0 ? { properties: propsConfig } : {}),
+  };
+}
+
 /**
- * Automatically creates Notion Database Views (Tabs) for subcategories using Notion's Views API (v2026-03-11).
- * Resolves full view names via GET /v1/views/{id} (since GET /v1/views returns minimal references without `name`),
- * automatically deletes duplicate views with the same normalized name, and NEVER creates duplicates.
+ * Automatically creates & synchronizes Notion Database Views (Tabs) for subcategories using Notion's Views API (v2026-03-11).
+ * - Clones the EXACT card layout/configuration from the user's existing configured Gallery view (e.g. "The little Prince")
+ *   so every subcategory tab looks identical (Title + Pronunciation + Spanish + Example + Status badge).
+ * - Resolves full view details via GET /v1/views/{id}, deletes duplicate views, and updates existing subcategory views
+ *   that were created with an unconfigured layout or missing filter.
  */
 async function ensureDatabaseViews(
   databaseId: string,
   token: string,
-  desiredSubcategoryNames: Set<string>
+  desiredSubcategoryNames: Set<string>,
+  dbProperties: Record<string, any> = {},
+  subPropName = 'Sub categoría'
 ) {
   if (desiredSubcategoryNames.size === 0) return;
   try {
@@ -564,33 +648,85 @@ async function ensureDatabaseViews(
       }
     }
 
-    // 3. Resolve full view objects so we ALWAYS have the real `name` of every existing view!
-    // (GET /v1/views returns minimal references without `name`, so reading `v.name` directly was always empty!)
-    const viewsByNormName = new Map<string, { id: string; name: string }[]>();
+    // 3. Resolve FULL view objects via GET /v1/views/{id} so we have `name`, `type`, `configuration`, and `filter`
+    type ResolvedView = {
+      id: string;
+      name: string;
+      type: string;
+      configuration: any;
+      filter: any;
+    };
+    const viewsByNormName = new Map<string, ResolvedView[]>();
+    const allResolvedViews: ResolvedView[] = [];
 
     for (const ref of rawViewRefs) {
       if (!ref?.id) continue;
-      let viewName = String(ref?.name || '').trim();
-
-      if (!viewName) {
-        const detailRes = await notionViewsFetch(`/views/${ref.id}`, token, { method: 'GET' });
-        if (!detailRes.ok) {
-          console.warn('[Notion Views] Failed to fetch view details; aborting view creation to prevent duplicates:', ref.id, detailRes.status);
-          return;
-        }
-        viewName = String(detailRes.data?.name || '').trim();
+      const detailRes = await notionViewsFetch(`/views/${ref.id}`, token, { method: 'GET' });
+      if (!detailRes.ok) {
+        console.warn('[Notion Views] Failed to fetch view details; aborting view sync to prevent duplicates:', ref.id, detailRes.status);
+        return;
       }
 
+      const viewData = detailRes.data || {};
+      const viewName = String(viewData?.name || ref?.name || '').trim();
       const norm = normalizePropKey(viewName);
       if (!norm) continue;
+
+      const resolved: ResolvedView = {
+        id: ref.id,
+        name: viewName,
+        type: String(viewData?.type || ref?.type || ''),
+        configuration: viewData?.configuration || null,
+        filter: viewData?.filter || null,
+      };
+      allResolvedViews.push(resolved);
       const list = viewsByNormName.get(norm) || [];
-      list.push({ id: ref.id, name: viewName });
+      list.push(resolved);
       viewsByNormName.set(norm, list);
     }
 
-    // 4. Automatically delete duplicate views that share the exact same normalized name (keeping the first one)
+    // 4. Find the user's configured Gallery view to use as the exact visual template for all subcategories
+    const preferredTemplateNorms = ['the little prince', 'halloween', 'meses', 'dias de la semana'];
+    const countVisibleProps = (v: ResolvedView): number => {
+      const props = v.configuration?.properties;
+      if (!Array.isArray(props)) return 0;
+      return props.filter((p: any) => p?.visible).length;
+    };
+
+    const galleryViews = allResolvedViews.filter((v) => v.type === 'gallery');
+    let templateView: ResolvedView | null = null;
+
+    for (const pref of preferredTemplateNorms) {
+      const match = galleryViews.find(
+        (v) => normalizePropKey(v.name) === pref && countVisibleProps(v) >= 2
+      );
+      if (match) {
+        templateView = match;
+        break;
+      }
+    }
+    if (!templateView && galleryViews.length > 0) {
+      const sorted = [...galleryViews].sort((a, b) => countVisibleProps(b) - countVisibleProps(a));
+      if (countVisibleProps(sorted[0]) > 0) {
+        templateView = sorted[0];
+      }
+    }
+
+    const templateGalleryConfig =
+      (templateView ? sanitizeGalleryConfiguration(templateView.configuration) : null) ||
+      buildFallbackGalleryConfiguration(dbProperties);
+    const templateVisibleCount = Array.isArray(templateGalleryConfig.properties)
+      ? templateGalleryConfig.properties.filter((p: any) => p?.visible).length
+      : 0;
+
+    // 5. Delete duplicate views sharing the exact same normalized name (keep the best configured one)
     for (const [norm, list] of viewsByNormName.entries()) {
       if (list.length <= 1) continue;
+      list.sort((a, b) => {
+        const scoreA = (a.type === 'gallery' ? 10 : 0) + countVisibleProps(a) * 2 + (a.filter ? 3 : 0);
+        const scoreB = (b.type === 'gallery' ? 10 : 0) + countVisibleProps(b) * 2 + (b.filter ? 3 : 0);
+        return scoreB - scoreA;
+      });
       const keep = list[0];
       const duplicates = list.slice(1);
       viewsByNormName.set(norm, [keep]);
@@ -605,12 +741,63 @@ async function ensureDatabaseViews(
       }
     }
 
-    // 5. For each desired subcategory, create a Gallery view tab ONLY if it does not already exist
+    const subPropType = dbProperties[subPropName]?.type || 'select';
+
+    // 6. For each desired subcategory:
+    //    - If the view does NOT exist, create it with the exact template gallery layout + subcategory filter.
+    //    - If the view ALREADY exists but doesn't match the template gallery card layout or lacks a filter, PATCH it!
     for (const subName of desiredSubcategoryNames) {
       const cleanSub = String(subName || '').trim().replace(/\s+/g, ' ');
       const normSub = normalizePropKey(cleanSub);
       if (!normSub || normSub === 'general') continue;
-      if (viewsByNormName.has(normSub)) continue;
+
+      const subFilter = buildSubcategoryViewFilter(subPropName, subPropType, cleanSub);
+      const existingList = viewsByNormName.get(normSub);
+
+      if (existingList && existingList.length > 0) {
+        const existingView = existingList[0];
+        if (templateView && existingView.id === templateView.id) continue;
+
+        const existingVisible = countVisibleProps(existingView);
+        const needsLayoutSync =
+          existingView.type === 'gallery' &&
+          ((templateVisibleCount > 0 && existingVisible < templateVisibleCount) ||
+            JSON.stringify(existingView.configuration?.cover || null) !==
+              JSON.stringify(templateGalleryConfig.cover || null));
+        const needsFilterSync = !existingView.filter;
+
+        if (needsLayoutSync || needsFilterSync) {
+          const patchBody: Record<string, any> = {};
+          if (needsLayoutSync) patchBody.configuration = templateGalleryConfig;
+          if (needsFilterSync) patchBody.filter = subFilter;
+
+          let patchRes = await notionViewsFetch(`/views/${existingView.id}`, token, {
+            method: 'PATCH',
+            body: JSON.stringify(patchBody),
+          });
+
+          // Fallback: if Notion rejects full cloned config, try updating only configuration.properties + cover
+          if (!patchRes.ok && patchRes.status === 400 && needsLayoutSync) {
+            const minimalConfig: Record<string, any> = { type: 'gallery' };
+            if (templateGalleryConfig.cover) minimalConfig.cover = templateGalleryConfig.cover;
+            if (templateGalleryConfig.properties) minimalConfig.properties = templateGalleryConfig.properties;
+            patchRes = await notionViewsFetch(`/views/${existingView.id}`, token, {
+              method: 'PATCH',
+              body: JSON.stringify({
+                configuration: minimalConfig,
+                ...(needsFilterSync ? { filter: subFilter } : {}),
+              }),
+            });
+          }
+
+          if (patchRes.ok) {
+            console.log(`[Notion Views] Aligned gallery layout/filter for existing view "${cleanSub}"`);
+          } else {
+            console.warn(`[Notion Views] Could not align view "${cleanSub}":`, patchRes.status, patchRes.data?.message);
+          }
+        }
+        continue;
+      }
 
       const createViewRes = await notionViewsFetch('/views', token, {
         method: 'POST',
@@ -619,38 +806,63 @@ async function ensureDatabaseViews(
           data_source_id: dataSourceId,
           name: cleanSub,
           type: 'gallery',
-          configuration: {
-            type: 'gallery',
-            card_preview: 'page_content',
-          },
-          filter: {
-            property: 'Sub categoría',
-            type: 'select',
-            select: {
-              equals: cleanSub,
-            },
-          },
+          configuration: templateGalleryConfig,
+          filter: subFilter,
         }),
       });
 
       if (createViewRes.ok) {
-        console.log(`[Notion Views] Successfully created view tab for "${cleanSub}"`);
-        viewsByNormName.set(normSub, [{ id: createViewRes.data?.id || '', name: cleanSub }]);
+        console.log(`[Notion Views] Successfully created gallery view tab for "${cleanSub}" matching template`);
+        viewsByNormName.set(normSub, [
+          {
+            id: createViewRes.data?.id || '',
+            name: cleanSub,
+            type: 'gallery',
+            configuration: templateGalleryConfig,
+            filter: subFilter,
+          },
+        ]);
       } else {
-        console.warn(`[Notion Views] Could not create filtered view tab for "${cleanSub}":`, createViewRes.status, createViewRes.data?.message);
+        console.warn(`[Notion Views] Could not create templated view tab for "${cleanSub}":`, createViewRes.status, createViewRes.data?.message);
         if (createViewRes.status === 400) {
-          const fallbackViewRes = await notionViewsFetch('/views', token, {
+          // Fallback: try with minimal gallery config + filter
+          const minimalConfig: Record<string, any> = { type: 'gallery' };
+          if (templateGalleryConfig.cover) minimalConfig.cover = templateGalleryConfig.cover;
+          if (templateGalleryConfig.properties) minimalConfig.properties = templateGalleryConfig.properties;
+
+          let fallbackViewRes = await notionViewsFetch('/views', token, {
             method: 'POST',
             body: JSON.stringify({
               database_id: databaseId,
               data_source_id: dataSourceId,
               name: cleanSub,
               type: 'gallery',
+              configuration: minimalConfig,
+              filter: subFilter,
             }),
           });
+          if (!fallbackViewRes.ok) {
+            fallbackViewRes = await notionViewsFetch('/views', token, {
+              method: 'POST',
+              body: JSON.stringify({
+                database_id: databaseId,
+                data_source_id: dataSourceId,
+                name: cleanSub,
+                type: 'gallery',
+              }),
+            });
+          }
           if (fallbackViewRes.ok) {
-            viewsByNormName.set(normSub, [{ id: fallbackViewRes.data?.id || '', name: cleanSub }]);
-            console.log(`[Notion Views] Fallback view created for "${cleanSub}"`);
+            viewsByNormName.set(normSub, [
+              {
+                id: fallbackViewRes.data?.id || '',
+                name: cleanSub,
+                type: 'gallery',
+                configuration: minimalConfig,
+                filter: subFilter,
+              },
+            ]);
+            console.log(`[Notion Views] Fallback gallery view created for "${cleanSub}"`);
           }
         }
       }
