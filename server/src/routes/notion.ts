@@ -489,9 +489,35 @@ async function ensureDatabaseSchema(
   return dbRes;
 }
 
+async function notionViewsFetch(path: string, token: string, options: RequestInit = {}, retries = 3): Promise<{ ok: boolean; status: number; data: any }> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(`${NOTION_API_BASE}${path}`, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Notion-Version': '2026-03-11',
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+    });
+    const data: any = await res.json().catch(() => ({}));
+
+    if ((res.status === 429 || res.status === 502 || res.status === 503) && attempt < retries) {
+      const retryAfterSec = Number(res.headers.get('retry-after')) || 0;
+      const delayMs = retryAfterSec > 0 ? Math.min(retryAfterSec * 1000, 4000) : 500 * Math.pow(2, attempt);
+      await new Promise((r) => setTimeout(r, delayMs));
+      continue;
+    }
+
+    return { ok: res.ok, status: res.status, data };
+  }
+  return { ok: false, status: 429, data: { message: 'Notion Views API rate limit exceeded' } };
+}
+
 /**
  * Automatically creates Notion Database Views (Tabs) for subcategories using Notion's Views API (v2026-03-11).
- * If the user's workspace/database doesn't support Views API via integration token, it logs gracefully without throwing.
+ * Resolves full view names via GET /v1/views/{id} (since GET /v1/views returns minimal references without `name`),
+ * automatically deletes duplicate views with the same normalized name, and NEVER creates duplicates.
  */
 async function ensureDatabaseViews(
   databaseId: string,
@@ -501,65 +527,93 @@ async function ensureDatabaseViews(
   if (desiredSubcategoryNames.size === 0) return;
   try {
     // 1. Fetch database container with Notion-Version: 2026-03-11 to obtain data_source_id
-    const dbContainerRes = await fetch(`${NOTION_API_BASE}/databases/${databaseId}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Notion-Version': '2026-03-11',
-        'Content-Type': 'application/json',
-      },
-    });
-
+    const dbContainerRes = await notionViewsFetch(`/databases/${databaseId}`, token, { method: 'GET' });
     if (!dbContainerRes.ok) {
       console.warn('[Notion Views] Could not retrieve database with version 2026-03-11:', dbContainerRes.status);
       return;
     }
 
-    const dbData: any = await dbContainerRes.json().catch(() => ({}));
-    const dataSourceId = dbData?.data_sources?.[0]?.id;
+    const dataSourceId = dbContainerRes.data?.data_sources?.[0]?.id;
     if (!dataSourceId) {
       console.warn('[Notion Views] No data_sources array found in database response');
       return;
     }
 
-    // 2. Fetch existing views for this database
-    const viewsRes = await fetch(`${NOTION_API_BASE}/views?database_id=${databaseId}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Notion-Version': '2026-03-11',
-        'Content-Type': 'application/json',
-      },
-    });
+    // 2. Fetch ALL existing view references for this database (with pagination)
+    const rawViewRefs: any[] = [];
+    let startCursor: string | undefined = undefined;
+    let pagesFetched = 0;
 
-    if (!viewsRes.ok) {
-      console.warn('[Notion Views] Could not list existing views; aborting view creation to avoid duplicates:', viewsRes.status);
-      return;
+    while (pagesFetched < 10) {
+      const query = startCursor
+        ? `/views?database_id=${databaseId}&start_cursor=${encodeURIComponent(startCursor)}`
+        : `/views?database_id=${databaseId}`;
+      const viewsRes = await notionViewsFetch(query, token, { method: 'GET' });
+
+      if (!viewsRes.ok || !Array.isArray(viewsRes.data?.results)) {
+        console.warn('[Notion Views] Could not list existing views; aborting view creation to avoid duplicates:', viewsRes.status);
+        return;
+      }
+
+      rawViewRefs.push(...viewsRes.data.results);
+      pagesFetched += 1;
+      if (viewsRes.data?.has_more && viewsRes.data?.next_cursor) {
+        startCursor = viewsRes.data.next_cursor;
+      } else {
+        break;
+      }
     }
 
-    const viewsData: any = await viewsRes.json().catch(() => ({}));
-    if (!Array.isArray(viewsData?.results)) {
-      return;
-    }
-    const existingViews = viewsData.results;
-    const existingViewNames = new Set<string>(
-      existingViews.map((v: any) => normalizePropKey(String(v?.name || '')))
-    );
+    // 3. Resolve full view objects so we ALWAYS have the real `name` of every existing view!
+    // (GET /v1/views returns minimal references without `name`, so reading `v.name` directly was always empty!)
+    const viewsByNormName = new Map<string, { id: string; name: string }[]>();
 
-    // 3. For each subcategory, create a Gallery view tab if it does not exist yet
+    for (const ref of rawViewRefs) {
+      if (!ref?.id) continue;
+      let viewName = String(ref?.name || '').trim();
+
+      if (!viewName) {
+        const detailRes = await notionViewsFetch(`/views/${ref.id}`, token, { method: 'GET' });
+        if (!detailRes.ok) {
+          console.warn('[Notion Views] Failed to fetch view details; aborting view creation to prevent duplicates:', ref.id, detailRes.status);
+          return;
+        }
+        viewName = String(detailRes.data?.name || '').trim();
+      }
+
+      const norm = normalizePropKey(viewName);
+      if (!norm) continue;
+      const list = viewsByNormName.get(norm) || [];
+      list.push({ id: ref.id, name: viewName });
+      viewsByNormName.set(norm, list);
+    }
+
+    // 4. Automatically delete duplicate views that share the exact same normalized name (keeping the first one)
+    for (const [norm, list] of viewsByNormName.entries()) {
+      if (list.length <= 1) continue;
+      const keep = list[0];
+      const duplicates = list.slice(1);
+      viewsByNormName.set(norm, [keep]);
+
+      for (const dup of duplicates) {
+        const delRes = await notionViewsFetch(`/views/${dup.id}`, token, { method: 'DELETE' });
+        if (delRes.ok) {
+          console.log(`[Notion Views] Deleted duplicate view "${dup.name}" (${dup.id})`);
+        } else {
+          console.warn(`[Notion Views] Could not delete duplicate view "${dup.name}":`, delRes.status, delRes.data?.message);
+        }
+      }
+    }
+
+    // 5. For each desired subcategory, create a Gallery view tab ONLY if it does not already exist
     for (const subName of desiredSubcategoryNames) {
       const cleanSub = String(subName || '').trim().replace(/\s+/g, ' ');
       const normSub = normalizePropKey(cleanSub);
       if (!normSub || normSub === 'general') continue;
-      if (existingViewNames.has(normSub)) continue;
+      if (viewsByNormName.has(normSub)) continue;
 
-      const createViewRes = await fetch(`${NOTION_API_BASE}/views`, {
+      const createViewRes = await notionViewsFetch('/views', token, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Notion-Version': '2026-03-11',
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           database_id: databaseId,
           data_source_id: dataSourceId,
@@ -581,19 +635,12 @@ async function ensureDatabaseViews(
 
       if (createViewRes.ok) {
         console.log(`[Notion Views] Successfully created view tab for "${cleanSub}"`);
-        existingViewNames.add(normSub);
+        viewsByNormName.set(normSub, [{ id: createViewRes.data?.id || '', name: cleanSub }]);
       } else {
-        const errJson: any = await createViewRes.json().catch(() => ({}));
-        console.warn(`[Notion Views] Could not create filtered view tab for "${cleanSub}":`, createViewRes.status, errJson?.message);
-        // Fallback: retry creating a view without filter
+        console.warn(`[Notion Views] Could not create filtered view tab for "${cleanSub}":`, createViewRes.status, createViewRes.data?.message);
         if (createViewRes.status === 400) {
-          const fallbackViewRes = await fetch(`${NOTION_API_BASE}/views`, {
+          const fallbackViewRes = await notionViewsFetch('/views', token, {
             method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Notion-Version': '2026-03-11',
-              'Content-Type': 'application/json',
-            },
             body: JSON.stringify({
               database_id: databaseId,
               data_source_id: dataSourceId,
@@ -602,7 +649,7 @@ async function ensureDatabaseViews(
             }),
           });
           if (fallbackViewRes.ok) {
-            existingViewNames.add(normSub);
+            viewsByNormName.set(normSub, [{ id: fallbackViewRes.data?.id || '', name: cleanSub }]);
             console.log(`[Notion Views] Fallback view created for "${cleanSub}"`);
           }
         }

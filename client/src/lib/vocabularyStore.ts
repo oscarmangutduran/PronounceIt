@@ -382,6 +382,8 @@ class VocabularyService {
       }
     }
 
+    this.words = deduplicateWords(this.words);
+    this.customCategories = deduplicateCategories(this.customCategories);
     this.saveWords();
     this.saveCategories();
   }
@@ -1390,6 +1392,8 @@ class VocabularyService {
       }
     }
 
+    this.words = deduplicateWords(this.words);
+    this.customCategories = deduplicateCategories(this.customCategories);
     this.saveWords();
     this.saveCategories();
 
@@ -1447,6 +1451,8 @@ class VocabularyService {
     const categoriesToDelete = this.customCategories.filter((c) => (c.language || 'en').toLowerCase() === cleanLang);
     this.customCategories = this.customCategories.filter((c) => (c.language || 'en').toLowerCase() !== cleanLang);
 
+    this.words = deduplicateWords(this.words);
+    this.customCategories = deduplicateCategories(this.customCategories);
     this.saveWords();
     this.saveCategories();
 
@@ -1500,6 +1506,8 @@ class VocabularyService {
       appStorage.removeMatching(/^pronounceit_user_categories_/);
     } catch {}
 
+    this.words = deduplicateWords(this.words);
+    this.customCategories = deduplicateCategories(this.customCategories);
     this.saveWords();
     this.saveCategories();
 
