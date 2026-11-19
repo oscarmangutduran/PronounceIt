@@ -3,7 +3,7 @@ import { WordItem, CategoryItem, WordStatus } from '../types';
 import { firebaseService } from './firebaseClient';
 import { backendApi } from './apiClient';
 import { appStorage } from './storage';
-import { deduplicateCategories } from './categoryUtils';
+import { deduplicateCategories, deduplicateWords, normalizeEntityKey } from './categoryUtils';
 
 import { networkService } from './networkService';
 import { getWordLevel } from './dictionaryService';
@@ -166,7 +166,7 @@ class VocabularyService {
         (w) => this.pendingSyncIds.has(w.id) && !remoteIds.has(w.id) && !this.deletedWordIds.has(w.id)
       );
 
-      const merged = [...pendingLocalWords, ...remoteWords];
+      const merged = deduplicateWords([...pendingLocalWords, ...remoteWords]);
       merged.sort((a, b) => {
         const timeA = new Date(a.createdAt || 0).getTime();
         const timeB = new Date(b.createdAt || 0).getTime();
@@ -625,8 +625,9 @@ class VocabularyService {
 
     this.customCategories = deduplicateCategories(this.customCategories);
 
+    const trimmedNorm = normalizeEntityKey(trimmed);
     const existing = this.customCategories.find(
-      (c) => c.name.trim().toLowerCase() === trimmed.toLowerCase() && (c.language || 'en').trim().toLowerCase() === lang
+      (c) => normalizeEntityKey(c.name) === trimmedNorm && (c.language || 'en').trim().toLowerCase() === lang
     );
     if (existing) {
       if (initialSubcategories && initialSubcategories.length > 0) {
@@ -635,13 +636,15 @@ class VocabularyService {
       return existing;
     }
 
-    const validSubs = Array.from(
-      new Set(
-        initialSubcategories
-          .map((s) => s.trim())
-          .filter(Boolean)
-      )
-    ).map((subName, idx) => ({
+    const subSeen = new Map<string, string>();
+    for (const rawSub of initialSubcategories || []) {
+      const cleanSub = String(rawSub || '').trim().replace(/\s+/g, ' ');
+      const subKey = normalizeEntityKey(cleanSub);
+      if (subKey && subKey !== 'general' && !subSeen.has(subKey)) {
+        subSeen.set(subKey, cleanSub);
+      }
+    }
+    const validSubs = Array.from(subSeen.values()).map((subName, idx) => ({
       id: `sub_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
       name: subName,
       count: 0,
@@ -832,8 +835,10 @@ class VocabularyService {
     }
 
     if (!cat.subcategories) cat.subcategories = [];
+    const trimmedNorm = normalizeEntityKey(trimmed);
+    if (!trimmedNorm || trimmedNorm === 'general') return false;
     const exists = cat.subcategories.some(
-      (s) => s.name.toLowerCase() === trimmed.toLowerCase()
+      (s) => normalizeEntityKey(s.name) === trimmedNorm
     );
     if (exists) return false;
 
@@ -843,6 +848,7 @@ class VocabularyService {
       count: 0,
     });
 
+    this.customCategories = deduplicateCategories(this.customCategories);
     this.saveCategories();
     try {
       import('./notionService').then(({ notionService }) => {
@@ -871,10 +877,11 @@ class VocabularyService {
 
     let addedAny = false;
     subNames.forEach((subName) => {
-      const trimmed = subName.trim();
-      if (!trimmed) return;
+      const trimmed = subName.trim().replace(/\s+/g, ' ');
+      const trimmedNorm = normalizeEntityKey(trimmed);
+      if (!trimmedNorm || trimmedNorm === 'general') return;
       const exists = cat!.subcategories!.some(
-        (s) => s.name.toLowerCase() === trimmed.toLowerCase()
+        (s) => normalizeEntityKey(s.name) === trimmedNorm
       );
       if (!exists) {
         cat!.subcategories!.push({
@@ -887,6 +894,7 @@ class VocabularyService {
     });
 
     if (addedAny) {
+      this.customCategories = deduplicateCategories(this.customCategories);
       this.saveCategories();
       try {
         import('./notionService').then(({ notionService }) => {
@@ -1059,8 +1067,69 @@ class VocabularyService {
 
   public addWord(wordData: Omit<WordItem, 'id'>, language?: string): WordItem {
     const lang = (wordData.language || language || this.activeLanguage || 'en').trim().toLowerCase();
+    const cleanWordText = String(wordData.word || '').trim().replace(/\s+/g, ' ');
+    const normWord = normalizeEntityKey(cleanWordText);
+
+    // Prevent duplicate words in the same language (case/accent/space insensitive)
+    const existingIdx = this.words.findIndex(
+      (w) =>
+        (w.language || 'en').trim().toLowerCase() === lang &&
+        normalizeEntityKey(w.word) === normWord
+    );
+
+    if (existingIdx !== -1) {
+      const existing = this.words[existingIdx];
+      const existingCats = getWordCategories(existing);
+      const existingSubs = getWordSubcategories(existing);
+      const incomingCats = getWordCategories(wordData);
+      const incomingSubs = getWordSubcategories(wordData);
+
+      const catMap = new Map<string, string>();
+      [...existingCats, ...incomingCats].forEach((c) => {
+        const k = normalizeEntityKey(c);
+        if (k && k !== 'general' && !catMap.has(k)) catMap.set(k, c.trim());
+      });
+      const finalCats = catMap.size > 0 ? Array.from(catMap.values()) : ['General'];
+
+      const subMap = new Map<string, string>();
+      [...existingSubs, ...incomingSubs].forEach((s) => {
+        const k = normalizeEntityKey(s);
+        if (k && k !== 'general' && !subMap.has(k)) subMap.set(k, s.trim());
+      });
+      const finalSubs = Array.from(subMap.values());
+
+      const catsChanged =
+        existingCats.length !== finalCats.length ||
+        finalCats.some((c) => !existingCats.some((ec) => normalizeEntityKey(ec) === normalizeEntityKey(c)));
+      const subsChanged =
+        existingSubs.length !== finalSubs.length ||
+        finalSubs.some((s) => !existingSubs.some((es) => normalizeEntityKey(es) === normalizeEntityKey(s)));
+
+      // If word, category and subcategory already exist -> do nothing!
+      if (!catsChanged && !subsChanged) {
+        return existing;
+      }
+
+      const mergedWord: WordItem = {
+        ...existing,
+        categoryGroups: finalCats,
+        categoryGroup: finalCats.join(', '),
+        categorySubs: finalSubs,
+        categorySub: finalSubs.join(', '),
+      };
+      this.words[existingIdx] = mergedWord;
+      this.saveWords();
+      backendApi.updateWord(mergedWord.id, mergedWord).catch(() => {});
+      notionService.syncWordIfConfigured(mergedWord, this.getCategories(lang)).catch(() => {});
+      if (firebaseService.isFirebaseConnected()) {
+        firebaseService.upsertWord(mergedWord).catch(() => {});
+      }
+      return mergedWord;
+    }
+
     const newWord: WordItem = {
       ...wordData,
+      word: cleanWordText,
       language: lang,
       id: `word_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString(),
@@ -1072,7 +1141,7 @@ class VocabularyService {
 
     this.recordStreakToday();
 
-    this.words = [newWord, ...this.words];
+    this.words = deduplicateWords([newWord, ...this.words]);
     this.saveWords();
 
     backendApi.saveWord(newWord).catch((e) => console.warn('Backend saveWord error', e));
@@ -1094,15 +1163,33 @@ class VocabularyService {
     const idx = this.words.findIndex((w) => w.id === id);
     if (idx === -1) return null;
 
+    const current = this.words[idx];
+    const lang = (updates.language || current.language || this.activeLanguage || 'en').trim().toLowerCase();
+
+    // Prevent renaming a word to an already existing word in the same language
+    let nextWordText = updates.word !== undefined ? String(updates.word).trim().replace(/\s+/g, ' ') : current.word;
+    if (updates.word !== undefined) {
+      const nextNorm = normalizeEntityKey(nextWordText);
+      const duplicateExists = this.words.some(
+        (w) =>
+          w.id !== id &&
+          (w.language || 'en').trim().toLowerCase() === lang &&
+          normalizeEntityKey(w.word) === nextNorm
+      );
+      if (duplicateExists) {
+        nextWordText = current.word;
+      }
+    }
+
     const updatedWord: WordItem = {
-      ...this.words[idx],
+      ...current,
       ...updates,
+      word: nextWordText,
     };
 
     this.words[idx] = updatedWord;
     this.saveWords();
 
-    const lang = (updatedWord.language || this.activeLanguage || 'en').trim().toLowerCase();
     backendApi.updateWord(id, updatedWord).catch((e) => console.warn('Backend updateWord error', e));
     notionService.syncWordIfConfigured(updatedWord, this.getCategories(lang)).catch((e) => console.warn('Notion updateWord error', e));
 
@@ -1139,9 +1226,10 @@ class VocabularyService {
         .filter((s) => Boolean(s) && s.toLowerCase() !== 'general');
 
       for (const catName of validCats.length > 0 ? validCats : ['General']) {
+        const normCat = normalizeEntityKey(catName);
         let cat = this.customCategories.find(
           (c) =>
-            c.name.trim().toLowerCase() === catName.toLowerCase() &&
+            normalizeEntityKey(c.name) === normCat &&
             (c.language || 'en').trim().toLowerCase() === targetLang
         );
         if (!cat) {
@@ -1159,8 +1247,9 @@ class VocabularyService {
         if (!cat.subcategories) cat.subcategories = [];
 
         for (const subName of validSubs) {
+          const normSub = normalizeEntityKey(subName);
           const exists = cat.subcategories.some(
-            (s) => s.name.trim().toLowerCase() === subName.toLowerCase()
+            (s) => normalizeEntityKey(s.name) === normSub
           );
           if (!exists) {
             cat.subcategories.push({
@@ -1208,10 +1297,11 @@ class VocabularyService {
         const hasRealCategory = nwCats.some((c) => c.toLowerCase() !== 'general');
         const hasRealSubcategory = nwSubs.length > 0;
 
+        const normWordText = normalizeEntityKey(wordText);
         const existingIdx = this.words.findIndex(
           (w) =>
             (w.language || 'en').trim().toLowerCase() === targetLang &&
-            w.word.trim().toLowerCase() === wordText.toLowerCase()
+            normalizeEntityKey(w.word) === normWordText
         );
 
         // Only auto-create categories/subcategories or import new words from Notion if they have a real category or subcategory
@@ -1255,14 +1345,25 @@ class VocabularyService {
           const localCats = getWordCategories(existingWord);
           const localSubs = getWordSubcategories(existingWord);
 
-          const mergedSubs = Array.from(new Set([...localSubs, ...nwSubs]));
-          const mergedCats =
+          const subMap = new Map<string, string>();
+          [...localSubs, ...nwSubs].forEach((s) => {
+            const k = normalizeEntityKey(s);
+            if (k && k !== 'general' && !subMap.has(k)) subMap.set(k, s.trim());
+          });
+          const mergedSubs = Array.from(subMap.values());
+
+          const catMap = new Map<string, string>();
+          const rawCatsToMerge =
             localCats.length === 1 &&
             localCats[0].toLowerCase() === 'general' &&
             nwCats.some((c) => c.toLowerCase() !== 'general')
               ? nwCats.filter((c) => c.toLowerCase() !== 'general')
-              : Array.from(new Set([...localCats, ...nwCats.filter((c) => c.toLowerCase() !== 'general')]));
-          const finalCats = mergedCats.length > 0 ? mergedCats : ['General'];
+              : [...localCats, ...nwCats.filter((c) => c.toLowerCase() !== 'general')];
+          rawCatsToMerge.forEach((c) => {
+            const k = normalizeEntityKey(c);
+            if (k && !catMap.has(k)) catMap.set(k, c.trim());
+          });
+          const finalCats = catMap.size > 0 ? Array.from(catMap.values()) : ['General'];
 
           ensureCatAndSubs(finalCats, mergedSubs);
 

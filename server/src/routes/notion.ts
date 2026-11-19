@@ -353,22 +353,32 @@ async function ensureDatabaseSchema(
     }
   }
 
-  // STEP 2: Collect all unique categories and subcategories from payload and register options
-  const desiredCategoryNames = new Set<string>();
-  const desiredSubcategoryNames = new Set<string>();
+  // STEP 2: Collect all unique categories and subcategories (deduplicated case/accent/space-insensitively)
+  const desiredCategoryMap = new Map<string, string>();
+  const desiredSubcategoryMap = new Map<string, string>();
+
+  const addDesiredCat = (rawName: string) => {
+    const clean = String(rawName || '').trim().replace(/\s+/g, ' ').replace(/,/g, ' ').slice(0, 95);
+    const norm = normalizePropKey(clean);
+    if (norm && norm !== 'general' && !desiredCategoryMap.has(norm)) {
+      desiredCategoryMap.set(norm, clean);
+    }
+  };
+
+  const addDesiredSub = (rawName: string) => {
+    const clean = String(rawName || '').trim().replace(/\s+/g, ' ').replace(/,/g, ' ').slice(0, 95);
+    const norm = normalizePropKey(clean);
+    if (norm && norm !== 'general' && !desiredSubcategoryMap.has(norm)) {
+      desiredSubcategoryMap.set(norm, clean);
+    }
+  };
 
   if (Array.isArray(categoriesPayload)) {
     for (const cat of categoriesPayload) {
-      const cName = String(cat?.name || '').trim();
-      if (cName && cName.toLowerCase() !== 'general') {
-        desiredCategoryNames.add(cName.replace(/,/g, ' ').slice(0, 95));
-      }
+      addDesiredCat(cat?.name || '');
       if (Array.isArray(cat?.subcategories)) {
         for (const sub of cat.subcategories) {
-          const sName = String(sub?.name || '').trim();
-          if (sName && sName.toLowerCase() !== 'general') {
-            desiredSubcategoryNames.add(sName.replace(/,/g, ' ').slice(0, 95));
-          }
+          addDesiredSub(sub?.name || '');
         }
       }
     }
@@ -378,17 +388,16 @@ async function ensureDatabaseSchema(
     for (const w of wordsPayload) {
       if (!w) continue;
       for (const cName of getCleanWordCategories(w)) {
-        if (cName && cName.toLowerCase() !== 'general') {
-          desiredCategoryNames.add(cName.replace(/,/g, ' ').slice(0, 95));
-        }
+        addDesiredCat(cName);
       }
       for (const sName of getCleanWordSubcategories(w)) {
-        if (sName && sName.toLowerCase() !== 'general') {
-          desiredSubcategoryNames.add(sName.replace(/,/g, ' ').slice(0, 95));
-        }
+        addDesiredSub(sName);
       }
     }
   }
+
+  const desiredCategoryNames = new Set<string>(desiredCategoryMap.values());
+  const desiredSubcategoryNames = new Set<string>(desiredSubcategoryMap.values());
 
   const addOptionsToPropertyIfNeeded = async (propName: string | null, desiredNames: Set<string>) => {
     if (!propName || desiredNames.size === 0) return;
@@ -397,11 +406,11 @@ async function ensureDatabaseSchema(
 
     const propType = propDef.type;
     const currentOptions: any[] = propDef[propType]?.options || [];
-    const existingNamesLower = new Set(
-      currentOptions.map((o: any) => String(o?.name || '').trim().toLowerCase())
+    const existingNamesNorm = new Set(
+      currentOptions.map((o: any) => normalizePropKey(String(o?.name || '')))
     );
     const newNames = Array.from(desiredNames).filter(
-      (n) => !existingNamesLower.has(n.toLowerCase())
+      (n) => !existingNamesNorm.has(normalizePropKey(n))
     );
 
     if (newNames.length === 0) return;
@@ -514,14 +523,15 @@ async function ensureDatabaseViews(
     const viewsData: any = await viewsRes.json().catch(() => ({}));
     const existingViews = Array.isArray(viewsData?.results) ? viewsData.results : [];
     const existingViewNames = new Set<string>(
-      existingViews.map((v: any) => String(v?.name || '').trim().toLowerCase())
+      existingViews.map((v: any) => normalizePropKey(String(v?.name || '')))
     );
 
     // 3. For each subcategory, create a Gallery view tab if it does not exist yet
     for (const subName of desiredSubcategoryNames) {
-      const cleanSub = String(subName || '').trim();
-      if (!cleanSub || cleanSub.toLowerCase() === 'general') continue;
-      if (existingViewNames.has(cleanSub.toLowerCase())) continue;
+      const cleanSub = String(subName || '').trim().replace(/\s+/g, ' ');
+      const normSub = normalizePropKey(cleanSub);
+      if (!normSub || normSub === 'general') continue;
+      if (existingViewNames.has(normSub)) continue;
 
       const createViewRes = await fetch(`${NOTION_API_BASE}/views`, {
         method: 'POST',
@@ -551,7 +561,7 @@ async function ensureDatabaseViews(
 
       if (createViewRes.ok) {
         console.log(`[Notion Views] Successfully created view tab for "${cleanSub}"`);
-        existingViewNames.add(cleanSub.toLowerCase());
+        existingViewNames.add(normSub);
       } else {
         const errJson: any = await createViewRes.json().catch(() => ({}));
         console.warn(`[Notion Views] Could not create filtered view tab for "${cleanSub}":`, createViewRes.status, errJson?.message);
@@ -572,7 +582,7 @@ async function ensureDatabaseViews(
             }),
           });
           if (fallbackViewRes.ok) {
-            existingViewNames.add(cleanSub.toLowerCase());
+            existingViewNames.add(normSub);
             console.log(`[Notion Views] Fallback view created for "${cleanSub}"`);
           }
         }
@@ -894,23 +904,34 @@ async function upsertWordInNotion(
   word: NotionWordPayload,
   existingPagesByWordLower?: Map<string, (NotionWordPayload & { notionPageId: string })[]>
 ) {
-  const wordKey = (word.word || '').trim().toLowerCase();
+  const wordKey = normalizePropKey(word.word || '');
   const matchingPages = existingPagesByWordLower?.get(wordKey) || [];
   const existingPage = matchingPages[0];
 
   // Merge subcategories & categories if the Notion page already had a subcategory that the local word lacked
   const localSubs = getCleanWordSubcategories(word);
   const existingNotionSubs = existingPage ? getCleanWordSubcategories(existingPage) : [];
-  const mergedSubs = Array.from(new Set([...localSubs, ...existingNotionSubs]));
+  const subDedupMap = new Map<string, string>();
+  [...localSubs, ...existingNotionSubs].forEach((s) => {
+    const k = normalizePropKey(s);
+    if (k && k !== 'general' && !subDedupMap.has(k)) subDedupMap.set(k, s.trim());
+  });
+  const mergedSubs = Array.from(subDedupMap.values());
 
   const localCats = getCleanWordCategories(word);
   const existingNotionCats = existingPage ? getCleanWordCategories(existingPage) : [];
-  const mergedCats =
+  const catDedupMap = new Map<string, string>();
+  const rawCats =
     localCats.length === 1 &&
-    localCats[0].toLowerCase() === 'general' &&
-    existingNotionCats.some((c) => c.toLowerCase() !== 'general')
-      ? existingNotionCats.filter((c) => c.toLowerCase() !== 'general')
-      : Array.from(new Set([...localCats, ...existingNotionCats.filter((c) => c.toLowerCase() !== 'general')]));
+    normalizePropKey(localCats[0]) === 'general' &&
+    existingNotionCats.some((c) => normalizePropKey(c) !== 'general')
+      ? existingNotionCats.filter((c) => normalizePropKey(c) !== 'general')
+      : [...localCats, ...existingNotionCats.filter((c) => normalizePropKey(c) !== 'general')];
+  rawCats.forEach((c) => {
+    const k = normalizePropKey(c);
+    if (k && !catDedupMap.has(k)) catDedupMap.set(k, c.trim());
+  });
+  const mergedCats = Array.from(catDedupMap.values());
 
   const enrichedWord: NotionWordPayload = {
     ...word,
@@ -932,12 +953,12 @@ async function upsertWordInNotion(
 
       const hasSameCategories =
         targetCats.length === 0 ||
-        (targetCats.length === 1 && targetCats[0].toLowerCase() === 'general') ||
-        targetCats.every((c) => existingCats.some((ec) => ec.toLowerCase() === c.toLowerCase()));
+        (targetCats.length === 1 && normalizePropKey(targetCats[0]) === 'general') ||
+        targetCats.every((c) => existingCats.some((ec) => normalizePropKey(ec) === normalizePropKey(c)));
 
       const hasSameSubcategories =
         targetSubs.length === 0 ||
-        targetSubs.every((s) => existingSubs.some((es) => es.toLowerCase() === s.toLowerCase()));
+        targetSubs.every((s) => existingSubs.some((es) => normalizePropKey(es) === normalizePropKey(s)));
 
       if (hasSameCategories && hasSameSubcategories) {
         // Ensure content blocks exist even if properties are unchanged
@@ -974,18 +995,10 @@ async function upsertWordInNotion(
         });
       }
     } catch {}
-    if (matchingPages.length > 1) {
-      for (let i = 1; i < matchingPages.length; i++) {
-        await notionFetch(`/pages/${matchingPages[i].notionPageId}`, token, {
-          method: 'PATCH',
-          body: JSON.stringify({ properties }),
-        }).catch(() => {});
-      }
-    }
     return { res: patchRes, mergedWord: enrichedWord };
   }
 
-  // Fallback query if map wasn't preloaded
+  // Fallback query if map wasn't preloaded (case & accent insensitive match to prevent duplicates)
   if (!existingPagesByWordLower) {
     const queryRes = await notionFetch(`/databases/${databaseId}/query`, token, {
       method: 'POST',
@@ -993,45 +1006,52 @@ async function upsertWordInNotion(
         filter: {
           property: titlePropName,
           title: {
-            equals: (word.word || '').trim(),
+            contains: (word.word || '').trim(),
           },
         },
-        page_size: 5,
+        page_size: 20,
       }),
     });
 
     if (queryRes.ok && Array.isArray(queryRes.data?.results) && queryRes.data.results.length > 0) {
-      const existingPageRaw = queryRes.data.results[0];
-      const parsedExisting = parseNotionPageToWord(existingPageRaw);
-      if (parsedExisting) {
-        const existingCats = getCleanWordCategories(parsedExisting);
-        const existingSubs = getCleanWordSubcategories(parsedExisting);
-        const targetCats = getCleanWordCategories(word);
-        const targetSubs = getCleanWordSubcategories(word);
-
-        const hasSameCategories =
-          targetCats.length === 0 ||
-          (targetCats.length === 1 && targetCats[0].toLowerCase() === 'general') ||
-          targetCats.every((c) => existingCats.some((ec) => ec.toLowerCase() === c.toLowerCase()));
-
-        const hasSameSubcategories =
-          targetSubs.length === 0 ||
-          targetSubs.every((s) => existingSubs.some((es) => es.toLowerCase() === s.toLowerCase()));
-
-        if (hasSameCategories && hasSameSubcategories) {
-          return {
-            res: { ok: true, status: 200, data: { id: existingPageRaw.id } },
-            mergedWord: parsedExisting,
-            skipped: true,
-          };
-        }
-      }
-
-      const patchRes = await notionFetch(`/pages/${existingPageRaw.id}`, token, {
-        method: 'PATCH',
-        body: JSON.stringify({ properties }),
+      const exactMatchRaw = queryRes.data.results.find((rawPage: any) => {
+        if (rawPage?.archived || rawPage?.in_trash) return false;
+        const parsed = parseNotionPageToWord(rawPage);
+        return parsed && normalizePropKey(parsed.word) === wordKey;
       });
-      return { res: patchRes, mergedWord: enrichedWord };
+
+      if (exactMatchRaw) {
+        const parsedExisting = parseNotionPageToWord(exactMatchRaw);
+        if (parsedExisting) {
+          const existingCats = getCleanWordCategories(parsedExisting);
+          const existingSubs = getCleanWordSubcategories(parsedExisting);
+          const targetCats = getCleanWordCategories(word);
+          const targetSubs = getCleanWordSubcategories(word);
+
+          const hasSameCategories =
+            targetCats.length === 0 ||
+            (targetCats.length === 1 && normalizePropKey(targetCats[0]) === 'general') ||
+            targetCats.every((c) => existingCats.some((ec) => normalizePropKey(ec) === normalizePropKey(c)));
+
+          const hasSameSubcategories =
+            targetSubs.length === 0 ||
+            targetSubs.every((s) => existingSubs.some((es) => normalizePropKey(es) === normalizePropKey(s)));
+
+          if (hasSameCategories && hasSameSubcategories) {
+            return {
+              res: { ok: true, status: 200, data: { id: exactMatchRaw.id } },
+              mergedWord: parsedExisting,
+              skipped: true,
+            };
+          }
+        }
+
+        const patchRes = await notionFetch(`/pages/${exactMatchRaw.id}`, token, {
+          method: 'PATCH',
+          body: JSON.stringify({ properties }),
+        });
+        return { res: patchRes, mergedWord: enrichedWord };
+      }
     }
   }
 
@@ -1177,7 +1197,7 @@ router.post('/sync-bulk', async (req: Request, res: Response) => {
 
     const existingMap = new Map<string, (NotionWordPayload & { notionPageId: string })[]>();
     for (const nw of existingNotionWords) {
-      const key = (nw.word || '').trim().toLowerCase();
+      const key = normalizePropKey(nw.word || '');
       if (!key) continue;
       const list = existingMap.get(key) || [];
       list.push(nw);
@@ -1193,8 +1213,16 @@ router.post('/sync-bulk', async (req: Request, res: Response) => {
       if (nwList[0]) syncedWordsMap.set(key, nwList[0]);
     }
 
-    // 2. Process words in parallel chunks of 4 to stay well within Vercel's serverless timeout
-    const validWords = words.filter((w) => w && w.word);
+    // 2. Deduplicate incoming words BEFORE parallel chunking so duplicates can never be created concurrently
+    const uniqueWordsMap = new Map<string, NotionWordPayload>();
+    for (const w of words) {
+      if (!w || !w.word) continue;
+      const key = normalizePropKey(w.word);
+      if (key && !uniqueWordsMap.has(key)) {
+        uniqueWordsMap.set(key, w);
+      }
+    }
+    const validWords = Array.from(uniqueWordsMap.values());
     const CHUNK_SIZE = 4;
 
     for (let i = 0; i < validWords.length; i += CHUNK_SIZE) {
@@ -1211,7 +1239,11 @@ router.post('/sync-bulk', async (req: Request, res: Response) => {
       for (const { res: pageRes, mergedWord } of chunkResults) {
         if (pageRes.ok) {
           syncedCount += 1;
-          syncedWordsMap.set((mergedWord.word || '').trim().toLowerCase(), mergedWord);
+          const normKey = normalizePropKey(mergedWord.word || '');
+          syncedWordsMap.set(normKey, mergedWord);
+          if (normKey && !existingMap.has(normKey) && pageRes.data?.id) {
+            existingMap.set(normKey, [{ ...mergedWord, notionPageId: pageRes.data.id }]);
+          }
         } else {
           failedCount += 1;
         }

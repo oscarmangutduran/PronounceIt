@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { WordItem, CategoryItem } from '../types';
 import { appStorage } from './storage';
 import { firebaseService } from './firebaseClient';
+import { normalizeEntityKey } from './categoryUtils';
 
 export interface NotionUserConfig {
   databaseId: string;
@@ -331,18 +332,24 @@ class NotionService {
       }
     }
 
-    // Fetch existing Notion pages
-    const qRes = await fetch(`${NOTION_API_BASE}/databases/${databaseId}/query`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ page_size: 100 }),
-    });
-    const qData: any = await qRes.json().catch(() => ({}));
+    // Fetch ALL existing Notion pages (with pagination so words beyond 100 are never duplicated)
     const notionWords: Partial<WordItem>[] = [];
     const existingPageIdsByWord = new Map<string, string>();
     const existingNotionWordsMap = new Map<string, Partial<WordItem>>();
+    let startCursor: string | undefined = undefined;
+    let pagesFetched = 0;
 
-    if (qRes.ok && Array.isArray(qData?.results)) {
+    while (pagesFetched < 10) {
+      const qBody: any = { page_size: 100 };
+      if (startCursor) qBody.start_cursor = startCursor;
+      const qRes = await fetch(`${NOTION_API_BASE}/databases/${databaseId}/query`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(qBody),
+      });
+      const qData: any = await qRes.json().catch(() => ({}));
+      if (!qRes.ok || !Array.isArray(qData?.results)) break;
+
       for (const page of qData.results) {
         if (page?.archived || page?.in_trash) continue;
         const pProps = page?.properties || {};
@@ -354,7 +361,10 @@ class NotionService {
           }
         }
         if (!wTitle) continue;
-        existingPageIdsByWord.set(wTitle.toLowerCase(), page.id);
+        const normTitle = normalizeEntityKey(wTitle);
+        if (!existingPageIdsByWord.has(normTitle)) {
+          existingPageIdsByWord.set(normTitle, page.id);
+        }
 
         const readVals = (cands: string[]): string[] => {
           for (const [pName, pDef] of Object.entries(pProps) as [string, any][]) {
@@ -393,7 +403,16 @@ class NotionService {
           categorySub: subs.join(', '),
         };
         notionWords.push(parsedWord);
-        existingNotionWordsMap.set(wTitle.toLowerCase(), parsedWord);
+        if (!existingNotionWordsMap.has(normTitle)) {
+          existingNotionWordsMap.set(normTitle, parsedWord);
+        }
+      }
+
+      pagesFetched += 1;
+      if (qData?.has_more && qData?.next_cursor) {
+        startCursor = qData.next_cursor;
+      } else {
+        break;
       }
     }
 
@@ -493,9 +512,10 @@ class NotionService {
         }
       }
 
-      const existingId = existingPageIdsByWord.get((w.word || '').trim().toLowerCase());
+      const normWordKey = normalizeEntityKey(w.word || '');
+      const existingId = existingPageIdsByWord.get(normWordKey);
       if (existingId) {
-        const existingWord = existingNotionWordsMap.get((w.word || '').trim().toLowerCase());
+        const existingWord = existingNotionWordsMap.get(normWordKey);
         if (existingWord) {
           const existingCats = getCleanCats(existingWord);
           const existingSubs = getCleanSubs(existingWord);
@@ -504,12 +524,12 @@ class NotionService {
 
           const hasSameCats =
             targetCats.length === 0 ||
-            (targetCats.length === 1 && targetCats[0].toLowerCase() === 'general') ||
-            targetCats.every((c) => existingCats.some((ec) => ec.toLowerCase() === c.toLowerCase()));
+            (targetCats.length === 1 && normalizeEntityKey(targetCats[0]) === 'general') ||
+            targetCats.every((c) => existingCats.some((ec) => normalizeEntityKey(ec) === normalizeEntityKey(c)));
 
           const hasSameSubs =
             targetSubs.length === 0 ||
-            targetSubs.every((s) => existingSubs.some((es) => es.toLowerCase() === s.toLowerCase()));
+            targetSubs.every((s) => existingSubs.some((es) => normalizeEntityKey(es) === normalizeEntityKey(s)));
 
           if (hasSameCats && hasSameSubs) {
             // Both the word, category and subcategory already exist in Notion: do nothing!
@@ -523,7 +543,7 @@ class NotionService {
           body: JSON.stringify({ properties: props }),
         });
       } else {
-        await fetch(`${NOTION_API_BASE}/pages`, {
+        const createdRes = await fetch(`${NOTION_API_BASE}/pages`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -531,6 +551,13 @@ class NotionService {
             properties: props,
           }),
         });
+        if (createdRes.ok) {
+          const createdData: any = await createdRes.json().catch(() => ({}));
+          if (createdData?.id) {
+            existingPageIdsByWord.set(normWordKey, createdData.id);
+            existingNotionWordsMap.set(normWordKey, w);
+          }
+        }
       }
     };
 
@@ -652,24 +679,35 @@ class NotionService {
       };
     }
 
+    // Deduplicate incoming words by normalized word key before syncing
+    const uniqueWordsMap = new Map<string, WordItem>();
+    for (const w of words || []) {
+      if (!w || !w.word) continue;
+      const key = normalizeEntityKey(w.word);
+      if (key && !uniqueWordsMap.has(key)) {
+        uniqueWordsMap.set(key, w);
+      }
+    }
+    const dedupedWords = Array.from(uniqueWordsMap.values());
+
     try {
       // 1. Ensure database schema & all category/subcategory options exist in Notion first
       const verifyRes = await this.callBackendNotion('verify', {
         databaseId: cleanId,
         notionToken: cfg.notionToken,
         categories,
-        words,
+        words: dedupedWords,
       });
 
       const collectedNotionWords = new Map<string, Partial<WordItem>>();
       if (Array.isArray(verifyRes?.notionWords)) {
         for (const nw of verifyRes.notionWords) {
-          const key = String(nw?.word || '').trim().toLowerCase();
+          const key = normalizeEntityKey(String(nw?.word || ''));
           if (key) collectedNotionWords.set(key, nw);
         }
       }
 
-      if (words.length === 0) {
+      if (dedupedWords.length === 0) {
         return {
           success: true,
           syncedCount: 0,
@@ -682,8 +720,8 @@ class NotionService {
       const BATCH_SIZE = 12;
       let totalSynced = 0;
 
-      for (let i = 0; i < words.length; i += BATCH_SIZE) {
-        const batch = words.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < dedupedWords.length; i += BATCH_SIZE) {
+        const batch = dedupedWords.slice(i, i + BATCH_SIZE);
         const batchRes = await this.callBackendNotion('sync-bulk', {
           databaseId: cleanId,
           notionToken: cfg.notionToken,
@@ -695,13 +733,13 @@ class NotionService {
         totalSynced += batchRes?.syncedCount ?? batch.length;
         if (Array.isArray(batchRes?.notionWords)) {
           for (const nw of batchRes.notionWords) {
-            const key = String(nw?.word || '').trim().toLowerCase();
+            const key = normalizeEntityKey(String(nw?.word || ''));
             if (key) collectedNotionWords.set(key, nw);
           }
         }
 
         if (onProgress) {
-          onProgress(Math.min(words.length, i + batch.length), words.length);
+          onProgress(Math.min(dedupedWords.length, i + batch.length), dedupedWords.length);
         }
       }
 

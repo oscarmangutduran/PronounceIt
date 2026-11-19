@@ -5,6 +5,15 @@ import { optionalAuth } from '../middleware/auth.js';
 
 const router = Router();
 
+function normalizeWordKey(value: string): string {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 // GET /api/words
 router.get('/', optionalAuth, async (req: Request, res: Response) => {
   try {
@@ -65,6 +74,21 @@ router.post('/', optionalAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'La palabra y su traducción son campos requeridos.' });
     }
 
+    const normIncoming = normalizeWordKey(word);
+    const existingWord = db.words.find(
+      (w) =>
+        (w.userId || '') === (userId || '') &&
+        normalizeWordKey(w.word) === normIncoming
+    );
+
+    if (existingWord) {
+      return res.status(200).json({
+        success: true,
+        duplicate: true,
+        word: existingWord,
+      });
+    }
+
     const newWord: WordRecord = {
       id: req.body.id || 'w_' + crypto.randomUUID().slice(0, 8),
       userId: userId || undefined,
@@ -117,26 +141,41 @@ router.post('/bulk', optionalAuth, async (req: Request, res: Response) => {
       }
     }
 
-    const mappedWords: WordRecord[] = words.map((item: any) => ({
-      id: item.id || 'w_' + crypto.randomUUID().slice(0, 8),
-      userId: userId || item.userId,
-      word: String(item.word || '').trim(),
-      partOfSpeech: String(item.partOfSpeech || 'Sustantivo').trim(),
-      phonetic: String(item.phonetic || '').trim(),
-      translation: String(item.translation || '').trim(),
-      example: String(item.example || '').trim(),
-      exampleTranslation: String(item.exampleTranslation || '').trim(),
-      category: String(item.category || 'General').trim(),
-      level: String(item.level || 'B1').trim(),
-      status: item.status || 'learning',
-      isFavorite: Boolean(item.isFavorite),
-      notes: item.notes || '',
-      interval: item.interval ?? 1,
-      easeFactor: item.easeFactor ?? 2.5,
-      repetitions: item.repetitions ?? 0,
-      created_at: item.created_at || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
+    const existingKeys = new Set(
+      db.words.map((w) => `${w.userId || ''}::${normalizeWordKey(w.word)}`)
+    );
+
+    const mappedWords: WordRecord[] = [];
+    for (const item of words) {
+      const cleanWord = String(item?.word || '').trim().replace(/\s+/g, ' ');
+      const normKey = normalizeWordKey(cleanWord);
+      if (!normKey) continue;
+      const effectiveUserId = userId || item.userId || '';
+      const compositeKey = `${effectiveUserId}::${normKey}`;
+      if (existingKeys.has(compositeKey)) continue;
+      existingKeys.add(compositeKey);
+
+      mappedWords.push({
+        id: item.id || 'w_' + crypto.randomUUID().slice(0, 8),
+        userId: userId || item.userId,
+        word: cleanWord,
+        partOfSpeech: String(item.partOfSpeech || 'Sustantivo').trim(),
+        phonetic: String(item.phonetic || '').trim(),
+        translation: String(item.translation || '').trim(),
+        example: String(item.example || '').trim(),
+        exampleTranslation: String(item.exampleTranslation || '').trim(),
+        category: String(item.category || 'General').trim(),
+        level: String(item.level || 'B1').trim(),
+        status: item.status || 'learning',
+        isFavorite: Boolean(item.isFavorite),
+        notes: item.notes || '',
+        interval: item.interval ?? 1,
+        easeFactor: item.easeFactor ?? 2.5,
+        repetitions: item.repetitions ?? 0,
+        created_at: item.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    }
 
     db.words.push(...mappedWords);
     await saveDb();
