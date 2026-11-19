@@ -736,7 +736,7 @@ function MainApp() {
             {/* Left: Copyright */}
             <View style={styles.footerLeft}>
               <Text style={[styles.footerCopyright, !isDark && styles.footerTextBlack]}>
-                © PronounceIt v1.7.2 | Desarrollado con ❤️{' '}
+                © PronounceIt v1.7.3 | Desarrollado con ❤️{' '}
                 <Text
                   style={[styles.footerAuthorLink, !isDark && styles.footerAuthorLinkLight]}
                   onPress={() => Linking.openURL('https://www.linkedin.com/in/oscarmangutduran/')}
@@ -770,7 +770,7 @@ function MainApp() {
             <View style={styles.footerRight}>
               <TouchableOpacity
                 style={[styles.footerMobileBtn, !isDark && styles.footerMobileBtnLight]}
-                onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.7.2/PronounceIt-v1.7.2.apk')}
+                onPress={() => Linking.openURL('https://github.com/oscarmangutduran/PronounceIt/releases/download/v1.7.3/PronounceIt-v1.7.3.apk')}
                 activeOpacity={0.8}
               >
                 <AndroidLogo size={16} color="#3DDC84" />
