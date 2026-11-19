@@ -348,7 +348,11 @@ class NotionService {
         body: JSON.stringify(qBody),
       });
       const qData: any = await qRes.json().catch(() => ({}));
-      if (!qRes.ok || !Array.isArray(qData?.results)) break;
+      if (!qRes.ok || !Array.isArray(qData?.results)) {
+        throw new Error(
+          qData?.message || 'No se pudieron leer las páginas existentes de Notion; sincronización detenida para evitar duplicados.'
+        );
+      }
 
       for (const page of qData.results) {
         if (page?.archived || page?.in_trash) continue;

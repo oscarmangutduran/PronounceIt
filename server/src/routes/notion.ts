@@ -214,18 +214,30 @@ function parseExampleFromNotionText(rawText: string): { exampleEn: string; examp
   return { exampleEn: trimmed, exampleEs: '' };
 }
 
-async function notionFetch(path: string, token: string, options: RequestInit = {}) {
-  const res = await fetch(`${NOTION_API_BASE}${path}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Notion-Version': NOTION_VERSION,
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-  const data: any = await res.json().catch(() => ({}));
-  return { ok: res.ok, status: res.status, data };
+async function notionFetch(path: string, token: string, options: RequestInit = {}, retries = 3): Promise<{ ok: boolean; status: number; data: any }> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(`${NOTION_API_BASE}${path}`, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Notion-Version': NOTION_VERSION,
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+    });
+    const data: any = await res.json().catch(() => ({}));
+
+    // Handle Notion 429 rate limits (3 req/s) or transient 502/503 with automatic backoff
+    if ((res.status === 429 || res.status === 502 || res.status === 503) && attempt < retries) {
+      const retryAfterSec = Number(res.headers.get('retry-after')) || 0;
+      const delayMs = retryAfterSec > 0 ? Math.min(retryAfterSec * 1000, 4000) : 500 * Math.pow(2, attempt);
+      await new Promise((r) => setTimeout(r, delayMs));
+      continue;
+    }
+
+    return { ok: res.ok, status: res.status, data };
+  }
+  return { ok: false, status: 429, data: { message: 'Notion API rate limit exceeded' } };
 }
 
 const SUBCATEGORY_CANDIDATES = [
@@ -520,8 +532,16 @@ async function ensureDatabaseViews(
       },
     });
 
+    if (!viewsRes.ok) {
+      console.warn('[Notion Views] Could not list existing views; aborting view creation to avoid duplicates:', viewsRes.status);
+      return;
+    }
+
     const viewsData: any = await viewsRes.json().catch(() => ({}));
-    const existingViews = Array.isArray(viewsData?.results) ? viewsData.results : [];
+    if (!Array.isArray(viewsData?.results)) {
+      return;
+    }
+    const existingViews = viewsData.results;
     const existingViewNames = new Set<string>(
       existingViews.map((v: any) => normalizePropKey(String(v?.name || '')))
     );
@@ -865,7 +885,7 @@ async function fetchAllNotionPages(
   let startCursor: string | undefined = undefined;
   let pagesFetched = 0;
 
-  while (pagesFetched < 10) {
+  while (pagesFetched < 20) {
     const body: any = { page_size: 100 };
     if (startCursor) body.start_cursor = startCursor;
 
@@ -875,7 +895,11 @@ async function fetchAllNotionPages(
     });
 
     if (!queryRes.ok || !Array.isArray(queryRes.data?.results)) {
-      break;
+      throw new Error(
+        `No se pudieron leer las páginas existentes de Notion (HTTP ${queryRes.status}): ${
+          queryRes.data?.message || 'Error de consulta'
+        }. Se abortó la escritura para evitar duplicados.`
+      );
     }
 
     for (const page of queryRes.data.results) {
@@ -895,6 +919,45 @@ async function fetchAllNotionPages(
   }
 
   return results;
+}
+
+/**
+ * Archives duplicate pages in Notion for the same normalized word, keeping the richest/primary entry.
+ */
+async function cleanupDuplicateNotionPages(
+  existingMap: Map<string, (NotionWordPayload & { notionPageId: string })[]>,
+  token: string
+): Promise<number> {
+  let archivedCount = 0;
+  for (const [key, list] of existingMap.entries()) {
+    if (list.length <= 1) continue;
+
+    // Sort so the page with subcategory + category + example stays first
+    const score = (p: NotionWordPayload) => {
+      let s = 0;
+      if (getCleanWordSubcategories(p).length > 0) s += 4;
+      if (getCleanWordCategories(p).some((c) => normalizePropKey(c) !== 'general')) s += 2;
+      if (p.exampleEn) s += 1;
+      if (p.ipa) s += 1;
+      return s;
+    };
+    list.sort((a, b) => score(b) - score(a));
+
+    const keep = list[0];
+    const duplicates = list.slice(1);
+    existingMap.set(key, [keep]);
+
+    for (const dup of duplicates) {
+      const archRes = await notionFetch(`/pages/${dup.notionPageId}`, token, {
+        method: 'PATCH',
+        body: JSON.stringify({ archived: true }),
+      }).catch(() => ({ ok: false }));
+      if (archRes.ok) {
+        archivedCount += 1;
+      }
+    }
+  }
+  return archivedCount;
 }
 
 async function upsertWordInNotion(
@@ -961,17 +1024,6 @@ async function upsertWordInNotion(
         targetSubs.every((s) => existingSubs.some((es) => normalizePropKey(es) === normalizePropKey(s)));
 
       if (hasSameCategories && hasSameSubcategories) {
-        // Ensure content blocks exist even if properties are unchanged
-        try {
-          const blocksRes = await notionFetch(`/blocks/${matchingPages[0].notionPageId}/children?page_size=2`, token, { method: 'GET' });
-          if (blocksRes.ok && (!Array.isArray(blocksRes.data?.results) || blocksRes.data.results.length === 0)) {
-            await notionFetch(`/blocks/${matchingPages[0].notionPageId}/children`, token, {
-              method: 'PATCH',
-              body: JSON.stringify({ children: buildNotionPageChildren(enrichedWord) }),
-            });
-          }
-        } catch {}
-
         return {
           res: { ok: true, status: 200, data: { id: matchingPages[0].notionPageId } },
           mergedWord: existingPage,
@@ -1103,7 +1155,17 @@ router.post('/verify', async (req: Request, res: Response) => {
         ? titleArr.map((t: any) => t.plain_text || '').join('')
         : 'Base de Datos de Vocabulario';
 
-    const notionWords = await fetchAllNotionPages(databaseId, token);
+    const notionWordsRaw = await fetchAllNotionPages(databaseId, token);
+    const verifyMap = new Map<string, (NotionWordPayload & { notionPageId: string })[]>();
+    for (const nw of notionWordsRaw) {
+      const key = normalizePropKey(nw.word || '');
+      if (!key) continue;
+      const list = verifyMap.get(key) || [];
+      list.push(nw);
+      verifyMap.set(key, list);
+    }
+    await cleanupDuplicateNotionPages(verifyMap, token);
+    const notionWords = Array.from(verifyMap.values()).map((list) => list[0]).filter(Boolean);
 
     return res.json({
       success: true,
@@ -1204,6 +1266,9 @@ router.post('/sync-bulk', async (req: Request, res: Response) => {
       existingMap.set(key, list);
     }
 
+    // Archive any existing duplicate pages in Notion before processing the batch
+    await cleanupDuplicateNotionPages(existingMap, token);
+
     const dbProperties = dbRes.data?.properties || {};
     let syncedCount = 0;
     let failedCount = 0;
@@ -1223,7 +1288,7 @@ router.post('/sync-bulk', async (req: Request, res: Response) => {
       }
     }
     const validWords = Array.from(uniqueWordsMap.values());
-    const CHUNK_SIZE = 4;
+    const CHUNK_SIZE = 2;
 
     for (let i = 0; i < validWords.length; i += CHUNK_SIZE) {
       const chunk = validWords.slice(i, i + CHUNK_SIZE);
