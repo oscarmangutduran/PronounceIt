@@ -245,8 +245,14 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words, i
           <View style={styles.historyList}>
             {history.slice(0, 10).map((test) => (
               <View key={test.id} style={[styles.historyItem, !isDark && styles.historyItemLight]}>
-                <View>
-                  <Text style={[styles.historyTitle, !isDark && styles.titleLight]}>{test.title}</Text>
+                <View style={styles.historyInfo}>
+                  <Text
+                    style={[styles.historyTitle, !isDark && styles.titleLight]}
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
+                  >
+                    {test.title}
+                  </Text>
                   <Text style={[styles.historyDate, !isDark && styles.historyDateLight]}>
                     {new Date(test.timestamp || Date.now()).toLocaleDateString('es-ES', {
                       day: '2-digit',
@@ -345,6 +351,7 @@ const styles = StyleSheet.create({
     borderRadius: THEME.radius.lg,
     padding: 18,
     marginBottom: 16,
+    overflow: 'hidden',
   },
   sectionTitle: {
     fontSize: 15,
@@ -400,14 +407,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: THEME.radius.md,
     padding: 12,
+    overflow: 'hidden',
+  },
+  historyInfo: {
+    flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
   },
   historyTitle: {
     fontSize: 13,
     fontWeight: '600',
     color: '#ffffff',
+    lineHeight: 18,
+    flexShrink: 1,
   },
   historyDate: {
     fontSize: 11,
@@ -416,6 +432,8 @@ const styles = StyleSheet.create({
   },
   historyScoreBox: {
     alignItems: 'flex-end',
+    flexShrink: 0,
+    minWidth: 54,
   },
   historyScoreText: {
     fontSize: 14,
