@@ -208,7 +208,8 @@ export const TestView: React.FC<TestViewProps> = ({ words, categories, onBackToV
     }
 
     const shuffled = [...availableWords].sort(() => Math.random() - 0.5);
-    const selected = shuffled.slice(0, Math.min(10, shuffled.length));
+    // Include all available words for the selected filters (scales dynamically beyond 10)
+    const selected = shuffled;
 
     let generated: QuizQuestion[] = [];
 
