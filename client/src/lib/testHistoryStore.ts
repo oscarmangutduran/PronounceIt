@@ -26,6 +26,41 @@ const STORAGE_KEY_TEST_HISTORY = 'pronounceit_test_history_v2';
 
 export const INITIAL_TEST_HISTORY: StoredTestItem[] = [];
 
+/**
+ * Ensures every test score is mathematically valid:
+ * - correctCount <= totalQuestions
+ * - 0 <= scoreOutOfTen <= 10
+ * - 0 <= percentage <= 100
+ * Repairs legacy records that suffered from double-counting the final question (e.g. 11/10, 15/10, 20/10).
+ */
+export function normalizeStoredTestItem(item: StoredTestItem): StoredTestItem {
+  const totalQuestions = Math.max(0, Number(item.totalQuestions) || 0);
+  const rawCorrect = Math.max(0, Number(item.correctCount) || 0);
+  const rawScore10 = Number(item.scoreOutOfTen) || 0;
+  const rawPct = Number(item.percentage) || 0;
+
+  const correctCount = totalQuestions > 0 ? Math.min(totalQuestions, rawCorrect) : rawCorrect;
+
+  let scoreOutOfTen = rawScore10;
+  let percentage = rawPct;
+
+  if (totalQuestions > 0 && (rawCorrect > totalQuestions || rawScore10 > 10 || rawPct > 100)) {
+    scoreOutOfTen = Number(((correctCount / totalQuestions) * 10).toFixed(1));
+    percentage = Math.round((correctCount / totalQuestions) * 100);
+  }
+
+  scoreOutOfTen = Math.min(10, Math.max(0, Number(scoreOutOfTen.toFixed(1))));
+  percentage = Math.min(100, Math.max(0, Math.round(percentage)));
+
+  return {
+    ...item,
+    totalQuestions,
+    correctCount,
+    scoreOutOfTen,
+    percentage,
+  };
+}
+
 class TestHistoryService {
   private history: StoredTestItem[] = [];
   private listeners: (() => void)[] = [];
@@ -45,7 +80,7 @@ class TestHistoryService {
 
     this.unsubscribeTests = firebaseService.subscribeTestHistory(userKey, (remoteTests) => {
       if (remoteTests && Array.isArray(remoteTests)) {
-        this.history = remoteTests;
+        this.history = remoteTests.map(normalizeStoredTestItem);
         try {
           appStorage.setItem(this.getHistoryStorageKey(), JSON.stringify(this.history));
           appStorage.setItem(STORAGE_KEY_TEST_HISTORY, JSON.stringify(this.history));
@@ -148,8 +183,8 @@ class TestHistoryService {
         const remote = await firebaseService.fetchTestHistory(currentUser.id);
         if (remote && Array.isArray(remote)) {
           const testMap = new Map<string, StoredTestItem>();
-          remote.forEach((t: StoredTestItem) => testMap.set(t.id, t));
-          this.history.forEach((t) => testMap.set(t.id, t));
+          remote.forEach((t: StoredTestItem) => testMap.set(t.id, normalizeStoredTestItem(t)));
+          this.history.forEach((t) => testMap.set(t.id, normalizeStoredTestItem(t)));
           this.history = Array.from(testMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         }
       } catch (e) {
@@ -165,8 +200,8 @@ class TestHistoryService {
           const serverTests = await backendApi.getTests(currentUser.id);
           if (serverTests && Array.isArray(serverTests)) {
             const testMap = new Map<string, StoredTestItem>();
-            serverTests.forEach((t) => testMap.set(t.id, t));
-            this.history.forEach((t) => testMap.set(t.id, t));
+            serverTests.forEach((t) => testMap.set(t.id, normalizeStoredTestItem(t)));
+            this.history.forEach((t) => testMap.set(t.id, normalizeStoredTestItem(t)));
             this.history = Array.from(testMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
           }
         }
@@ -193,7 +228,8 @@ class TestHistoryService {
       this.lastUserId = userKey;
       const stored = appStorage.getItem(this.getHistoryStorageKey());
       if (stored) {
-        this.history = JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        this.history = Array.isArray(parsed) ? parsed.map(normalizeStoredTestItem) : [];
       } else {
         this.history = [];
         this.saveHistory();
@@ -213,15 +249,15 @@ class TestHistoryService {
   }
 
   public getHistory(): StoredTestItem[] {
-    return [...this.history];
+    return this.history.map(normalizeStoredTestItem);
   }
 
   public addTest(item: Omit<StoredTestItem, 'id' | 'timestamp'>): StoredTestItem {
-    const newTest: StoredTestItem = {
+    const newTest: StoredTestItem = normalizeStoredTestItem({
       ...item,
       id: `test-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       timestamp: Date.now(),
-    };
+    });
 
     this.history = [newTest, ...this.history];
     this.saveHistory();

@@ -306,9 +306,10 @@ export const TestView: React.FC<TestViewProps> = ({ words, categories, onBackToV
     setIsTestActive(false);
 
     const total = questions.length;
-    const finalScore = score + (selectedAnswer === questions[currentIdx]?.correctAnswer ? 1 : 0);
-    const score10 = total > 0 ? Number(((finalScore / total) * 10).toFixed(1)) : 0;
-    const percentage = total > 0 ? Math.round((finalScore / total) * 100) : 0;
+    // score was already incremented in handleSelectOption when the user selected the answer
+    const finalScore = Math.min(total, Math.max(0, score));
+    const score10 = total > 0 ? Math.min(10, Math.max(0, Number(((finalScore / total) * 10).toFixed(1)))) : 0;
+    const percentage = total > 0 ? Math.min(100, Math.max(0, Math.round((finalScore / total) * 100))) : 0;
 
     let grade = 'Insuficiente';
     if (percentage >= 90) grade = 'Excelente';

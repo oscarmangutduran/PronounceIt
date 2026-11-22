@@ -57,17 +57,22 @@ router.post('/', optionalAuth, async (req: Request, res: Response) => {
       irregularVerbQuestions,
     } = req.body;
 
+    const safeTotal = Math.max(0, Number(totalQuestions) || 0);
+    const safeCorrect = safeTotal > 0 ? Math.min(safeTotal, Math.max(0, Number(correctCount) || 0)) : Math.max(0, Number(correctCount) || 0);
+    const safeScore10 = Math.min(10, Math.max(0, Number(scoreOutOfTen) || 0));
+    const safePct = Math.min(100, Math.max(0, Number(percentage) || 0));
+
     const newTest: TestRecord = {
       id: req.body.id || 'test_' + crypto.randomUUID().slice(0, 8),
       userId: userId || undefined,
       type: type || 'vocabulary',
       title: title || 'Evaluación de Nivel',
       level: level || 'A1-C2',
-      scoreOutOfTen: Number(scoreOutOfTen) || 0,
-      percentage: Number(percentage) || 0,
+      scoreOutOfTen: safeScore10,
+      percentage: safePct,
       gradeLabel: gradeLabel || 'Aprobado',
-      totalQuestions: Number(totalQuestions) || 0,
-      correctCount: Number(correctCount) || 0,
+      totalQuestions: safeTotal,
+      correctCount: safeCorrect,
       completedAt: completedAt || new Date().toISOString(),
       timestamp: Number(timestamp) || Date.now(),
       vocabularyQuestions: vocabularyQuestions || [],

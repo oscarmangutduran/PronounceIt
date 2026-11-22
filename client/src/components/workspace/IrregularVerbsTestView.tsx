@@ -143,11 +143,12 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
     setTestActive(false);
 
     const total = activeVerbs.length;
-    const fullyCorrect = evaluations.filter(
-      (e) => e.isPastSimpleCorrect && e.isPastParticipleCorrect
-    ).length;
-    const score10 = Number(((fullyCorrect / total) * 10).toFixed(1));
-    const percentage = Math.round((fullyCorrect / total) * 100);
+    const fullyCorrect = Math.min(
+      total,
+      evaluations.filter((e) => e.isPastSimpleCorrect && e.isPastParticipleCorrect).length
+    );
+    const score10 = total > 0 ? Math.min(10, Math.max(0, Number(((fullyCorrect / total) * 10).toFixed(1)))) : 0;
+    const percentage = total > 0 ? Math.min(100, Math.max(0, Math.round((fullyCorrect / total) * 100))) : 0;
 
     let gradeLabel = 'Insuficiente';
     if (percentage >= 90) gradeLabel = 'Excelente / Sobresaliente';
