@@ -527,9 +527,11 @@ export const TestView: React.FC<TestViewProps> = ({ words, categories, onBackToV
                 ? '¡Test por Tipo Finalizado!'
                 : '¡Test de Vocabulario Finalizado!'}
             </Text>
-            <Text style={styles.resultScore}>{score10} / 10</Text>
+            <Text style={styles.resultScore}>
+              {Math.min(total, Math.max(0, score))} / {total}
+            </Text>
             <Text style={[styles.resultSub, !isDark && styles.resultSubLight]}>
-              Has respondido correctamente {score} de {total} preguntas.
+              Has respondido correctamente {Math.min(total, Math.max(0, score))} de {total} preguntas.
             </Text>
 
             <TouchableOpacity style={styles.primaryBtn} onPress={startQuiz}>

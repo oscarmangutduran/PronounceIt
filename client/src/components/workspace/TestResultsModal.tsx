@@ -325,9 +325,13 @@ export const TestResultsModal: React.FC<TestResultsModalProps> = ({
                         <div className="text-right">
                           <div className="flex items-center gap-2 justify-end">
                             <span className="text-xl sm:text-2xl font-black text-[#ff4d6d]">
-                              {test.scoreOutOfTen}
+                              {test.totalQuestions > 0
+                                ? Math.min(test.totalQuestions, Math.max(0, Number(test.correctCount) || 0))
+                                : Math.min(10, Math.max(0, Number(test.scoreOutOfTen) || 0))}
                             </span>
-                            <span className="text-xs text-slate-400 font-bold">/ 10</span>
+                            <span className="text-xs text-slate-400 font-bold">
+                              / {test.totalQuestions > 0 ? test.totalQuestions : 10}
+                            </span>
                           </div>
                           <span className="text-[11px] font-semibold text-emerald-400 block">
                             {test.percentage}% · {test.gradeLabel}

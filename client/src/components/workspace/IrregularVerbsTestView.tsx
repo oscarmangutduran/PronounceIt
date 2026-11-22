@@ -275,9 +275,11 @@ export const IrregularVerbsTestView: React.FC<IrregularVerbsTestViewProps> = ({
               <Trophy size={40} color={THEME.colors.amber} />
             </View>
             <Text style={[styles.setupTitle, !isDark && styles.titleLight]}>¡Test Completado!</Text>
-            <Text style={styles.scoreBig}>{score10} / 10</Text>
+            <Text style={styles.scoreBig}>
+              {Math.min(total, Math.max(0, fullyCorrect))} / {total}
+            </Text>
             <Text style={[styles.scoreSub, !isDark && styles.subtitleLight]}>
-              Acertaste {fullyCorrect} de {total} verbos irregulares.
+              Acertaste {Math.min(total, Math.max(0, fullyCorrect))} de {total} verbos irregulares.
             </Text>
 
             <TouchableOpacity

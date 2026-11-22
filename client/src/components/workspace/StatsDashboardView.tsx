@@ -265,7 +265,9 @@ export const StatsDashboardView: React.FC<StatsDashboardViewProps> = ({ words, i
 
                 <View style={styles.historyScoreBox}>
                   <Text style={styles.historyScoreText}>
-                    {Math.min(10, Math.max(0, Number(test.scoreOutOfTen) || 0))}/10
+                    {test.totalQuestions > 0
+                      ? `${Math.min(test.totalQuestions, Math.max(0, Number(test.correctCount) || 0))}/${test.totalQuestions}`
+                      : `${Math.min(10, Math.max(0, Number(test.scoreOutOfTen) || 0))}/10`}
                   </Text>
                   <Text style={[styles.historyGrade, !isDark && styles.historyGradeLight]}>{test.gradeLabel}</Text>
                 </View>
